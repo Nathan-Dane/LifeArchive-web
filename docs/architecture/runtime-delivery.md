@@ -51,13 +51,26 @@ The artifact is verified against `sha256` before it is used:
 An unverified artifact is never loaded, and a checksum mismatch is a hard
 failure. There is no "continue anyway" path.
 
-## Runtime manifest
+## Runtime manifest format 1
 
-Each release ships a manifest describing itself: runtime version, product
-contract version, bindings ABI, build identity, the module entry points, and
-the named capabilities the release provides. The manifest is what capability
-negotiation reads. It is data about the artifact — it is not a second copy of
-the contracts.
+Each release ships one canonical manifest with numeric `manifestVersion: 1`.
+It contains the exact semantic runtime version, an opaque reproducible build
+ID, exact product/ABI/dependency versions, the complete ordered web capability
+inventory, bundle-relative module paths, and a SHA-256 digest for every payload
+file. It also records factual `{ backend, durable }` persistence state, exact
+worker/environment requirements, and separate proprietary licence and notices
+paths.
+
+The manifest is what compatibility and capability negotiation read. It is data
+about the artifact — it is not a second copy of the contracts. Versions are
+exact, never ranges or aliases. Capabilities and environment features are
+ordered and duplicate-free. Module, licence, and notices paths must name
+distinct hashed files inside the bundle.
+
+The build ID never exposes a private commit SHA, branch, source path, lockfile
+hash, or internal artifact identity. Private release validation scans payload
+bytes for source paths. The public validator rejects an unsafe or incomplete
+manifest before any runtime is instantiated.
 
 ## Worker loading
 
@@ -79,6 +92,8 @@ On open, the client negotiates before doing product work:
 
 - it checks the manifest's product contract and bindings ABI against what this
   frontend build supports;
+- it requires manifest format, runtime version, product contract, and ABI to
+  equal the reviewed public lock exactly;
 - an incompatible version fails clearly and explicitly — it is never coerced,
   guessed at, or partially used;
 - a compatible runtime reports its named capabilities, and the frontend enables
