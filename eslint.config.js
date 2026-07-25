@@ -22,4 +22,19 @@ export default tseslint.config([
       globals: globals.browser,
     },
   },
+  {
+    files: ['scripts/**/*.{js,mjs}'],
+    extends: [js.configs.recommended, prettier],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: globals.node,
+    },
+  },
+  {
+    files: ['e2e/**/*.ts', 'playwright.config.ts', 'vite.config.ts'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+    },
+  },
 ])

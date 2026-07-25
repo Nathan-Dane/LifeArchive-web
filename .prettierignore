@@ -8,3 +8,8 @@ coverage
 # Preserved byte-for-byte; never reformat.
 docs/reference/record-v0.1.0.html
 LICENSE
+
+# Prose is hand-wrapped and hand-aligned. Prettier would repad every Markdown
+# table and rewrite emphasis markers across the documentation for no benefit,
+# so the formatter covers code, configuration, and data files only.
+*.md
