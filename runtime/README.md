@@ -30,6 +30,11 @@ The `sha256` in the lock file is verified before the artifact is used — on
 fetch, in CI, and where the platform allows it, at load. A mismatch is a hard
 failure that installs and loads nothing. There is no override.
 
+The whole-bundle pin is separate from manifest format 1's per-file hashes.
+`src/core/runtime/runtimeCompatibility.ts` validates both lock states, the
+manifest shape and ordered capability inventory, and exact lock/manifest
+identity compatibility. The current lock remains deliberately unpinned.
+
 ## Public UI builds must work without the runtime
 
 A checkout of this repository alone, with no access to anything private, must
