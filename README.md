@@ -69,17 +69,32 @@ pnpm install
 
 ## Scripts
 
-| Script           | Purpose                                   |
-| ---------------- | ----------------------------------------- |
-| `pnpm dev`       | Vite dev server                           |
-| `pnpm build`     | Type-check project references, then build |
-| `pnpm preview`   | Serve the production build                |
-| `pnpm lint`      | ESLint                                    |
-| `pnpm typecheck` | TypeScript, no emit                       |
-| `pnpm test`      | Vitest, watch mode                        |
-| `pnpm test:run`  | Vitest, single run                        |
-| `pnpm test:e2e`  | Playwright                                |
-| `pnpm check`     | lint + typecheck + tests + build          |
+| Script              | Purpose                                        |
+| ------------------- | ---------------------------------------------- |
+| `pnpm dev`          | Vite dev server                                |
+| `pnpm build`        | Type-check project references, then build      |
+| `pnpm preview`      | Serve the production build                     |
+| `pnpm lint`         | ESLint                                         |
+| `pnpm typecheck`    | TypeScript, no emit                            |
+| `pnpm format`       | Prettier, write                                |
+| `pnpm format:check` | Prettier, verify only                          |
+| `pnpm safety`       | Repository boundary tripwire (see below)       |
+| `pnpm test`         | Vitest, watch mode                             |
+| `pnpm test:run`     | Vitest, single run                             |
+| `pnpm test:e2e`     | Playwright, Chromium + Firefox + WebKit        |
+| `pnpm check`        | format + lint + typecheck + safety + tests + build |
+
+Playwright needs its browsers once: `pnpm exec playwright install`.
+
+## Repository safety check
+
+`scripts/check-repo-safety.mjs` fails the build when material that belongs in
+the private repository is committed here: compiled Wasm, Rust source under
+`src/` or `runtime/`, private keys, environment-secret files, archive
+databases, `.lifearchive` archives, or a nested copy of the private repository.
+
+It is a tripwire for obvious mistakes, not a security scanner. It inspects the
+files Git tracks and cannot tell you a repository is clean.
 
 ## Visual reference
 

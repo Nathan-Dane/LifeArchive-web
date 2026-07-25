@@ -1,53 +1,76 @@
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { AppRoutes } from './AppRoutes'
+import {
+  FORBIDDEN_AVAILABILITY_CLAIMS,
+  FORBIDDEN_PERSISTENCE_CLAIMS,
+} from '../test/claims'
+import { renderAppAt } from '../test/render'
 
-function renderAt(path: string) {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <AppRoutes />
-    </MemoryRouter>,
-  )
-}
+const ROUTES = ['/', '/record', '/timeline', '/settings'] as const
 
 describe('application shell', () => {
   it('redirects / to /record', () => {
-    renderAt('/')
+    renderAppAt('/')
     expect(screen.getByRole('heading', { name: 'Record' })).toBeInTheDocument()
   })
 
   it('reaches /record', () => {
-    renderAt('/record')
+    renderAppAt('/record')
     expect(screen.getByRole('heading', { name: 'Record' })).toBeInTheDocument()
   })
 
   it('reaches /timeline', () => {
-    renderAt('/timeline')
+    renderAppAt('/timeline')
     expect(
       screen.getByRole('heading', { name: 'Timeline' }),
     ).toBeInTheDocument()
   })
 
   it('reaches /settings', () => {
-    renderAt('/settings')
+    renderAppAt('/settings')
     expect(
       screen.getByRole('heading', { name: 'Settings' }),
     ).toBeInTheDocument()
   })
 
-  it('does not claim that a production runtime or archive is available', () => {
-    const { container } = renderAt('/record')
+  it('navigates between routes from the main navigation', async () => {
+    const user = userEvent.setup()
+    renderAppAt('/')
+    const nav = screen.getByRole('navigation', { name: 'Main' })
+
+    await user.click(within(nav).getByRole('link', { name: 'Timeline' }))
+    expect(
+      screen.getByRole('heading', { name: 'Timeline' }),
+    ).toBeInTheDocument()
+
+    await user.click(within(nav).getByRole('link', { name: 'Settings' }))
+    expect(
+      screen.getByRole('heading', { name: 'Settings' }),
+    ).toBeInTheDocument()
+
+    await user.click(within(nav).getByRole('link', { name: 'Record' }))
+    expect(screen.getByRole('heading', { name: 'Record' })).toBeInTheDocument()
+  })
+
+  it.each(ROUTES)('makes no persistence claim on %s', (path) => {
+    const { container } = renderAppAt(path)
     const text = container.textContent ?? ''
 
-    for (const claim of [
-      /archive (is )?(open|loaded|ready|available)/i,
-      /\bsaved\b/i,
-      /\bpersist(ed|ent)?\b/i,
-      /\bsync(ed|ing)?\b/i,
-      /runtime (is )?(ready|available|connected)/i,
-    ]) {
+    for (const claim of FORBIDDEN_PERSISTENCE_CLAIMS) {
       expect(text).not.toMatch(claim)
     }
   })
+
+  it.each(ROUTES)(
+    'does not claim a runtime or archive is available on %s',
+    (path) => {
+      const { container } = renderAppAt(path)
+      const text = container.textContent ?? ''
+
+      for (const claim of FORBIDDEN_AVAILABILITY_CLAIMS) {
+        expect(text).not.toMatch(claim)
+      }
+    },
+  )
 })
