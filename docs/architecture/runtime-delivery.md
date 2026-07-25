@@ -86,6 +86,27 @@ Keeping the runtime in a worker keeps store work, archive import/export, media
 hashing, and verification off the UI thread, so writing and scrolling stay
 responsive. Feature code never speaks to the worker directly.
 
+The worker protocol uses generation-tagged control messages, lifetime-unique
+request IDs, serialized admission, and transfer lists for `ArrayBuffer`
+payloads. Startup has one `ready` or `fatal` outcome. Close is definitive and
+normal termination happens only after it succeeds. Client cancellation never
+abandons active work: only archive export/apply receives product cancellation,
+and all active callers wait for a value result.
+
+The canonical root ID is `lifearchive:archive-root:v1:primary`; its matching
+origin-scoped ownership name is
+`lifearchive:archive-lock:v1:primary`. Both are opaque identifiers, not paths.
+The worker attempts exclusive ownership immediately before touching the root.
+A second tab receives `already-open`, does not wait or take over, and cannot
+open an alternate empty root. The UI remains unavailable until an explicit
+retry succeeds.
+
+The concrete browser lock API is intentionally undecided until the private
+real-browser persistence proof. Whichever primitive is selected must acquire
+the origin lock before runtime/filesystem handles and release it after
+successful product close. Lock loss or worker crash requires same-root recovery
+before a mutation can be retried.
+
 ## Capability negotiation
 
 On open, the client negotiates before doing product work:
