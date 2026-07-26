@@ -50,14 +50,13 @@ product requirement, not a UI sketch.
   distinct objects, loaded and mutated by stable ID, never reconstructed from
   a list position or a date guess.
 - **Tracks.** Optional membership of an Event or Span in a Track.
-- **Ongoing Spans**, *where the current contracts support them* — an ongoing
-  Span has a start and an absent end, and the absent end is genuine archive
-  data presented as Present. No derived compatibility interval is ever shown
-  as a product end date.
-- **Boundary markers**, *where the current contracts support them* — a Span's
-  begin/end marker configuration is enabled state plus an optional exact title
-  override. Markers are derived presentations of the Span, not separate
-  records with their own identity or writing.
+- **Ongoing Spans.** The current contracts support a required start and absent
+  end, with the absent end presented as Present. No derived compatibility
+  interval is ever shown as a product end date.
+- **Boundary markers.** The current contracts support a Span's begin/end marker
+  configuration as enabled state plus an optional exact title override.
+  Markers are derived presentations of the Span, not separate records with
+  their own identity or writing.
 
 ### Writing safety
 
