@@ -4,7 +4,13 @@ import type { AppBootstrap } from '../core/bootstrap'
 import { AppShell } from '../app/AppShell'
 import { AppStateProvider } from '../app/providers/AppStateProvider'
 import { revision, stableId } from '../core/client'
+import { I18nProvider } from '../i18n'
 import { FakeLifeArchiveClient } from './FakeLifeArchiveClient'
+
+export interface RenderAppOptions {
+  /** The locale for dates, numbers, and plurals. Copy stays English. */
+  readonly locale?: string
+}
 
 /**
  * Renders the composed application at a path. Tests opt into a fixed open mock
@@ -29,12 +35,15 @@ export function renderAppAt(
     }).client,
     developmentMock: true,
   }),
+  { locale }: RenderAppOptions = {},
 ): RenderResult {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <AppStateProvider bootstrap={bootstrap}>
-        <AppShell />
-      </AppStateProvider>
-    </MemoryRouter>,
+    <I18nProvider locale={locale}>
+      <MemoryRouter initialEntries={[path]}>
+        <AppStateProvider bootstrap={bootstrap}>
+          <AppShell />
+        </AppStateProvider>
+      </MemoryRouter>
+    </I18nProvider>,
   )
 }

@@ -6,9 +6,11 @@
  * what it shows is not real, and a notice the user can lose is a notice that
  * will be lost exactly when it matters.
  *
- * The copy is a constant here only until the localisation surface exists; at
- * that point it moves behind a key like every other visible string, and the
- * `notice` prop is how a composed shell already supplies localised text.
+ * The composed application now passes localised copy through the `notice`
+ * prop, from `development.mock.notice` in the English catalog. The constant
+ * below stays as this component's own default so the mock remains readable in
+ * isolation, and `i18n/messages.test.ts` holds the two to the same sentence so
+ * they cannot drift apart.
  */
 
 /**

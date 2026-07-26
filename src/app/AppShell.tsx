@@ -1,4 +1,5 @@
 import { DevelopmentModeNotice } from '../core/bootstrap'
+import { useTranslate } from '../i18n'
 import { AppRoutes, MainNavigation } from './AppRoutes'
 import { useAppState } from './providers'
 
@@ -7,27 +8,28 @@ function reloadApplication(): void {
 }
 
 export function AppShell() {
+  const t = useTranslate()
   const { state, retry } = useAppState()
 
   switch (state.state) {
     case 'booting':
-      return <StatusScreen title="Starting LifeArchive" busy />
+      return <StatusScreen title={t('app.status.booting.title')} busy />
     case 'runtime-unavailable':
       return (
         <StatusScreen
-          title="LifeArchive cannot start"
-          detail="The required runtime is unavailable. No archive has been opened."
-          action={{ label: 'Try again', run: retry }}
+          title={t('app.status.runtimeUnavailable.title')}
+          detail={t('app.status.runtimeUnavailable.detail')}
+          action={{ label: t('app.action.retry'), run: retry }}
         />
       )
     case 'fatal-incompatibility':
       return (
         <StatusScreen
-          title="LifeArchive is incompatible"
-          detail="This application cannot safely open the archive with the available runtime."
-          action={{ label: 'Try again', run: retry }}
+          title={t('app.status.incompatible.title')}
+          detail={t('app.status.incompatible.detail')}
+          action={{ label: t('app.action.retry'), run: retry }}
           secondaryAction={{
-            label: 'Reload application',
+            label: t('app.action.reload'),
             run: reloadApplication,
           }}
         />
@@ -37,8 +39,8 @@ export function AppShell() {
         <>
           {state.developmentMock ? <DevelopmentModeNotice /> : null}
           <StatusScreen
-            title="No local archive found"
-            detail="Record, Timeline, and Settings remain unavailable until an archive is opened."
+            title={t('app.status.noArchive.title')}
+            detail={t('app.status.noArchive.detail')}
           />
         </>
       )
@@ -46,7 +48,7 @@ export function AppShell() {
       return (
         <>
           {state.developmentMock ? <DevelopmentModeNotice /> : null}
-          <StatusScreen title="Opening archive" busy />
+          <StatusScreen title={t('app.status.opening.title')} busy />
         </>
       )
     case 'locked':
@@ -54,9 +56,9 @@ export function AppShell() {
         <>
           {state.developmentMock ? <DevelopmentModeNotice /> : null}
           <StatusScreen
-            title="Archive in use"
-            detail="Another tab owns this archive. Nothing was replaced."
-            action={{ label: 'Try again', run: retry }}
+            title={t('app.status.locked.title')}
+            detail={t('app.status.locked.detail')}
+            action={{ label: t('app.action.retry'), run: retry }}
           />
         </>
       )
@@ -66,14 +68,13 @@ export function AppShell() {
           <>
             {state.developmentMock ? <DevelopmentModeNotice /> : null}
             <aside className="app-state-notice" role="alert">
-              <strong>Archive connection needs attention.</strong> The last
-              confirmed view remains visible. Retry before making further
-              changes.
+              <strong>{t('app.notice.recoverable.title')}</strong>{' '}
+              {t('app.notice.recoverable.detail')}
               <button type="button" onClick={retry}>
-                Try again
+                {t('app.action.retry')}
               </button>
               <button type="button" onClick={reloadApplication}>
-                Reload application
+                {t('app.action.reload')}
               </button>
             </aside>
             <MainNavigation inert />
@@ -85,11 +86,11 @@ export function AppShell() {
         <>
           {state.developmentMock ? <DevelopmentModeNotice /> : null}
           <StatusScreen
-            title="Archive needs attention"
-            detail="The previous operation did not replace or erase the archive."
-            action={{ label: 'Try again', run: retry }}
+            title={t('app.status.recoverable.title')}
+            detail={t('app.status.recoverable.detail')}
+            action={{ label: t('app.action.retry'), run: retry }}
             secondaryAction={{
-              label: 'Reload application',
+              label: t('app.action.reload'),
               run: reloadApplication,
             }}
           />
@@ -111,6 +112,10 @@ interface StatusAction {
   readonly run: () => void
 }
 
+/**
+ * Every string reaching this component is already localised: it takes copy,
+ * not keys, so no phrase can be assembled here out of translated fragments.
+ */
 function StatusScreen({
   title,
   detail,
