@@ -9,6 +9,9 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
 
+    /* Explicit absence in the client boundary is only real under strict. */
+    "strict": true,
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
