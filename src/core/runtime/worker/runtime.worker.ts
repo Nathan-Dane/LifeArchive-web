@@ -158,8 +158,298 @@ function responseError(error: unknown): WorkerResponseError {
 
 const scope = self as unknown as RuntimeWorkerScope
 
-installRuntimeWorker(scope, {
-  start: () => Promise.reject(new Error('runtime-loader-not-installed')),
-  execute: () => Promise.reject(new Error('runtime-loader-not-installed')),
-  close: () => Promise.resolve(),
-})
+interface EmscriptenRuntimeModule {
+  readonly HEAPU8: Uint8Array
+  readonly HEAPU32: Uint32Array
+  UTF8ToString(pointer: number): string
+  stringToUTF8OnStack(value: string): number
+  stackAlloc(byteLength: number): number
+  stackSave(): number
+  stackRestore(pointer: number): void
+  _lifearchive_browser_v1_describe(input: number): number
+  _lifearchive_browser_v1_open(
+    input: number,
+    transferPointers: number,
+    transferLengths: number,
+    transferCount: number,
+    outHandle: number,
+  ): Promise<number>
+  _lifearchive_browser_v1_execute(
+    handle: number,
+    input: number,
+    transferPointers: number,
+    transferLengths: number,
+    transferCount: number,
+  ): Promise<number>
+  _lifearchive_browser_v1_cancel(handle: number, input: number): number
+  _lifearchive_browser_v1_close(handle: number, input: number): Promise<number>
+  _lifearchive_browser_v1_invocation_json(invocation: number): number
+  _lifearchive_browser_v1_invocation_transfer_count(invocation: number): number
+  _lifearchive_browser_v1_invocation_transfer_data(
+    invocation: number,
+    index: number,
+  ): number
+  _lifearchive_browser_v1_invocation_transfer_length(
+    invocation: number,
+    index: number,
+  ): number
+  _lifearchive_browser_v1_invocation_free(invocation: number): void
+  _lifearchive_browser_v1_handle_free(handle: number): Promise<void>
+}
+
+type RuntimeFactory = (options: {
+  readonly locateFile: (path: string) => string
+  readonly noInitialRun: true
+}) => Promise<EmscriptenRuntimeModule>
+
+class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
+  private module: EmscriptenRuntimeModule | null = null
+  private handle = 0
+  private readonly parameters = new URL(self.location.href).searchParams
+
+  async start(): Promise<void> {
+    const loaderUrl = this.parameters.get('loader')
+    const wasmUrl = this.parameters.get('wasm')
+    if (!loaderUrl || !wasmUrl) {
+      throw new Error('runtime-location-missing')
+    }
+    const imported = (await import(/* @vite-ignore */ loaderUrl)) as {
+      readonly default?: RuntimeFactory
+    }
+    if (typeof imported.default !== 'function') {
+      throw new Error('runtime-loader-invalid')
+    }
+    this.module = await imported.default({
+      noInitialRun: true,
+      locateFile: (path) => (path.endsWith('.wasm') ? wasmUrl : path),
+    })
+  }
+
+  async execute(
+    operation: string,
+    payload: unknown,
+    signal: AbortSignal,
+  ): Promise<RuntimeWorkerResult> {
+    const module = this.requiredModule()
+    const requestId = crypto.randomUUID()
+    const prepared = await prepareWorkerRequest(payload)
+    const envelope = {
+      abiVersion: this.parameters.get('abi'),
+      requestId,
+      productContractVersion: this.parameters.get('contract'),
+      operation,
+      request: prepared.request,
+      transfers: prepared.descriptors,
+    }
+    const cancel = () => {
+      if (!this.handle) return
+      void this.callInvocation(
+        module,
+        (input) => module._lifearchive_browser_v1_cancel(this.handle, input),
+        {
+          ...envelope,
+          operation: 'operation.cancel',
+          request: { requestId },
+        },
+        prepared.transfers,
+      )
+    }
+    signal.addEventListener('abort', cancel, { once: true })
+    try {
+      if (operation === 'product.describe') {
+        return this.callInvocation(
+          module,
+          (input) => module._lifearchive_browser_v1_describe(input),
+          envelope,
+          prepared.transfers,
+        )
+      }
+      if (operation === 'store.open') {
+        if (this.handle) throw new Error('runtime-handle-already-open')
+        return this.callInvocation(
+          module,
+          async (input, pointers, lengths, count) => {
+            const outHandle = module.stackAlloc(4)
+            module.HEAPU32[outHandle >>> 2] = 0
+            const invocation = await module._lifearchive_browser_v1_open(
+              input,
+              pointers,
+              lengths,
+              count,
+              outHandle,
+            )
+            this.handle = module.HEAPU32[outHandle >>> 2]
+            return invocation
+          },
+          envelope,
+          prepared.transfers,
+        )
+      }
+      if (!this.handle) throw new Error('runtime-handle-closed')
+      if (operation === 'store.close') {
+        const result = await this.callInvocation(
+          module,
+          (input) => module._lifearchive_browser_v1_close(this.handle, input),
+          envelope,
+          prepared.transfers,
+        )
+        await module._lifearchive_browser_v1_handle_free(this.handle)
+        this.handle = 0
+        return result
+      }
+      if (operation === 'operation.cancel') {
+        return this.callInvocation(
+          module,
+          (input) => module._lifearchive_browser_v1_cancel(this.handle, input),
+          envelope,
+        )
+      }
+      return this.callInvocation(
+        module,
+        (input, pointers, lengths, count) =>
+          module._lifearchive_browser_v1_execute(
+            this.handle,
+            input,
+            pointers,
+            lengths,
+            count,
+          ),
+        envelope,
+        prepared.transfers,
+      )
+    } finally {
+      signal.removeEventListener('abort', cancel)
+    }
+  }
+
+  async close(): Promise<void> {
+    const module = this.module
+    if (module && this.handle) {
+      await module._lifearchive_browser_v1_handle_free(this.handle)
+      this.handle = 0
+    }
+    this.module = null
+  }
+
+  private requiredModule(): EmscriptenRuntimeModule {
+    if (!this.module) throw new Error('runtime-not-started')
+    return this.module
+  }
+
+  private async callInvocation(
+    module: EmscriptenRuntimeModule,
+    call: (
+      input: number,
+      transferPointers: number,
+      transferLengths: number,
+      transferCount: number,
+    ) => number | Promise<number>,
+    envelope: object,
+    transfers: readonly ArrayBuffer[] = [],
+  ): Promise<RuntimeWorkerResult> {
+    const stack = module.stackSave()
+    try {
+      const input = module.stringToUTF8OnStack(JSON.stringify(envelope))
+      const transferPointers = transfers.length
+        ? module.stackAlloc(transfers.length * 4)
+        : 0
+      const transferLengths = transfers.length
+        ? module.stackAlloc(transfers.length * 4)
+        : 0
+      for (const [index, transfer] of transfers.entries()) {
+        const bytes = new Uint8Array(transfer)
+        const pointer = module.stackAlloc(bytes.byteLength || 1)
+        module.HEAPU8.set(bytes, pointer)
+        module.HEAPU32[(transferPointers >>> 2) + index] = pointer
+        module.HEAPU32[(transferLengths >>> 2) + index] = bytes.byteLength
+      }
+      const invocation = await call(
+        input,
+        transferPointers,
+        transferLengths,
+        transfers.length,
+      )
+      if (!invocation) throw new Error('runtime-null-invocation')
+      try {
+        const json = module.UTF8ToString(
+          module._lifearchive_browser_v1_invocation_json(invocation),
+        )
+        const payload = JSON.parse(json) as unknown
+        const count =
+          module._lifearchive_browser_v1_invocation_transfer_count(invocation)
+        const transfer: ArrayBuffer[] = []
+        for (let index = 0; index < count; index += 1) {
+          const pointer =
+            module._lifearchive_browser_v1_invocation_transfer_data(
+              invocation,
+              index,
+            )
+          const length =
+            module._lifearchive_browser_v1_invocation_transfer_length(
+              invocation,
+              index,
+            )
+          transfer.push(module.HEAPU8.slice(pointer, pointer + length).buffer)
+        }
+        return {
+          payload: { envelope: payload, transfers: transfer },
+          transfer,
+        }
+      } finally {
+        module._lifearchive_browser_v1_invocation_free(invocation)
+      }
+    } finally {
+      module.stackRestore(stack)
+    }
+  }
+}
+
+async function prepareWorkerRequest(payload: unknown): Promise<{
+  readonly request: unknown
+  readonly transfers: readonly ArrayBuffer[]
+  readonly descriptors: readonly {
+    readonly transferId: string
+    readonly transferIndex: number
+    readonly byteLength: string
+    readonly sha256: string
+  }[]
+}> {
+  if (
+    !isRecord(payload) ||
+    !Array.isArray(payload.transfers) ||
+    !payload.transfers.every((value) => value instanceof ArrayBuffer)
+  ) {
+    return { request: payload, transfers: [], descriptors: [] }
+  }
+  const transfers = payload.transfers
+  const request = payload.request
+  const requestedTransferId =
+    isRecord(request) && typeof request.sourceTransferId === 'string'
+      ? request.sourceTransferId
+      : 'source'
+  const descriptors = await Promise.all(
+    transfers.map(async (transfer, transferIndex) => ({
+      transferId:
+        transfers.length === 1
+          ? requestedTransferId
+          : `${requestedTransferId}-${transferIndex}`,
+      transferIndex,
+      byteLength: String(transfer.byteLength),
+      sha256: await sha256(transfer),
+    })),
+  )
+  return { request, transfers, descriptors }
+}
+
+async function sha256(buffer: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', buffer)
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, '0'),
+  ).join('')
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+installRuntimeWorker(scope, new WorkerRuntimeExecutor())
