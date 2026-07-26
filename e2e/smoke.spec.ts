@@ -1,15 +1,7 @@
 import { expect, test } from '@playwright/test'
 
-const ROUTES = [
-  { path: '/record', heading: 'Record' },
-  { path: '/timeline', heading: 'Timeline' },
-  { path: '/settings', heading: 'Settings' },
-] as const
+const ROUTES = ['/', '/record', '/timeline', '/settings'] as const
 
-/**
- * Wording the bootstrap shell must never show: it has no runtime and no
- * persistence, so nothing may suggest a user's writing is durable.
- */
 const FORBIDDEN_CLAIMS = [
   /\bsaved\b/i,
   /\bsynced\b/i,
@@ -20,54 +12,39 @@ const FORBIDDEN_CLAIMS = [
   /archive (is )?(open|loaded|ready|available)/i,
 ]
 
-test('loads and redirects the root to /record', async ({ page }) => {
-  await page.goto('/')
-
-  await expect(page.getByRole('heading', { name: 'Record' })).toBeVisible()
-  await expect(page).toHaveURL(/\/record$/)
-})
-
-for (const { path, heading } of ROUTES) {
-  test(`serves ${path} directly`, async ({ page }) => {
+for (const path of ROUTES) {
+  test(`keeps features gated when loading ${path} directly`, async ({
+    page,
+  }) => {
     await page.goto(path)
 
-    await expect(page.getByRole('heading', { name: heading })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'LifeArchive cannot start' }),
+    ).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Record' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Timeline' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Settings' })).toHaveCount(0)
   })
 }
 
-test('navigates from the root to every route', async ({ page }) => {
-  await page.goto('/')
-  const nav = page.getByRole('navigation', { name: 'Main' })
-
-  for (const { heading } of ROUTES) {
-    await nav.getByRole('link', { name: heading }).click()
-    await expect(page.getByRole('heading', { name: heading })).toBeVisible()
-  }
-})
-
-test('reports no available production runtime', async ({ page }) => {
+test('offers a calm retry and remains gated after reload', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
 
-  await page.goto('/record')
-  const text = (await page.locator('body').innerText()).trim()
-
-  for (const claim of FORBIDDEN_CLAIMS) {
-    expect(text).not.toMatch(claim)
-  }
-  expect(errors).toEqual([])
-})
-
-test('stays functional after a reload', async ({ page }) => {
   await page.goto('/timeline')
-  await expect(page.getByRole('heading', { name: 'Timeline' })).toBeVisible()
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'LifeArchive cannot start' }),
+  ).toBeVisible()
 
   await page.reload()
+  await expect(page).toHaveURL(/\/timeline$/)
+  await expect(
+    page.getByRole('heading', { name: 'LifeArchive cannot start' }),
+  ).toBeVisible()
 
-  await expect(page.getByRole('heading', { name: 'Timeline' })).toBeVisible()
-  await page
-    .getByRole('navigation', { name: 'Main' })
-    .getByRole('link', { name: 'Record' })
-    .click()
-  await expect(page.getByRole('heading', { name: 'Record' })).toBeVisible()
+  const text = (await page.locator('body').innerText()).trim()
+  for (const claim of FORBIDDEN_CLAIMS) expect(text).not.toMatch(claim)
+  expect(errors).toEqual([])
 })

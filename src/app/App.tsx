@@ -1,10 +1,14 @@
 import { BrowserRouter } from 'react-router-dom'
-import { AppRoutes } from './AppRoutes'
+import type { AppBootstrap } from '../core/bootstrap'
+import { AppShell } from './AppShell'
+import { AppStateProvider } from './providers'
 
-export function App() {
+export function App({ bootstrap }: { readonly bootstrap?: AppBootstrap }) {
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <AppStateProvider bootstrap={bootstrap}>
+        <AppShell />
+      </AppStateProvider>
     </BrowserRouter>
   )
 }
