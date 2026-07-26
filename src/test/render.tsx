@@ -1,15 +1,40 @@
 import { render, type RenderResult } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { AppRoutes } from '../app/AppRoutes'
+import type { AppBootstrap } from '../core/bootstrap'
+import { AppShell } from '../app/AppShell'
+import { AppStateProvider } from '../app/providers/AppStateProvider'
+import { revision, stableId } from '../core/client'
+import { FakeLifeArchiveClient } from './FakeLifeArchiveClient'
 
 /**
- * Renders the application shell at a given path, without the browser history
- * the real `App` uses, so route behaviour can be asserted directly.
+ * Renders the composed application at a path. Tests opt into a fixed open mock
+ * by default; production never does so.
  */
-export function renderAppAt(path: string): RenderResult {
+export function renderAppAt(
+  path: string,
+  bootstrap: AppBootstrap = async () => ({
+    state: 'client',
+    client: new FakeLifeArchiveClient({
+      state: 'open',
+      archive: {
+        storeId: stableId('7f1c0a10-0000-4000-8000-000000000001'),
+        productContract: 'test',
+        storeSchemaVersion: 'test',
+        rootLayoutVersion: 'test',
+        invalidation: {
+          storeInstanceId: 'test',
+          revision: revision('1'),
+        },
+      },
+    }).client,
+    developmentMock: true,
+  }),
+): RenderResult {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <AppRoutes />
+      <AppStateProvider bootstrap={bootstrap}>
+        <AppShell />
+      </AppStateProvider>
     </MemoryRouter>,
   )
 }
