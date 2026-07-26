@@ -35,6 +35,12 @@ The whole-bundle pin is separate from manifest format 1's per-file hashes.
 manifest shape and ordered capability inventory, and exact lock/manifest
 identity compatibility. The current lock remains deliberately unpinned.
 
+`pnpm runtime:fetch` is the only CI fetch path. With no pin it exits
+successfully without using the network. With a reviewed pin it refuses
+redirects, verifies the whole-archive checksum, archive allowlist, manifest
+identity, and payload checksums, then installs into ignored
+`runtime/installed/`. Any mismatch leaves no newly installed runtime.
+
 ## Public UI builds must work without the runtime
 
 A checkout of this repository alone, with no access to anything private, must
