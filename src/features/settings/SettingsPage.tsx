@@ -1,3 +1,6 @@
+import { useTranslate } from '../../i18n'
+
 export function SettingsPage() {
-  return <h1>Settings</h1>
+  const t = useTranslate()
+  return <h1>{t('settings.page.title')}</h1>
 }

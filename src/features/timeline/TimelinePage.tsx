@@ -1,3 +1,6 @@
+import { useTranslate } from '../../i18n'
+
 export function TimelinePage() {
-  return <h1>Timeline</h1>
+  const t = useTranslate()
+  return <h1>{t('timeline.page.title')}</h1>
 }

@@ -1,3 +1,6 @@
+import { useTranslate } from '../../i18n'
+
 export function RecordPage() {
-  return <h1>Record</h1>
+  const t = useTranslate()
+  return <h1>{t('record.page.title')}</h1>
 }

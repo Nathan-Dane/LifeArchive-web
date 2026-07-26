@@ -2,24 +2,38 @@ import { Link, Navigate, Route, Routes } from 'react-router-dom'
 import { RecordPage } from '../features/record/RecordPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { TimelinePage } from '../features/timeline/TimelinePage'
+import { useTranslate } from '../i18n'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
+
+/**
+ * The routes, paired with the catalog key that names them. The path is an
+ * identifier and the label is copy; deriving one from the other by capitalising
+ * a URL segment is how a navigation item ends up untranslatable.
+ */
+const MAIN_ROUTES = [
+  { path: '/record', label: 'app.navigation.record' },
+  { path: '/timeline', label: 'app.navigation.timeline' },
+  { path: '/settings', label: 'app.navigation.settings' },
+] as const
 
 export function MainNavigation({
   inert = false,
 }: {
   readonly inert?: boolean
 }) {
+  const t = useTranslate()
   return (
-    <nav aria-label="Main" aria-disabled={inert || undefined}>
+    <nav
+      aria-label={t('app.navigation.main')}
+      aria-disabled={inert || undefined}
+    >
       <ul>
-        {(['record', 'timeline', 'settings'] as const).map((route) => (
-          <li key={route}>
+        {MAIN_ROUTES.map((route) => (
+          <li key={route.path}>
             {inert ? (
-              <span>{route[0].toUpperCase() + route.slice(1)}</span>
+              <span>{t(route.label)}</span>
             ) : (
-              <Link to={`/${route}`}>
-                {route[0].toUpperCase() + route.slice(1)}
-              </Link>
+              <Link to={route.path}>{t(route.label)}</Link>
             )}
           </li>
         ))}
