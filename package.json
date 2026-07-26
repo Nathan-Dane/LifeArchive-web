@@ -16,7 +16,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "safety": "node scripts/check-repo-safety.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm safety && pnpm test:run && pnpm build"
+    "runtime:fetch": "node scripts/fetch-runtime.mjs",
+    "test:runtime-fetch": "node --test scripts/fetch-runtime.test.mjs scripts/runtime-ci-policy.test.mjs",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm safety && pnpm test:runtime-fetch && pnpm test:run && pnpm build"
   },
   "dependencies": {
     "react": "^19.2.7",

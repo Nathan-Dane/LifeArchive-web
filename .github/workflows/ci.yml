@@ -1,7 +1,8 @@
 name: CI
 
-# This workflow must stay self-contained: it uses no secrets, never contacts
-# the private repository, and never downloads the proprietary runtime.
+# This workflow stays self-contained: it uses no secrets and never contacts the
+# private repository. A pinned-runtime job may fetch only the reviewed public
+# artifact URL in runtime/runtime.lock.json.
 # See docs/architecture/repository-boundary.md.
 
 on:
@@ -58,6 +59,34 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  pinned-runtime:
+    name: Verify pinned runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch and independently verify the reviewed runtime pin
+        id: runtime
+        run: pnpm runtime:fetch
+
+      - name: Run runtime integration checks
+        if: steps.runtime.outputs.available == 'true'
+        run: pnpm test:run && pnpm build
 
   browser:
     name: Browser smoke tests
