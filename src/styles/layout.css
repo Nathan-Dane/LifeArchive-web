@@ -736,7 +736,8 @@
 }
 
 .archive-import,
-.archive-operation {
+.archive-operation,
+.archive-erase {
   display: flex;
   max-width: 52rem;
   flex-direction: column;
@@ -745,6 +746,34 @@
   border: var(--border-hairline) solid var(--border-muted);
   border-radius: var(--radius-card);
   background: var(--color-surface);
+}
+
+.archive-erase {
+  margin-top: var(--space-content);
+  border-color: color-mix(
+    in srgb,
+    var(--color-destructive) 38%,
+    var(--border-muted)
+  );
+}
+
+.archive-erase__confirmation {
+  display: grid;
+  gap: var(--space-standard);
+  padding: var(--space-section);
+  border: var(--border-hairline) solid
+    color-mix(in srgb, var(--color-destructive) 48%, transparent);
+  border-radius: var(--radius-card);
+  background: color-mix(
+    in srgb,
+    var(--color-destructive) 7%,
+    var(--color-surface)
+  );
+}
+
+.archive-erase__confirmation > :is(h3, p) {
+  max-width: var(--layout-reading-measure);
+  margin: 0;
 }
 
 .archive-import__heading,
@@ -858,6 +887,23 @@
 
 .button:hover {
   border-color: var(--border-muted);
+}
+
+.button--destructive {
+  border-color: color-mix(
+    in srgb,
+    var(--color-destructive) 58%,
+    var(--border-strong)
+  );
+  color: var(--color-destructive);
+}
+
+.button--destructive:hover {
+  background: color-mix(
+    in srgb,
+    var(--color-destructive) 9%,
+    var(--color-surface)
+  );
 }
 
 .button--primary {

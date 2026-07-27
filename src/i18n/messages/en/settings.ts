@@ -70,8 +70,44 @@ export const settingsMessages = {
     'The runtime did not confirm browser-local archive access for this session. Archive management remains available.',
   'settings.archive.manage.title': 'Manage Archive',
   'settings.archive.manage.detail':
-    'Export, verify, or import a LifeArchive package.',
+    'Export, verify, import, or deliberately erase this archive.',
   'settings.archive.manage.intro':
     'Manage this browser-local archive without changing its identity or replacing it automatically.',
   'settings.archive.manage.back': 'Back to Settings',
+  'archive.erase.eyebrow': 'Destructive action',
+  'archive.erase.title': 'Erase this archive',
+  'archive.erase.detail':
+    'Permanently remove this browser-local archive and replace it with a fresh, usable empty archive.',
+  'archive.erase.exportsPreserved':
+    'Previously downloaded exports are separate files and will not be deleted.',
+  'archive.erase.action.request': 'Erase archive…',
+  'archive.erase.action.cancel': 'Cancel',
+  'archive.erase.confirm.title': 'Erase this archive permanently?',
+  'archive.erase.confirm.detail':
+    'This removes all writing, structured records, media, and identity stored in this browser. This action cannot be undone.',
+  'archive.erase.action.confirm': 'Erase this archive',
+  'archive.erase.status.progress': 'Archive erase progress',
+  'archive.erase.status.erasing': 'Erasing the browser-local archive…',
+  'archive.erase.status.refreshing': 'Opening the fresh empty archive…',
+  'archive.erase.failed.title': 'The archive was not erased',
+  'archive.erase.failed.priorPreserved':
+    'The erase did not complete. The prior archive and recovery evidence remain available.',
+  'archive.erase.recovery.title': 'Recovery is required',
+  'archive.erase.recovery.failure':
+    'The erase did not return a confirmed final state.',
+  'archive.erase.recovery.detail':
+    'The final erase outcome could not be confirmed, or media recovery is still pending. Reload LifeArchive to reopen this same archive and finish recovery before taking another action.',
+  'archive.erase.action.reload': 'Reload and recover',
+  'archive.erase.action.tryAgain': 'Try erase again…',
+  'archive.erase.refreshFailed.title': 'The archive was erased',
+  'archive.erase.refreshFailed.detail':
+    'The coordinated erase completed, but the fresh empty archive could not be confirmed. Check the fresh archive again; do not repeat the erase.',
+  'archive.erase.action.checkFresh': 'Check fresh archive',
+  'archive.erase.complete.title': 'Fresh archive created',
+  'archive.erase.complete.detail':
+    '{name} now has a fresh identity and an empty local store.',
+  'archive.erase.complete.entries': 'Entries',
+  'archive.erase.complete.media': 'Media',
+  'archive.erase.complete.announcement':
+    'The prior archive was erased and a fresh empty archive was created.',
 } as const

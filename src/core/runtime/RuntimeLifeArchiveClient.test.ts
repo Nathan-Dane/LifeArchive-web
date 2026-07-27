@@ -504,6 +504,77 @@ describe('RuntimeLifeArchiveClient', () => {
     expect(client.archive.session().state).toBe('open')
   })
 
+  it('publishes successful erase invalidation so stale archive views close, but publishes nothing on failure', async () => {
+    const storeId = stableId('A1000000-0000-4000-8000-000000000016')
+    const erasedInvalidation = {
+      storeInstanceId: 'after-erase',
+      revision: revision('1'),
+    }
+    let eraseShouldFail = false
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: (request) => {
+          if (request.operation === 'store.open') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: {
+                storeId,
+                productContract: '5',
+                storeSchemaVersion: '1',
+                rootLayoutVersion: '1',
+                invalidation: {
+                  storeInstanceId: 'before-erase',
+                  revision: revision('9'),
+                },
+              },
+            })
+          }
+          if (eraseShouldFail) {
+            return Promise.resolve({
+              outcome: 'failure',
+              failure: {
+                code: 'ioFailure',
+                details: {
+                  area: 'archive',
+                  phase: 'mutation',
+                  retryable: true,
+                  durableOutcome: 'known',
+                },
+              },
+            })
+          }
+          return Promise.resolve({
+            outcome: 'success',
+            result: {
+              outcome: 'erased',
+              invalidation: erasedInvalidation,
+            },
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+    await client.archive.open()
+    const changes: unknown[] = []
+    client.operations.observeChanges((change) => changes.push(change))
+
+    expect(
+      await client.archive.erase({ confirmation: 'erase-this-archive' }),
+    ).toEqual({
+      status: 'ok',
+      value: { outcome: 'erased', invalidation: erasedInvalidation },
+    })
+    expect(changes).toEqual([{ storeId, invalidation: erasedInvalidation }])
+
+    eraseShouldFail = true
+    expect(
+      (await client.archive.erase({ confirmation: 'erase-this-archive' }))
+        .status,
+    ).toBe('failed')
+    expect(changes).toHaveLength(1)
+  })
+
   it('maps one fixed runtime result without changing exact values or order', async () => {
     const exactRevision = revision('18446744073709551615')
     const exactId = stableId('A1000000-0000-4000-8000-000000000002')

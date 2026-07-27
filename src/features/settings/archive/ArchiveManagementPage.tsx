@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { LifeArchiveClient } from '../../../core/client'
 import { useTranslate } from '../../../i18n'
+import { ArchiveErasePanel } from '../../archive/erase'
 import { ArchiveExportPanel } from '../../archive/export'
 import { ArchiveImportPanel } from '../../archive/import'
 import { ArchiveVerifyPanel } from '../../archive/verify'
@@ -24,6 +25,7 @@ export function ArchiveManagementPage({
       <ArchiveExportPanel client={client} />
       <ArchiveVerifyPanel client={client} />
       <ArchiveImportPanel client={client} />
+      <ArchiveErasePanel client={client} />
     </div>
   )
 }
