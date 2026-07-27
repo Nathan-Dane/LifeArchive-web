@@ -19,6 +19,7 @@ export {
   resolveFormattingLocale,
   type DateStyle,
   type Formatters,
+  type WeekdayStyle,
 } from './format'
 export {
   createLocalisation,
