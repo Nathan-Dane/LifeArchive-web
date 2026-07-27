@@ -735,7 +735,8 @@
   }
 }
 
-.archive-import {
+.archive-import,
+.archive-operation {
   display: flex;
   max-width: 52rem;
   flex-direction: column;
@@ -746,70 +747,86 @@
   background: var(--color-surface);
 }
 
-.archive-import__heading {
+.archive-import__heading,
+.archive-operation__heading {
   display: grid;
   gap: var(--space-compact);
 }
 
 .archive-import__heading :is(h2, p),
-.archive-import__message {
+.archive-import__message,
+.archive-operation__heading :is(h2, p),
+.archive-operation__message {
   margin: 0;
 }
 
 .archive-import__detail,
-.archive-import__message {
+.archive-import__message,
+.archive-operation__detail,
+.archive-operation__message {
   max-width: var(--layout-reading-measure);
   color: var(--color-text-secondary);
 }
 
-.archive-import__picker {
+.archive-import__picker,
+.archive-operation__picker {
   display: grid;
   gap: var(--space-compact);
   font-weight: var(--weight-medium);
 }
 
-.archive-import__picker input {
+.archive-import__picker input,
+.archive-operation__picker input {
   max-width: 100%;
   font: inherit;
 }
 
-.archive-import__progress {
+.archive-import__progress,
+.archive-operation__progress {
   width: min(100%, var(--layout-reading-measure));
   accent-color: var(--color-accent);
 }
 
-.archive-import__actions {
+.archive-import__actions,
+.archive-operation__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-compact);
 }
 
-.archive-import__counts {
+.archive-import__counts,
+.archive-operation__counts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--space-standard);
   margin: 0;
 }
 
-.archive-import__counts div {
+.archive-import__counts div,
+.archive-operation__counts div {
   display: grid;
   gap: var(--space-tight);
 }
 
-.archive-import__counts dt {
+.archive-import__counts dt,
+.archive-operation__counts dt {
   color: var(--color-text-secondary);
 }
 
-.archive-import__counts dd {
+.archive-import__counts dd,
+.archive-operation__counts dd {
   margin: 0;
 }
 
-.archive-import__result {
+.archive-import__result,
+.archive-operation__result {
   display: grid;
   gap: var(--space-standard);
 }
 
-.archive-import__result h3 {
+.archive-import__result h3,
+.archive-operation__result h3,
+.archive-operation > h3 {
   margin: 0;
 }
 

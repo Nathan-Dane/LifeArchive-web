@@ -14,6 +14,198 @@ const runtime = {
 } as const
 
 describe('RuntimeLifeArchiveClient', () => {
+  it('maps the runtime archive overview vocabulary into ergonomic facts', async () => {
+    const storeId = stableId('A1000000-0000-4000-8000-000000000030')
+    let runtimeRequest: unknown
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: (request) => {
+          runtimeRequest = request.payload
+          return Promise.resolve({
+            outcome: 'success',
+            result: {
+              contractVersion: '5',
+              outcome: 'overview',
+              storeId,
+              schemaVersion: 7,
+              storeContractVersion: 5,
+              token: {
+                storeInstanceId: 'overview-wire-test',
+                revision: '9',
+              },
+              visibleEntryCount: 12,
+              entryCounts: {
+                moment: 1,
+                day: 2,
+                week: 3,
+                month: 4,
+                year: 1,
+                custom: 1,
+              },
+              structuredCounts: { events: 5, spans: 6 },
+              trackCounts: {
+                active: 2,
+                archived: 1,
+                ongoingMembers: 3,
+              },
+              attachmentCount: 8,
+              attachmentByteTotal: 4096,
+              health: {
+                storeReadable: true,
+                schemaCompatible: true,
+                recoveryState: 'clean',
+                databaseIntegrity: 'ok',
+                foreignKeyViolationCount: 0,
+                status: 'healthy',
+              },
+            },
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+
+    expect(runtimeRequest).toBeUndefined()
+    expect(await client.archive.overview()).toEqual({
+      status: 'ok',
+      value: {
+        storeId,
+        storeSchemaVersion: '7',
+        storeContract: '5',
+        visibleEntryCount: 12,
+        entryCounts: {
+          moment: 1,
+          day: 2,
+          week: 3,
+          month: 4,
+          year: 1,
+          custom: 1,
+        },
+        structuredCounts: { events: 5, spans: 6 },
+        trackCounts: {
+          active: 2,
+          archived: 1,
+          ongoingMembers: 3,
+        },
+        mediaCount: 8,
+        mediaByteTotal: 4096,
+        health: {
+          readable: true,
+          schemaCompatible: true,
+          recovery: 'clean',
+          integrity: 'verified',
+          referenceViolationCount: 0,
+          overall: 'healthy',
+        },
+        invalidation: {
+          storeInstanceId: 'overview-wire-test',
+          revision: revision('9'),
+        },
+      },
+    })
+    expect(runtimeRequest).toEqual({ request: {}, transfers: [] })
+  })
+
+  it('maps ergonomic export input and the verified browser transport result', async () => {
+    const exportOperationId = operationId(
+      'A1000000-0000-4000-8000-000000000031',
+    )
+    const archiveId = stableId('A1000000-0000-4000-8000-000000000032')
+    let runtimeRequest: unknown
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: (request) => {
+          runtimeRequest = request.payload
+          return Promise.resolve({
+            envelope: {
+              outcome: 'success',
+              result: {
+                contractVersion: '5',
+                outcome: 'exported',
+                token: {
+                  storeInstanceId: 'export-wire-test',
+                  revision: '10',
+                },
+                archiveId,
+                createdAt: '2026-07-27T12:00:00Z',
+                counts: {
+                  entries: 4,
+                  attachments: 2,
+                  summaries: 0,
+                  tracks: 1,
+                },
+                dateRange: {
+                  start: '2026-01-01T00:00:00Z',
+                  end: '2026-07-27T23:59:59Z',
+                },
+                filesWritten: 11,
+                checkedFiles: 11,
+                checksumAlgorithm: 'sha256',
+                browserTransport: {
+                  transferId: 'export-transfer',
+                  fileName: 'LifeArchive.lifearchive.tar',
+                  mimeType: 'application/x-tar',
+                  byteLength: '4',
+                },
+              },
+            },
+            transfers: [Uint8Array.from([0, 1, 2, 255]).buffer],
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+
+    const result = await client.archive.export({
+      operationId: exportOperationId,
+      archiveId,
+      createdAtMs: 1_785_153_600_000,
+      application: { name: 'LifeArchive Web', version: '0.1.0' },
+    })
+
+    expect(runtimeRequest).toEqual({
+      request: {
+        operationId: exportOperationId,
+        contractVersion: '5',
+        archiveId,
+        createdAtMs: 1_785_153_600_000,
+        createdBy: {
+          appName: 'LifeArchive Web',
+          appVersion: '0.1.0',
+        },
+        archiveName: 'LifeArchive.lifearchive',
+      },
+      transfers: [],
+    })
+    expect(result).toMatchObject({
+      status: 'ok',
+      value: {
+        archiveId,
+        createdAt: '2026-07-27T12:00:00Z',
+        counts: { entries: 4, media: 2, summaries: 0 },
+        dateRange: {
+          start: '2026-01-01T00:00:00Z',
+          end: '2026-07-27T23:59:59Z',
+        },
+        filesWritten: 11,
+        checkedFiles: 11,
+        checksumAlgorithm: 'sha256',
+        invalidation: {
+          storeInstanceId: 'export-wire-test',
+          revision: revision('10'),
+        },
+      },
+    })
+    if (result.status !== 'ok') throw new Error('expected export result')
+    expect(result.value.archive).toMatchObject({
+      name: 'LifeArchive.lifearchive.tar',
+      type: 'application/x-tar',
+      size: 4,
+    })
+  })
+
   it.each([
     ['corruptStore', 'needs-recovery'],
     ['recoveryIncomplete', 'needs-recovery'],
@@ -200,6 +392,61 @@ describe('RuntimeLifeArchiveClient', () => {
     expect(await client.operations.requestCancel(importOperationId)).toEqual({
       status: 'ok',
       value: { operationId: importOperationId, outcome: 'not-active' },
+    })
+  })
+
+  it('cancels one active export out of band and waits for its definitive result', async () => {
+    const exportOperationId = operationId(
+      'A1000000-0000-4000-8000-000000000014',
+    )
+    let exportSignal: AbortSignal | undefined
+    let finishExport: ((value: unknown) => void) | undefined
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: (request) => {
+          exportSignal = request.signal
+          return new Promise((resolve) => {
+            finishExport = resolve
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+
+    const exported = client.archive.export({
+      operationId: exportOperationId,
+      archiveId: stableId('A1000000-0000-4000-8000-000000000015'),
+      createdAtMs: 1,
+      application: { name: 'test', version: '1' },
+    })
+    await vi.waitFor(() => expect(exportSignal).toBeDefined())
+
+    expect(await client.operations.requestCancel(exportOperationId)).toEqual({
+      status: 'ok',
+      value: { operationId: exportOperationId, outcome: 'requested' },
+    })
+    expect(exportSignal?.aborted).toBe(true)
+
+    finishExport?.({
+      outcome: 'failure',
+      failure: {
+        code: 'cancelled',
+        details: {
+          area: 'cancelled',
+          phase: 'cancellation',
+          retryable: false,
+          durableOutcome: 'known',
+        },
+      },
+    })
+    expect(await exported).toMatchObject({
+      status: 'failed',
+      failure: { code: 'cancelled', durableOutcome: 'known' },
+    })
+    expect(await client.operations.requestCancel(exportOperationId)).toEqual({
+      status: 'ok',
+      value: { operationId: exportOperationId, outcome: 'not-active' },
     })
   })
 

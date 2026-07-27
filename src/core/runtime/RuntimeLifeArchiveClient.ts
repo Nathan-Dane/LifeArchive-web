@@ -185,7 +185,7 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       }
       return result
     },
-    overview: () => this.invoke<ArchiveOverview>('archive.overview', null),
+    overview: () => this.invoke<ArchiveOverview>('archive.overview', {}),
     verify: (request: ArchiveVerifyRequest) =>
       this.invoke<ArchiveVerification>('archive.verify', request),
     import: async (request: ArchiveImportRequest) => {
@@ -208,8 +208,19 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
         this.cancellableOperations.delete(request.operationId)
       }
     },
-    export: (request: ArchiveExportRequest) =>
-      this.invoke<ArchiveExportResult>('archive.export', request),
+    export: async (request: ArchiveExportRequest) => {
+      const controller = new AbortController()
+      this.cancellableOperations.set(request.operationId, controller)
+      try {
+        return await this.invoke<ArchiveExportResult>(
+          'archive.export',
+          request,
+          controller.signal,
+        )
+      } finally {
+        this.cancellableOperations.delete(request.operationId)
+      }
+    },
     erase: (request: ArchiveEraseRequest) =>
       this.invoke<ArchiveEraseResult>('archive.erase', request),
   }
@@ -428,6 +439,30 @@ async function prepareRequest(
   operation: string,
   request: unknown,
 ): Promise<PreparedRequest> {
+  if (operation === 'archive.export' && isRecord(request)) {
+    const application = request.application
+    if (
+      !isRecord(application) ||
+      typeof application.name !== 'string' ||
+      typeof application.version !== 'string'
+    ) {
+      throw new TypeError('Archive export application facts are missing')
+    }
+    return {
+      request: {
+        operationId: request.operationId,
+        contractVersion: '5',
+        archiveId: request.archiveId,
+        createdAtMs: request.createdAtMs,
+        createdBy: {
+          appName: application.name,
+          appVersion: application.version,
+        },
+        archiveName: 'LifeArchive.lifearchive',
+      },
+      transfers: [],
+    }
+  }
   if (operation === 'media.import' && isRecord(request)) {
     const bytes = request.bytes
     if (!(bytes instanceof ArrayBuffer)) {
@@ -491,6 +526,9 @@ function mapWireResult(
   result: unknown,
   transfers: readonly ArrayBuffer[],
 ): unknown {
+  if (operation === 'archive.overview' && isRecord(result)) {
+    return mapArchiveOverview(result)
+  }
   if (
     operation === 'media.resolveContent' &&
     isRecord(result) &&
@@ -503,21 +541,143 @@ function mapWireResult(
     isRecord(result) &&
     transfers.length === 1
   ) {
-    const name =
-      typeof result.fileName === 'string'
-        ? result.fileName
-        : 'archive.lifearchive'
-    return {
-      ...result,
-      archive: new File([transfers[0]], name, {
-        type: 'application/octet-stream',
-      }),
-    }
+    return mapArchiveExport(result, transfers[0])
   }
   if (operation === 'archive.apply' && isRecord(result)) {
     return mapImportResult(result)
   }
   return result
+}
+
+function mapArchiveOverview(result: Record<string, unknown>): ArchiveOverview {
+  const storeId = requiredStableId(result.storeId, 'archive overview store ID')
+  const entryCounts = requiredRecord(
+    result.entryCounts,
+    'archive overview entry counts',
+  )
+  const structuredCounts = requiredRecord(
+    result.structuredCounts,
+    'archive overview structured counts',
+  )
+  const trackCounts = requiredRecord(
+    result.trackCounts,
+    'archive overview track counts',
+  )
+  const health = requiredRecord(result.health, 'archive overview health')
+
+  return {
+    storeId,
+    storeSchemaVersion: requiredIntegerText(
+      result.schemaVersion,
+      'archive overview schema version',
+    ),
+    storeContract: requiredIntegerText(
+      result.storeContractVersion,
+      'archive overview store contract',
+    ),
+    visibleEntryCount: requiredCount(
+      result.visibleEntryCount,
+      'archive overview visible entry count',
+    ),
+    entryCounts: {
+      moment: requiredCount(entryCounts.moment, 'moment entry count'),
+      day: requiredCount(entryCounts.day, 'day entry count'),
+      week: requiredCount(entryCounts.week, 'week entry count'),
+      month: requiredCount(entryCounts.month, 'month entry count'),
+      year: requiredCount(entryCounts.year, 'year entry count'),
+      custom: requiredCount(entryCounts.custom, 'custom entry count'),
+    },
+    structuredCounts: {
+      events: requiredCount(structuredCounts.events, 'event count'),
+      spans: requiredCount(structuredCounts.spans, 'span count'),
+    },
+    trackCounts: {
+      active: requiredCount(trackCounts.active, 'active track count'),
+      archived: requiredCount(trackCounts.archived, 'archived track count'),
+      ongoingMembers: requiredCount(
+        trackCounts.ongoingMembers,
+        'ongoing track member count',
+      ),
+    },
+    mediaCount: requiredCount(
+      result.attachmentCount,
+      'archive overview attachment count',
+    ),
+    mediaByteTotal: requiredCount(
+      result.attachmentByteTotal,
+      'archive overview attachment byte total',
+    ),
+    health: {
+      readable: requiredBoolean(health.storeReadable, 'store readability'),
+      schemaCompatible: requiredBoolean(
+        health.schemaCompatible,
+        'schema compatibility',
+      ),
+      recovery: requiredLiteral(
+        health.recoveryState,
+        'clean',
+        'recovery state',
+      ),
+      integrity: mapDatabaseIntegrity(health.databaseIntegrity),
+      referenceViolationCount: requiredCount(
+        health.foreignKeyViolationCount,
+        'reference violation count',
+      ),
+      overall: requiredLiteral(health.status, 'healthy', 'archive health'),
+    },
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapArchiveExport(
+  result: Record<string, unknown>,
+  transfer: ArrayBuffer,
+): ArchiveExportResult {
+  const transport = requiredRecord(
+    result.browserTransport,
+    'archive browser transport',
+  )
+  const counts = requiredRecord(result.counts, 'archive export counts')
+  const fileName = requiredString(transport.fileName, 'archive export filename')
+  const mimeType = requiredString(
+    transport.mimeType,
+    'archive export MIME type',
+  )
+  const range =
+    result.dateRange === null || result.dateRange === undefined
+      ? null
+      : requiredRecord(result.dateRange, 'archive export date range')
+
+  return {
+    archive: new File([transfer], fileName, { type: mimeType }),
+    archiveId: requiredStableId(result.archiveId, 'archive export ID'),
+    createdAt: requiredString(result.createdAt, 'archive creation time'),
+    counts: {
+      entries: requiredCount(counts.entries, 'exported entry count'),
+      media: requiredCount(counts.attachments, 'exported attachment count'),
+      summaries: requiredCount(counts.summaries, 'exported summary count'),
+    },
+    dateRange: range
+      ? {
+          start: requiredString(range.start, 'archive date range start'),
+          end: requiredString(range.end, 'archive date range end'),
+        }
+      : null,
+    filesWritten: requiredCount(
+      result.filesWritten,
+      'archive files written count',
+    ),
+    checkedFiles: requiredCount(
+      result.checkedFiles,
+      'archive checked files count',
+    ),
+    checksumAlgorithm: requiredLiteral(
+      result.checksumAlgorithm,
+      'sha256',
+      'archive checksum algorithm',
+    ),
+    invalidation: mapInvalidation(result.token),
+  }
 }
 
 /**
@@ -602,6 +762,67 @@ function count(value: unknown): number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
     ? value
     : 0
+}
+
+function requiredRecord(
+  value: unknown,
+  description: string,
+): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new TypeError(`Malformed ${description}`)
+  }
+  return value
+}
+
+function requiredString(value: unknown, description: string): string {
+  if (typeof value !== 'string') {
+    throw new TypeError(`Malformed ${description}`)
+  }
+  return value
+}
+
+function requiredStableId(value: unknown, description: string): StableId {
+  if (typeof value !== 'string' || !isStableId(value)) {
+    throw new TypeError(`Malformed ${description}`)
+  }
+  return stableId(value)
+}
+
+function requiredCount(value: unknown, description: string): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new TypeError(`Malformed ${description}`)
+  }
+  return value
+}
+
+function requiredIntegerText(value: unknown, description: string): string {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new TypeError(`Malformed ${description}`)
+  }
+  return String(value)
+}
+
+function requiredBoolean(value: unknown, description: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new TypeError(`Malformed ${description}`)
+  }
+  return value
+}
+
+function mapDatabaseIntegrity(value: unknown): 'verified' {
+  requiredLiteral(value, 'ok', 'database integrity')
+  return 'verified'
+}
+
+function requiredLiteral<Value extends string>(
+  value: unknown,
+  expected: Value,
+  description: string,
+): Value {
+  if (value !== expected) {
+    throw new TypeError(`Malformed ${description}`)
+  }
+  return expected
 }
 
 function identifiers(value: unknown): readonly StableId[] {
