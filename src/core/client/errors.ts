@@ -11,7 +11,7 @@
  * are result states in `types.ts`, not failures.
  */
 
-import type { DurableOutcome, StableId } from './types'
+import type { DurableOutcome, Revision, StableId } from './types'
 
 /**
  * The broad stable area that owns a failure. `transport` covers the worker and
@@ -38,8 +38,23 @@ export type FailurePhase =
   | 'rootValidation'
   | 'lock'
   | 'open'
+  | 'validation'
+  | 'archiveStructureAndVersion'
+  | 'checksumScopeAndBytes'
+  | 'recordsAndReferences'
+  | 'attachmentMedia'
+  | 'destinationPlanning'
+  | 'mediaStagingAndJournal'
+  | 'finalCancellationCheckpoint'
+  | 'commit'
+  | 'compensation'
   | 'recovery'
   | 'snapshot'
+  | 'media'
+  | 'encoding'
+  | 'verification'
+  | 'publication'
+  | 'cleanup'
   | 'mutation'
   | 'cancellation'
   | 'close'
@@ -94,7 +109,18 @@ export interface FailureSubject {
 }
 
 /** Whether compensation finished after a failed multi-stage operation. */
-export type CleanupState = 'complete' | 'incomplete'
+export type CleanupState =
+  | 'complete'
+  | 'incomplete'
+  | 'temporary-output-may-remain'
+  | 'verified-output-may-remain'
+  | 'temporary-and-verified-output-may-remain'
+
+/** Safe nested cause metadata. Paths, messages, and payloads never cross. */
+export interface FailureCause {
+  readonly code: FailureCode
+  readonly field: string | null
+}
 
 /**
  * One failed operation. There is deliberately no message field: a localized
@@ -111,13 +137,16 @@ export interface ClientFailure {
   readonly retryable: boolean
   readonly field: string | null
   readonly subject: FailureSubject | null
+  /** Lossless conflict evidence; writing/current snapshots live in results. */
+  readonly expectedRevision: Revision | null
+  readonly actualRevision: Revision | null
   readonly cleanup: CleanupState | null
   /**
    * Whether durable work had started. `unknown` requires recovery messaging
    * and forbids a silent retry that could duplicate a mutation.
    */
   readonly durableOutcome: DurableOutcome
-  readonly cause: ClientFailure | null
+  readonly cause: FailureCause | null
 }
 
 /** Every client method returns one of these two states. */
@@ -148,7 +177,13 @@ export function clientFailure(
     Partial<
       Pick<
         ClientFailure,
-        'field' | 'subject' | 'cleanup' | 'durableOutcome' | 'cause'
+        | 'field'
+        | 'subject'
+        | 'expectedRevision'
+        | 'actualRevision'
+        | 'cleanup'
+        | 'durableOutcome'
+        | 'cause'
       >
     >,
 ): ClientFailure {
@@ -159,6 +194,8 @@ export function clientFailure(
     retryable: fields.retryable,
     field: fields.field ?? null,
     subject: fields.subject ?? null,
+    expectedRevision: fields.expectedRevision ?? null,
+    actualRevision: fields.actualRevision ?? null,
     cleanup: fields.cleanup ?? null,
     durableOutcome: fields.durableOutcome ?? 'not-started',
     cause: fields.cause ?? null,

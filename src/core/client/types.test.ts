@@ -11,6 +11,7 @@ import {
 } from './types'
 import type {
   ArchiveSession,
+  OrdinaryConflictState,
   OrdinaryEntry,
   OrdinaryEntryState,
   OrdinarySaveResult,
@@ -27,6 +28,8 @@ function dayWindow(): TimeWindow {
     scale: 'day',
     startMs: 0,
     endMs: 86_400_000,
+    startDate: civilDate('1970-01-01'),
+    endDate: civilDate('1970-01-01'),
     calendarId: 'gregorian',
     timeZoneId: 'UTC',
   })
@@ -182,11 +185,10 @@ describe('save outcomes', () => {
   })
 
   it('returns current state on a conflict so a buffer can be preserved', () => {
-    const current: OrdinaryEntryState = {
+    const current: OrdinaryConflictState = {
       presence: 'present',
       window: dayWindow(),
       entry,
-      invalidation,
     }
     const result: OrdinarySaveResult = {
       outcome: 'conflict',

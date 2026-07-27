@@ -50,6 +50,7 @@ import type {
   OpenArchive,
   OperationId,
   OrdinaryDeleteResult,
+  OrdinaryConflictState,
   OrdinaryEntry,
   OrdinaryEntryState,
   OrdinarySaveResult,
@@ -189,6 +190,8 @@ function dayWindow([date, startMs, endMs]: DayFixture): TimeWindow {
     scale: 'day',
     startMs,
     endMs,
+    startDate: civilDate(date),
+    endDate: civilDate(date),
     calendarId: 'gregory',
     timeZoneId: 'UTC',
   })
@@ -226,6 +229,8 @@ const WEEK_WINDOW = coreTimeWindow({
   scale: 'week',
   startMs: 1749427200000,
   endMs: 1750032000000,
+  startDate: civilDate('2025-06-09'),
+  endDate: civilDate('2025-06-15'),
   calendarId: 'gregory',
   timeZoneId: 'UTC',
 })
@@ -279,7 +284,7 @@ const ENTRY_PRESENT: OrdinaryEntryState = {
 }
 
 /** The conflicting state a scripted revision conflict reports as current. */
-const ENTRY_AFTER_CONFLICT: OrdinaryEntryState = {
+const ENTRY_AFTER_CONFLICT: OrdinaryConflictState = {
   presence: 'present',
   window: FOCUSED_WINDOW,
   entry: {
@@ -288,10 +293,6 @@ const ENTRY_AFTER_CONFLICT: OrdinaryEntryState = {
     markdown: `${ENTRY_MARKDOWN}\n\nAdded from another tab.`,
     plainText: `${ENTRY_PLAIN_TEXT}\nAdded from another tab.`,
     updatedAtMs: 1749934800000,
-  },
-  invalidation: {
-    storeInstanceId: STORE_INSTANCE_ID,
-    revision: revision('413'),
   },
 }
 
@@ -553,19 +554,25 @@ const RESULTS: MockResults = {
     checkedFiles: 214,
   }),
   'archive.import': ok<ArchiveImportResult>({
+    changed: true,
+    recovery: 'clean',
     importedEntries: 12,
     importedMedia: 3,
+    importedTracks: 1,
     skippedEntries: 2,
     skippedMedia: 0,
+    skippedTracks: 0,
     skippedEntryIds: [ENTRY_ID],
     skippedMediaIds: [],
+    skippedTrackIds: [],
     issues: [],
     identity: { outcome: 'preserved' },
     invalidation: INVALIDATION,
   }),
   'archive.export': ok<ArchiveExportResult>({
     archive: exportPackage(),
-    archiveId: ARCHIVE_ID,
+    artifactId: MINTED_STABLE_IDS[0],
+    sourceStoreId: ARCHIVE_ID,
     createdAt: '2025-06-14T18:00:00Z',
     counts: { entries: 128, media: 6, summaries: 21 },
     dateRange: { start: '2024-08-01', end: '2025-06-14' },

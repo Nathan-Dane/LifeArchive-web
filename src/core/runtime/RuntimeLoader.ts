@@ -6,11 +6,13 @@ import {
   parseRuntimeLock,
   type RuntimeManifest,
 } from './runtimeManifest'
+import { RuntimeFetchError, fetchVerifiedBytes } from './runtimeFetch'
 import {
-  RuntimeFetchError,
-  fetchBytes,
-  fetchVerifiedBytes,
-} from './runtimeFetch'
+  RuntimeArtifactError,
+  extractRuntimeArtifact,
+  type ExtractedRuntimeArtifact,
+  verifyExtractedRuntimeFiles,
+} from './runtimeArtifact'
 import type { RuntimeLoadState } from './runtimeState'
 import { WorkerTransport } from './worker/WorkerTransport'
 
@@ -21,11 +23,17 @@ export interface RuntimeLoaderOptions {
   readonly createWorker?: (manifest: RuntimeManifest) => Worker
   readonly installedBaseUrl?: string
   readonly allowDevelopmentRuntime?: boolean
+  readonly createObjectUrl?: (blob: Blob) => string
+  readonly revokeObjectUrl?: (url: string) => void
 }
 
 export class RuntimeLoader {
   private readonly options: RuntimeLoaderOptions
   private state: RuntimeLoadState = { state: 'checking' }
+  private verifiedArtifact: {
+    readonly key: string
+    readonly artifact: ExtractedRuntimeArtifact
+  } | null = null
 
   constructor(options: RuntimeLoaderOptions = {}) {
     this.options = options
@@ -43,7 +51,6 @@ export class RuntimeLoader {
       new URL('/runtime/installed/', globalThis.location?.href).href
     let lockInput: unknown = this.options.lock ?? runtimeLockInput
     let localArtifactUrl: string | null = null
-    let developmentRevision: string | null = null
     const allowDevelopmentRuntime =
       (import.meta.env.DEV || import.meta.env.MODE === 'test') &&
       (this.options.allowDevelopmentRuntime ??
@@ -58,7 +65,6 @@ export class RuntimeLoader {
         if (local) {
           lockInput = local.lock
           localArtifactUrl = local.artifactUrl
-          developmentRevision = local.revision
         }
       } catch {
         return this.finish({
@@ -83,51 +89,60 @@ export class RuntimeLoader {
     if (!secure) {
       return this.finish({ state: 'unavailable', reason: 'insecure-context' })
     }
-
-    try {
-      await fetchVerifiedBytes(
-        localArtifactUrl ?? lock.artifactUrl,
-        lock.sha256,
-        fetchImpl,
-      )
-    } catch (error) {
-      if (error instanceof RuntimeFetchError) {
-        if (error.kind === 'checksum') {
-          return this.finish({
-            state: 'incompatible',
-            reason: 'checksum-mismatch',
-          })
-        }
-        return this.finish({
-          state: 'unavailable',
-          reason: error.kind === 'missing' ? 'missing' : 'download-failed',
-        })
-      }
-      return this.finish({ state: 'unavailable', reason: 'download-failed' })
+    if (typeof globalThis.DecompressionStream !== 'function') {
+      return this.finish({
+        state: 'incompatible',
+        reason: 'environment-unsupported',
+      })
     }
 
-    let manifestInput: unknown
-    try {
-      const bytes = await fetchBytes(
-        installedRuntimeUrl(
-          'runtime-manifest.json',
-          baseUrl,
-          developmentRevision,
-        ),
-        fetchImpl,
-      )
-      manifestInput = JSON.parse(new TextDecoder().decode(bytes))
-    } catch {
-      return this.finish({ state: 'unavailable', reason: 'missing' })
+    const artifactUrl = localArtifactUrl ?? lock.artifactUrl
+    const cacheKey = `${artifactUrl}\u0000${lock.sha256}`
+    let extracted =
+      this.verifiedArtifact?.key === cacheKey
+        ? this.verifiedArtifact.artifact
+        : undefined
+    const cacheHit = extracted !== undefined
+    if (!extracted) {
+      let artifact: Uint8Array
+      try {
+        artifact = await fetchVerifiedBytes(artifactUrl, lock.sha256, fetchImpl)
+      } catch (error) {
+        if (error instanceof RuntimeFetchError) {
+          if (error.kind === 'checksum') {
+            return this.finish({
+              state: 'incompatible',
+              reason: 'checksum-mismatch',
+            })
+          }
+          return this.finish({
+            state: 'unavailable',
+            reason: error.kind === 'missing' ? 'missing' : 'download-failed',
+          })
+        }
+        return this.finish({ state: 'unavailable', reason: 'download-failed' })
+      }
+
+      try {
+        extracted = await extractRuntimeArtifact(artifact, lock.runtimeVersion)
+      } catch (error) {
+        return this.finish({
+          state: 'incompatible',
+          reason:
+            error instanceof RuntimeArtifactError && error.kind === 'checksum'
+              ? 'checksum-mismatch'
+              : 'manifest-mismatch',
+        })
+      }
     }
 
     let manifest: RuntimeManifest
     try {
-      manifest = assertRuntimeCompatibility(manifestInput, lock)
+      manifest = assertRuntimeCompatibility(extracted.manifestInput, lock)
     } catch (error) {
       return this.finish({
         state: 'incompatible',
-        reason: compatibilityReason(error, manifestInput, lock),
+        reason: compatibilityReason(error, extracted.manifestInput, lock),
       })
     }
     if (!supportsEnvironment(manifest, Boolean(this.options.createWorker))) {
@@ -137,26 +152,63 @@ export class RuntimeLoader {
       })
     }
 
-    try {
-      await Promise.all(
-        manifest.files.map(({ path, sha256 }) =>
-          fetchVerifiedBytes(
-            installedRuntimeUrl(path, baseUrl, developmentRevision),
-            sha256,
-            fetchImpl,
-          ),
-        ),
-      )
-    } catch (error) {
-      if (error instanceof RuntimeFetchError && error.kind === 'checksum') {
+    if (!cacheHit) {
+      try {
+        await verifyExtractedRuntimeFiles(manifest, extracted.files)
+      } catch (error) {
+        if (
+          error instanceof RuntimeArtifactError &&
+          error.kind === 'checksum'
+        ) {
+          return this.finish({
+            state: 'incompatible',
+            reason: 'checksum-mismatch',
+          })
+        }
         return this.finish({
           state: 'incompatible',
-          reason: 'checksum-mismatch',
+          reason: 'manifest-mismatch',
         })
       }
-      return this.finish({ state: 'unavailable', reason: 'missing' })
+      // Only this loader instance may reuse bytes it fetched and verified.
+      // Replacing the single entry also prevents stale runtime retention after
+      // an immutable pin changes in a long-lived page.
+      this.verifiedArtifact = { key: cacheKey, artifact: extracted }
     }
 
+    const createObjectUrl =
+      this.options.createObjectUrl ??
+      globalThis.URL?.createObjectURL?.bind(globalThis.URL)
+    const revokeObjectUrl =
+      this.options.revokeObjectUrl ??
+      globalThis.URL?.revokeObjectURL?.bind(globalThis.URL)
+    if (!createObjectUrl || !revokeObjectUrl) {
+      return this.finish({
+        state: 'incompatible',
+        reason: 'environment-unsupported',
+      })
+    }
+    const loaderBytes = extracted.files.get(manifest.modules.loader)
+    const wasmBytes = extracted.files.get(manifest.modules.wasm)
+    if (!loaderBytes || !wasmBytes) {
+      return this.finish({
+        state: 'incompatible',
+        reason: 'manifest-mismatch',
+      })
+    }
+    const loaderUrl = createObjectUrl(
+      new Blob([copyBuffer(loaderBytes)], { type: 'text/javascript' }),
+    )
+    const wasmUrl = createObjectUrl(
+      new Blob([copyBuffer(wasmBytes)], { type: 'application/wasm' }),
+    )
+    let urlsRevoked = false
+    const revokeRuntimeUrls = () => {
+      if (urlsRevoked) return
+      urlsRevoked = true
+      revokeObjectUrl(loaderUrl)
+      revokeObjectUrl(wasmUrl)
+    }
     try {
       const createWorker =
         this.options.createWorker ??
@@ -167,21 +219,17 @@ export class RuntimeLoader {
       const transport = new WorkerTransport({
         createWorker: () => createWorker(manifest),
         runtime: {
-          loaderUrl: installedRuntimeUrl(
-            manifest.modules.loader,
-            baseUrl,
-            developmentRevision,
-          ),
-          wasmUrl: installedRuntimeUrl(
-            manifest.modules.wasm,
-            baseUrl,
-            developmentRevision,
-          ),
+          loaderUrl,
+          wasmUrl,
           productContract: manifest.productContract,
           bindingsAbi: manifest.bindingsAbi,
         },
       })
       await transport.start()
+      // Startup awaits loader import and Wasm instantiation in the worker.
+      // Revoking now prevents later code or caches from reselecting a stable
+      // production URL while leaving the instantiated module usable.
+      revokeRuntimeUrls()
       const negotiation = await transport.request({
         operation: 'product.describe',
         payload: {
@@ -216,6 +264,7 @@ export class RuntimeLoader {
         }),
       })
     } catch {
+      revokeRuntimeUrls()
       return this.finish({
         state: 'unavailable',
         reason: 'worker-instantiate-failed',
@@ -227,6 +276,12 @@ export class RuntimeLoader {
     this.state = state
     return state
   }
+}
+
+function copyBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  return copy.buffer
 }
 
 function supportsEnvironment(
@@ -259,7 +314,6 @@ async function readDevelopmentRuntime(
 ): Promise<{
   readonly lock: unknown
   readonly artifactUrl: string
-  readonly revision: string
 } | null> {
   const response = await fetchImpl(
     new URL('local-runtime.json', baseUrl).href,
@@ -285,7 +339,6 @@ async function readDevelopmentRuntime(
       baseUrl,
       receipt.lock.sha256,
     ),
-    revision: receipt.lock.sha256,
   }
 }
 

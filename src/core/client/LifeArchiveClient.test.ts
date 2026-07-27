@@ -8,7 +8,7 @@ import type { ClientSurfaceArea, ClientSurfaceMethod } from './capabilities'
 import { clientFailure, failed, failureKey, isOk, ok } from './errors'
 import type { ClientFailure, ClientResult } from './errors'
 import type { LifeArchiveClient } from './LifeArchiveClient'
-import { operationId, stableId } from './types'
+import { operationId, revision, stableId } from './types'
 import type { OperationId, StableId, Unsubscribe } from './types'
 
 /* -------------------------------------------------------------------------- */
@@ -207,13 +207,18 @@ describe('client results', () => {
       retryable: false,
       field: 'expectedRevision',
       subject: { kind: 'entry', id: FAKE_STABLE_ID },
+      expectedRevision: revision('7'),
+      actualRevision: revision('8'),
+      cause: { code: 'storeReadFailed', field: 'entryId' },
     })
     expect(Object.keys(failure).sort()).toEqual([
+      'actualRevision',
       'area',
       'cause',
       'cleanup',
       'code',
       'durableOutcome',
+      'expectedRevision',
       'field',
       'phase',
       'retryable',
@@ -221,7 +226,12 @@ describe('client results', () => {
     ])
     expect(failureKey(failure)).toBe('record.revisionConflict')
     expect(failure.cleanup).toBeNull()
-    expect(failure.cause).toBeNull()
+    expect(failure.expectedRevision).toBe(revision('7'))
+    expect(failure.actualRevision).toBe(revision('8'))
+    expect(failure.cause).toEqual({
+      code: 'storeReadFailed',
+      field: 'entryId',
+    })
   })
 
   it('wraps a success without reinterpreting it', () => {

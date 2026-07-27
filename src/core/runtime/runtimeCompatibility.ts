@@ -136,7 +136,7 @@ export const runtimeManifestSchema = z
       wasm: bundlePathSchema,
       types: bundlePathSchema,
     }),
-    files: z.array(runtimeFileSchema).min(5),
+    files: z.array(runtimeFileSchema).length(5),
     persistence: z.strictObject({
       backend: z.string().regex(identifier),
       durable: z.boolean(),

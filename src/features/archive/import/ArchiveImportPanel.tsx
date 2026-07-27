@@ -176,13 +176,7 @@ function ImportResultView({
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
-  const noOp =
-    result.importedEntries === 0 &&
-    result.importedMedia === 0 &&
-    result.skippedEntries === 0 &&
-    result.skippedMedia === 0 &&
-    result.issues.length === 0 &&
-    result.identity.outcome === 'preserved'
+  const noOp = !result.changed
 
   return (
     <div className="archive-import__result">
@@ -206,6 +200,10 @@ function ImportResultView({
           value={formatNumber(result.importedMedia)}
         />
         <Count
+          label={t('archive.import.count.importedTracks')}
+          value={formatNumber(result.importedTracks)}
+        />
+        <Count
           label={t('archive.import.count.skippedEntries')}
           value={formatNumber(result.skippedEntries)}
         />
@@ -213,10 +211,19 @@ function ImportResultView({
           label={t('archive.import.count.skippedMedia')}
           value={formatNumber(result.skippedMedia)}
         />
+        <Count
+          label={t('archive.import.count.skippedTracks')}
+          value={formatNumber(result.skippedTracks)}
+        />
       </dl>
       {result.issues.length > 0 ? (
         <p className="archive-import__message">
           {t('archive.import.issues', { count: result.issues.length })}
+        </p>
+      ) : null}
+      {result.recovery === 'pending' ? (
+        <p className="archive-import__message">
+          {t('archive.import.recovery.pending')}
         </p>
       ) : null}
       <p className="archive-import__message">
@@ -281,11 +288,18 @@ function identityMessage(
       return t('archive.import.identity.preserved')
     case 'adopted':
       return t('archive.import.identity.adopted')
-    case 'filled':
-      return identity.unchangedFields.length > 0
+    case 'matched':
+      return t('archive.import.identity.matched')
+    case 'merged':
+      return identity.filledFields.length > 0 &&
+        identity.conflictingFields.length > 0
         ? t('archive.import.identity.conflicts', {
-            count: identity.unchangedFields.length,
+            count: identity.conflictingFields.length,
           })
-        : t('archive.import.identity.filled')
+        : identity.filledFields.length > 0
+          ? t('archive.import.identity.filled')
+          : t('archive.import.identity.conflictsOnly', {
+              count: identity.conflictingFields.length,
+            })
   }
 }

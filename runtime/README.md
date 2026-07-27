@@ -41,6 +41,15 @@ redirects, verifies the whole-archive checksum, archive allowlist, manifest
 identity, and payload checksums, then installs into ignored
 `runtime/installed/`. Any mismatch leaves no newly installed runtime.
 
+At browser load, the pinned tar is fetched with cache bypass, whole-artifact
+verified, and parsed as the exact approved ustar layout. Compatibility reads
+the manifest extracted from those verified bytes, and the worker receives
+short-lived object URLs made only from the matching extracted loader and Wasm.
+It never selects separately hosted stable manifest or module URLs. A verified
+in-memory extraction may be reused only under the exact artifact URL plus
+whole-artifact SHA-256 identity; failed or partial verification is never
+cached.
+
 For a private/public sibling development workspace, a developer may install an
 already packaged runtime without pretending it is a production pin:
 

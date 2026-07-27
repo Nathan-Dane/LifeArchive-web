@@ -6,6 +6,7 @@ import {
   parseRuntimeLock,
   verifyArtifactSha256,
 } from './runtimeCompatibility'
+import { runtimeBoundary } from './runtimeBoundary'
 
 /**
  * The lock file is the single source of truth for which runtime this checkout
@@ -117,6 +118,40 @@ describe('runtime state', () => {
     expect(() =>
       assertRuntimeCompatibility({ ...manifest, capabilities }, pinnedLock),
     ).toThrow()
+  })
+
+  it('keeps every ergonomic runtime dispatch inside the approved 39-operation ABI', () => {
+    const approved = new Set<string>(
+      WEB_V0_1_CAPABILITIES.map(([operation]) => operation),
+    )
+    const dispatched = Object.values(runtimeBoundary).map(
+      (entry) => entry.operation,
+    )
+
+    expect(WEB_V0_1_CAPABILITIES).toHaveLength(39)
+    expect(new Set(dispatched).size).toBe(dispatched.length)
+    expect(dispatched.filter((operation) => !approved.has(operation))).toEqual(
+      [],
+    )
+    expect(
+      new Set([
+        ...dispatched,
+        'product.describe',
+        'store.invalidation',
+        'operation.cancel',
+      ]),
+    ).toEqual(approved)
+    expect(
+      Object.values(runtimeBoundary).every(
+        (entry) =>
+          typeof entry.prepare === 'function' &&
+          typeof entry.map === 'function',
+      ),
+    ).toBe(true)
+    expect(dispatched).not.toContain('runtime.storage')
+    expect(dispatched).not.toContain('time.window')
+    expect(dispatched).not.toContain('time.step')
+    expect(dispatched).not.toContain('time.calendarContext')
   })
 
   it('rejects missing licence files and private commit identities', () => {

@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { clientFailure, operationId, revision, stableId } from '../client'
+import {
+  civilDate,
+  clientFailure,
+  coreTimeWindow,
+  operationId,
+  revision,
+  stableId,
+} from '../client'
+import packageMetadata from '../../../package.json'
 import { RuntimeLifeArchiveClient } from './RuntimeLifeArchiveClient'
 import { WorkerTransport, WorkerTransportError } from './worker/WorkerTransport'
 import { FixedWorker } from './worker/fixtures/FixedWorker'
@@ -13,6 +21,35 @@ const runtime = {
   backend: 'opfs-sqlite',
   durability: 'durable',
 } as const
+
+const testWindow = coreTimeWindow({
+  id: 'opaque-test-window',
+  scale: 'day',
+  startMs: 1,
+  endMs: 2,
+  startDate: civilDate('2026-07-27'),
+  endDate: civilDate('2026-07-27'),
+  calendarId: 'gregorian',
+  timeZoneId: 'Europe/Copenhagen',
+})
+
+function runtimeOpenResult(
+  storeId: ReturnType<typeof stableId>,
+  storeInstanceId: string,
+  tokenRevision = '1',
+  schemaVersion = '7',
+) {
+  return {
+    outcome: 'opened',
+    productContractVersion: '5',
+    rootLayoutVersion: '1',
+    storeId,
+    schemaVersion,
+    token: { storeInstanceId, revision: tokenRevision },
+    ready: true,
+    versions: {},
+  }
+}
 
 function deferred<Value>() {
   let resolve!: (value: Value) => void
@@ -35,16 +72,10 @@ async function openClientWithWorker(generation: string) {
   worker.respond(generation, request.requestId, {
     envelope: {
       outcome: 'success',
-      result: {
-        storeId: stableId('A1000000-0000-4000-8000-000000000099'),
-        productContract: '5',
-        storeSchemaVersion: '7',
-        rootLayoutVersion: '1',
-        invalidation: {
-          storeInstanceId: 'worker-loss-test',
-          revision: revision('1'),
-        },
-      },
+      result: runtimeOpenResult(
+        stableId('A1000000-0000-4000-8000-000000000099'),
+        'worker-loss-test',
+      ),
     },
     transfers: [],
   })
@@ -53,6 +84,67 @@ async function openClientWithWorker(generation: string) {
 }
 
 describe('RuntimeLifeArchiveClient', () => {
+  it('never dispatches operations outside the approved browser ABI', async () => {
+    const request = vi.fn()
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request,
+        close: () => Promise.resolve(),
+      },
+    })
+    const weekRules = { firstWeekday: 1, minimumDaysInFirstWeek: 4 }
+    const window = coreTimeWindow({
+      id: 'opaque-window',
+      scale: 'week',
+      startMs: 1,
+      endMs: 2,
+      startDate: civilDate('2026-07-20'),
+      endDate: civilDate('2026-07-26'),
+      calendarId: 'gregorian',
+      timeZoneId: 'Europe/Copenhagen',
+    })
+
+    await expect(client.runtime.storage()).resolves.toEqual({
+      status: 'ok',
+      value: {
+        backend: 'opfs-sqlite',
+        durability: 'durable',
+        archiveOpen: false,
+        grant: 'unknown',
+        estimate: null,
+      },
+    })
+    await expect(
+      client.time.window({
+        scale: 'day',
+        containing: civilDate('2026-07-27'),
+        timeZoneId: 'Europe/Copenhagen',
+        weekRules,
+      }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      failure: { code: 'unsupportedCapability' },
+    })
+    await expect(
+      client.time.step({ window, step: 'next', weekRules }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      failure: { code: 'unsupportedCapability' },
+    })
+    await expect(
+      client.time.calendarContext({
+        focusedDate: civilDate('2026-07-27'),
+        timeZoneId: 'Europe/Copenhagen',
+        weekRules,
+      }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      failure: { code: 'unsupportedCapability' },
+    })
+    expect(request).not.toHaveBeenCalled()
+  })
+
   it('maps the runtime archive overview vocabulary into ergonomic facts', async () => {
     const storeId = stableId('A1000000-0000-4000-8000-000000000030')
     let runtimeRequest: unknown
@@ -150,12 +242,19 @@ describe('RuntimeLifeArchiveClient', () => {
     const exportOperationId = operationId(
       'A1000000-0000-4000-8000-000000000031',
     )
-    const archiveId = stableId('A1000000-0000-4000-8000-000000000032')
+    const artifactId = stableId('A1000000-0000-4000-8000-000000000032')
+    const sourceStoreId = stableId('A1000000-0000-4000-8000-000000000033')
     let runtimeRequest: unknown
     const client = new RuntimeLifeArchiveClient({
       runtime,
       transport: {
         request: (request) => {
+          if (request.operation === 'store.open') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: runtimeOpenResult(sourceStoreId, 'export-open-test'),
+            })
+          }
           runtimeRequest = request.payload
           return Promise.resolve({
             envelope: {
@@ -167,7 +266,7 @@ describe('RuntimeLifeArchiveClient', () => {
                   storeInstanceId: 'export-wire-test',
                   revision: '10',
                 },
-                archiveId,
+                archiveId: artifactId,
                 createdAt: '2026-07-27T12:00:00Z',
                 counts: {
                   entries: 4,
@@ -197,31 +296,34 @@ describe('RuntimeLifeArchiveClient', () => {
       },
     })
 
+    await expect(client.archive.open()).resolves.toMatchObject({ status: 'ok' })
     const result = await client.archive.export({
       operationId: exportOperationId,
-      archiveId,
+      artifactId,
+      sourceStoreId,
       createdAtMs: 1_785_153_600_000,
-      application: { name: 'LifeArchive Web', version: '0.1.0' },
     })
 
     expect(runtimeRequest).toEqual({
       request: {
         operationId: exportOperationId,
         contractVersion: '5',
-        archiveId,
+        archiveId: artifactId,
         createdAtMs: 1_785_153_600_000,
         createdBy: {
           appName: 'LifeArchive Web',
-          appVersion: '0.1.0',
+          appVersion: packageMetadata.version,
         },
         archiveName: 'LifeArchive.lifearchive',
       },
       transfers: [],
     })
+    expect(packageMetadata.version).toBe('0.1.0')
     expect(result).toMatchObject({
       status: 'ok',
       value: {
-        archiveId,
+        artifactId,
+        sourceStoreId,
         createdAt: '2026-07-27T12:00:00Z',
         counts: { entries: 4, media: 2, summaries: 0 },
         dateRange: {
@@ -243,6 +345,42 @@ describe('RuntimeLifeArchiveClient', () => {
       type: 'application/x-tar',
       size: 4,
     })
+  })
+
+  it('rejects a mislabeled export source before runtime dispatch', async () => {
+    const openStoreId = stableId('A1000000-0000-4000-8000-000000000034')
+    const operations: string[] = []
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: ({ operation }) => {
+          operations.push(operation)
+          return Promise.resolve({
+            outcome: 'success',
+            result: runtimeOpenResult(openStoreId, 'export-source-test'),
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+    await expect(client.archive.open()).resolves.toMatchObject({ status: 'ok' })
+
+    await expect(
+      client.archive.export({
+        operationId: operationId('A1000000-0000-4000-8000-000000000035'),
+        artifactId: stableId('A1000000-0000-4000-8000-000000000036'),
+        sourceStoreId: stableId('A1000000-0000-4000-8000-000000000037'),
+        createdAtMs: 1,
+      }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      failure: {
+        code: 'invalidIdentifier',
+        field: 'sourceStoreId',
+        durableOutcome: 'not-started',
+      },
+    })
+    expect(operations).toEqual(['store.open'])
   })
 
   it.each([
@@ -285,16 +423,12 @@ describe('RuntimeLifeArchiveClient', () => {
           if (request.operation === 'store.open') {
             return Promise.resolve({
               outcome: 'success',
-              result: {
-                storeId: stableId('A1000000-0000-4000-8000-000000000020'),
-                productContract: '5',
-                storeSchemaVersion: '1',
-                rootLayoutVersion: '1',
-                invalidation: {
-                  storeInstanceId: 'close-test',
-                  revision: revision('1'),
-                },
-              },
+              result: runtimeOpenResult(
+                stableId('A1000000-0000-4000-8000-000000000020'),
+                'close-test',
+                '1',
+                '1',
+              ),
             })
           }
           if (closeShouldFail) {
@@ -366,6 +500,12 @@ describe('RuntimeLifeArchiveClient', () => {
       'store.open',
     ])
 
+    const wireArchive = runtimeOpenResult(
+      stableId('A1000000-0000-4000-8000-000000000021'),
+      'simultaneous-open',
+      '1',
+      '1',
+    )
     const archive = {
       storeId: stableId('A1000000-0000-4000-8000-000000000021'),
       productContract: '5',
@@ -376,7 +516,7 @@ describe('RuntimeLifeArchiveClient', () => {
         revision: revision('1'),
       },
     }
-    pendingOpen.resolve({ outcome: 'success', result: archive })
+    pendingOpen.resolve({ outcome: 'success', result: wireArchive })
     expect(await opening).toEqual({ status: 'ok', value: archive })
     expect(client.archive.session()).toEqual({ state: 'open', archive })
   })
@@ -396,7 +536,7 @@ describe('RuntimeLifeArchiveClient', () => {
             outcome: 'success',
             result: {
               outcome: 'erased',
-              invalidation: {
+              token: {
                 storeInstanceId: 'after-exclusive-erase',
                 revision: revision('2'),
               },
@@ -417,9 +557,9 @@ describe('RuntimeLifeArchiveClient', () => {
       }),
       client.archive.export({
         operationId: operationId('A1000000-0000-4000-8000-000000000023'),
-        archiveId: stableId('A1000000-0000-4000-8000-000000000024'),
+        artifactId: stableId('A1000000-0000-4000-8000-000000000024'),
+        sourceStoreId: stableId('A1000000-0000-4000-8000-000000000025'),
         createdAtMs: 1_785_153_600_000,
-        application: { name: 'LifeArchive Web', version: '0.1.0' },
       }),
       client.archive.erase({ confirmation: 'erase-this-archive' }),
       client.archive.open(),
@@ -441,7 +581,7 @@ describe('RuntimeLifeArchiveClient', () => {
 
     pendingVerify.resolve({
       outcome: 'success',
-      result: { outcome: 'verified' },
+      result: { valid: true, issues: [], checkedFiles: 1 },
     })
     expect((await verifying).status).toBe('ok')
     await Promise.resolve()
@@ -468,16 +608,12 @@ describe('RuntimeLifeArchiveClient', () => {
             request.operation === 'store.open'
               ? {
                   outcome: 'success',
-                  result: {
-                    storeId: stableId('A1000000-0000-4000-8000-000000000025'),
-                    productContract: '5',
-                    storeSchemaVersion: '1',
-                    rootLayoutVersion: '1',
-                    invalidation: {
-                      storeInstanceId: 'close-teardown',
-                      revision: revision('1'),
-                    },
-                  },
+                  result: runtimeOpenResult(
+                    stableId('A1000000-0000-4000-8000-000000000025'),
+                    'close-teardown',
+                    '1',
+                    '1',
+                  ),
                 }
               : {
                   outcome: 'success',
@@ -525,16 +661,7 @@ describe('RuntimeLifeArchiveClient', () => {
           if (request.operation === 'store.open') {
             return Promise.resolve({
               outcome: 'success',
-              result: {
-                storeId,
-                productContract: '5',
-                storeSchemaVersion: '1',
-                rootLayoutVersion: '1',
-                invalidation: {
-                  storeInstanceId: 'before-import',
-                  revision: revision('1'),
-                },
-              },
+              result: runtimeOpenResult(storeId, 'before-import', '1', '1'),
             })
           }
           importSignal = request.signal
@@ -604,16 +731,109 @@ describe('RuntimeLifeArchiveClient', () => {
     })
   })
 
+  it('reports track-only and recovery-only import mutations as changed', async () => {
+    const storeId = stableId('A1000000-0000-4000-8000-000000000087')
+    const afterTrack = {
+      storeInstanceId: 'track-only-import',
+      revision: revision('2'),
+    }
+    let importCount = 0
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: ({ operation }) => {
+          if (operation === 'store.open') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: runtimeOpenResult(storeId, 'track-only-import', '1', '1'),
+            })
+          }
+          importCount += 1
+          return Promise.resolve({
+            outcome: 'success',
+            result: {
+              outcome: 'applied',
+              importedEntries: 0,
+              importedAttachments: 0,
+              importedTracks: importCount === 1 ? 1 : 0,
+              skippedEntries: 0,
+              skippedAttachments: 0,
+              skippedTracks: 0,
+              skippedEntryIds: [],
+              skippedAttachmentIds: [],
+              skippedTrackIds: [],
+              issues:
+                importCount === 1
+                  ? []
+                  : [
+                      {
+                        code: 'recoveryPending',
+                        field: null,
+                        recordKind: null,
+                        id: null,
+                      },
+                    ],
+              identityOutcome: 'legacyPreserved',
+              identityConflicts: [],
+              identityFilledFields: [],
+              token: afterTrack,
+            },
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+    await client.archive.open()
+    const archive = new File([Uint8Array.from([1])], 'Import.lifearchive.tar')
+
+    const trackOnly = await client.archive.import({
+      operationId: operationId('A1000000-0000-4000-8000-000000000088'),
+      archive,
+    })
+    expect(trackOnly).toMatchObject({
+      status: 'ok',
+      value: {
+        changed: true,
+        recovery: 'clean',
+        importedEntries: 0,
+        importedMedia: 0,
+        importedTracks: 1,
+      },
+    })
+
+    const recoveryOnly = await client.archive.import({
+      operationId: operationId('A1000000-0000-4000-8000-000000000089'),
+      archive,
+    })
+    expect(recoveryOnly).toMatchObject({
+      status: 'ok',
+      value: {
+        changed: true,
+        recovery: 'pending',
+        importedEntries: 0,
+        importedMedia: 0,
+        importedTracks: 0,
+      },
+    })
+  })
+
   it('cancels one active export out of band and waits for its definitive result', async () => {
     const exportOperationId = operationId(
       'A1000000-0000-4000-8000-000000000014',
     )
+    const sourceStoreId = stableId('A1000000-0000-4000-8000-000000000016')
     let exportSignal: AbortSignal | undefined
     let finishExport: ((value: unknown) => void) | undefined
     const client = new RuntimeLifeArchiveClient({
       runtime,
       transport: {
         request: (request) => {
+          if (request.operation === 'store.open') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: runtimeOpenResult(sourceStoreId, 'export-cancel-test'),
+            })
+          }
           exportSignal = request.signal
           return new Promise((resolve) => {
             finishExport = resolve
@@ -623,11 +843,12 @@ describe('RuntimeLifeArchiveClient', () => {
       },
     })
 
+    await expect(client.archive.open()).resolves.toMatchObject({ status: 'ok' })
     const exported = client.archive.export({
       operationId: exportOperationId,
-      archiveId: stableId('A1000000-0000-4000-8000-000000000015'),
+      artifactId: stableId('A1000000-0000-4000-8000-000000000015'),
+      sourceStoreId,
       createdAtMs: 1,
-      application: { name: 'test', version: '1' },
     })
     await vi.waitFor(() => expect(exportSignal).toBeDefined())
 
@@ -668,16 +889,7 @@ describe('RuntimeLifeArchiveClient', () => {
           if (request.operation === 'store.open') {
             return Promise.resolve({
               outcome: 'success',
-              result: {
-                storeId,
-                productContract: '5',
-                storeSchemaVersion: '1',
-                rootLayoutVersion: '1',
-                invalidation: {
-                  storeInstanceId: 'before-failure',
-                  revision: revision('1'),
-                },
-              },
+              result: runtimeOpenResult(storeId, 'before-failure', '1', '1'),
             })
           }
           return Promise.resolve({
@@ -727,16 +939,7 @@ describe('RuntimeLifeArchiveClient', () => {
           if (request.operation === 'store.open') {
             return Promise.resolve({
               outcome: 'success',
-              result: {
-                storeId,
-                productContract: '5',
-                storeSchemaVersion: '1',
-                rootLayoutVersion: '1',
-                invalidation: {
-                  storeInstanceId: 'before-erase',
-                  revision: revision('9'),
-                },
-              },
+              result: runtimeOpenResult(storeId, 'before-erase', '9', '1'),
             })
           }
           if (eraseShouldFail) {
@@ -757,7 +960,7 @@ describe('RuntimeLifeArchiveClient', () => {
             outcome: 'success',
             result: {
               outcome: 'erased',
-              invalidation: erasedInvalidation,
+              token: erasedInvalidation,
             },
           })
         },
@@ -802,27 +1005,23 @@ describe('RuntimeLifeArchiveClient', () => {
             case 'store.open':
               return Promise.resolve({
                 outcome: 'success',
-                result: {
+                result: runtimeOpenResult(
                   storeId,
-                  productContract: '5',
-                  storeSchemaVersion: '1',
-                  rootLayoutVersion: '1',
-                  invalidation: {
-                    storeInstanceId: 'shared-invalidation',
-                    revision: revision('1'),
-                  },
-                },
+                  'shared-invalidation',
+                  '1',
+                  '1',
+                ),
               })
             case 'record.deleteEntry':
               return Promise.resolve({
                 outcome: 'success',
                 result: {
-                  outcome: 'deleted',
+                  outcome: 'softDeleted',
                   deletedEntryId: stableId(
                     'A1000000-0000-4000-8000-000000000027',
                   ),
                   deletedRevision: revision('1'),
-                  invalidation: afterDelete,
+                  token: afterDelete,
                 },
               })
             case 'archive.identity.save':
@@ -830,25 +1029,35 @@ describe('RuntimeLifeArchiveClient', () => {
                 outcome: 'success',
                 result: {
                   outcome: 'updated',
-                  identity: {},
-                  invalidation: afterIdentity,
+                  identity: {
+                    id: stableId('A1000000-0000-4000-8000-000000000028'),
+                    title: null,
+                    subject: {
+                      id: stableId('A1000000-0000-4000-8000-000000000029'),
+                      displayName: null,
+                      shortName: null,
+                      lifeStatus: 'unspecified',
+                      dateOfBirth: null,
+                      dateOfDeath: null,
+                    },
+                  },
+                  token: afterIdentity,
                 },
               })
             case 'record.saveDraft':
               return Promise.resolve({
                 outcome: 'success',
                 result: {
-                  outcome: 'unchanged',
-                  entry: {},
-                  invalidation: afterIdentity,
+                  outcome: 'unchangedAbsent',
+                  token: afterIdentity,
                 },
               })
             default:
               return Promise.resolve({
                 outcome: 'success',
                 result: {
-                  presence: 'absent',
-                  invalidation: afterIdentity,
+                  outcome: 'absent',
+                  token: afterIdentity,
                 },
               })
           }
@@ -860,25 +1069,53 @@ describe('RuntimeLifeArchiveClient', () => {
     const changes: unknown[] = []
     client.operations.observeChanges((change) => changes.push(change))
 
-    await client.record.delete({} as never)
-    await client.identity.save({} as never)
-    await client.record.save({} as never)
-    await client.record.load({} as never)
+    await client.record.delete({
+      window: testWindow,
+      entryId: stableId('A1000000-0000-4000-8000-000000000027'),
+      expectedRevision: revision('1'),
+      nowMs: 1,
+    })
+    await client.identity.save({
+      id: stableId('A1000000-0000-4000-8000-000000000028'),
+      title: null,
+      subject: {
+        id: stableId('A1000000-0000-4000-8000-000000000029'),
+        displayName: null,
+        shortName: null,
+        lifeStatus: 'unspecified',
+        dateOfBirth: null,
+        dateOfDeath: null,
+      },
+    })
+    await client.record.save({
+      window: testWindow,
+      markdown: '',
+      nowMs: 1,
+      target: {
+        expectation: 'absent',
+        newEntryId: stableId('A1000000-0000-4000-8000-000000000030'),
+      },
+    })
+    await client.record.load(testWindow)
 
     expect(changes).toEqual([
       { storeId, invalidation: afterDelete },
       { storeId, invalidation: afterIdentity },
     ])
+    expect(client.archive.session()).toMatchObject({
+      state: 'open',
+      archive: { invalidation: afterIdentity },
+    })
   })
 
   it('maps one fixed runtime result without changing exact values or order', async () => {
     const exactRevision = revision('18446744073709551615')
     const exactId = stableId('A1000000-0000-4000-8000-000000000002')
     const resultValue = {
-      outcome: 'deleted',
+      outcome: 'softDeleted',
       deletedEntryId: exactId,
       deletedRevision: exactRevision,
-      invalidation: {
+      token: {
         storeInstanceId: 'fixed',
         revision: exactRevision,
       },
@@ -903,16 +1140,25 @@ describe('RuntimeLifeArchiveClient', () => {
     })
 
     const result = await client.record.delete({
+      window: testWindow,
       entryId: exactId,
       expectedRevision: exactRevision,
       nowMs: 1,
     })
-    expect(result).toEqual({ status: 'ok', value: resultValue })
+    expect(result).toEqual({
+      status: 'ok',
+      value: {
+        outcome: 'deleted',
+        deletedEntryId: exactId,
+        deletedRevision: exactRevision,
+        invalidation: {
+          storeInstanceId: 'fixed',
+          revision: exactRevision,
+        },
+      },
+    })
     expect(result.status === 'ok' && Object.isFrozen(result.value)).toBe(true)
-    expect(
-      result.status === 'ok' &&
-        (result.value as typeof resultValue).orderedUnknownSemanticIds,
-    ).toEqual(['future.tag', 'other.tag'])
+    expect(JSON.stringify(result)).not.toContain('orderedUnknownSemanticIds')
     expect(calls[0]?.operation).toBe('record.deleteEntry')
   })
 
@@ -936,7 +1182,7 @@ describe('RuntimeLifeArchiveClient', () => {
         close: () => Promise.resolve(),
       },
     })
-    const result = await client.record.load({} as never)
+    const result = await client.record.load(testWindow)
     expect(result).toEqual({
       status: 'failed',
       failure: expect.objectContaining({
@@ -962,16 +1208,42 @@ describe('RuntimeLifeArchiveClient', () => {
           if (request.operation === 'media.import') {
             return Promise.resolve({
               outcome: 'success',
-              result: { outcome: 'imported' },
+              result: {
+                outcome: 'imported',
+                attachment: {
+                  id: mediaId,
+                  entryId: parentId,
+                  fileName: 'exact.bin',
+                  mediaType: 'other',
+                  mimeType: 'application/octet-stream',
+                  byteSize: 4,
+                  createdAtMs: 1,
+                  capturedAtMs: null,
+                  durationMs: null,
+                  width: null,
+                  height: null,
+                  caption: null,
+                },
+                token: {
+                  storeInstanceId: 'media-test',
+                  revision: '2',
+                },
+              },
             })
           }
           return Promise.resolve({
             envelope: {
               outcome: 'success',
               result: {
-                mediaId,
+                outcome: 'resolved',
+                attachmentId: mediaId,
                 byteSize: 4,
                 sha256: null,
+                contentTransferId: 'media-transfer',
+                token: {
+                  storeInstanceId: 'media-test',
+                  revision: '2',
+                },
               },
             },
             transfers: [new Uint8Array([0, 255, 13, 10]).buffer],
@@ -1116,5 +1388,304 @@ describe('RuntimeLifeArchiveClient', () => {
     })
     expect(dispositions).toEqual(['existing'])
     expect(client.archive.session()).toEqual({ state: 'no-archive' })
+  })
+
+  it('maps a realistic runtime revision conflict into typed current writing', async () => {
+    const entryId = stableId('A1000000-0000-4000-8000-000000000081')
+    const currentState = {
+      entry: {
+        id: entryId,
+        entryType: 'day',
+        startMs: testWindow.startMs,
+        endMs: testWindow.endMs,
+        calendarIdentifier: testWindow.calendarId,
+        timeZoneIdentifier: testWindow.timeZoneId,
+        bodyMarkdown: 'current runtime writing',
+        plainTextCache: 'current runtime writing',
+        createdAtMs: 1,
+        updatedAtMs: 2,
+        deletedAtMs: null,
+        source: 'manual',
+        isPinned: false,
+        privacyLevel: 'normal',
+      },
+      mutationRevision: '2',
+    }
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: () =>
+          Promise.resolve({
+            outcome: 'failure',
+            failure: {
+              category: 'conflict',
+              code: 'revisionConflict',
+              details: {
+                area: 'record',
+                phase: 'mutation',
+                retryable: false,
+                field: 'expectedRevision',
+                entityKind: 'entry',
+                id: entryId,
+                expectedRevision: '1',
+                actualRevision: '2',
+              },
+              currentState,
+            },
+          }),
+        close: () => Promise.resolve(),
+      },
+    })
+
+    await expect(
+      client.record.save({
+        window: testWindow,
+        markdown: 'unsaved browser buffer',
+        nowMs: 3,
+        target: {
+          expectation: 'existing',
+          entryId,
+          expectedRevision: revision('1'),
+        },
+      }),
+    ).resolves.toEqual({
+      status: 'ok',
+      value: {
+        outcome: 'conflict',
+        conflict: {
+          expectedRevision: revision('1'),
+          actualRevision: revision('2'),
+          current: {
+            presence: 'present',
+            window: testWindow,
+            entry: {
+              id: entryId,
+              revision: revision('2'),
+              window: testWindow,
+              markdown: 'current runtime writing',
+              plainText: 'current runtime writing',
+              createdAtMs: 1,
+              updatedAtMs: 2,
+              isPinned: false,
+              privacy: 'normal',
+              source: 'manual',
+            },
+          },
+        },
+      },
+    })
+  })
+
+  it('keeps an unavailable revision failure generic when no conflict state exists', async () => {
+    const entryId = stableId('A1000000-0000-4000-8000-000000000086')
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: () =>
+          Promise.resolve({
+            outcome: 'failure',
+            failure: {
+              category: 'unavailable',
+              code: 'revisionConflict',
+              details: {
+                area: 'record',
+                phase: 'mutation',
+                retryable: true,
+                entityKind: 'entry',
+                id: entryId,
+                expectedRevision: '1',
+              },
+            },
+          }),
+        close: () => Promise.resolve(),
+      },
+    })
+
+    await expect(
+      client.record.save({
+        window: testWindow,
+        markdown: 'unsaved browser buffer',
+        nowMs: 3,
+        target: {
+          expectation: 'existing',
+          entryId,
+          expectedRevision: revision('1'),
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      failure: {
+        code: 'revisionConflict',
+        expectedRevision: revision('1'),
+        actualRevision: null,
+      },
+    })
+  })
+
+  it('keeps generic diagnostics structural and drops raw current state', async () => {
+    const entryId = stableId('A1000000-0000-4000-8000-000000000082')
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: () =>
+          Promise.resolve({
+            outcome: 'failure',
+            failure: {
+              category: 'io',
+              code: 'ioFailure',
+              details: {
+                area: 'record',
+                phase: 'snapshot',
+                retryable: true,
+                field: 'entryId',
+                entityKind: 'entry',
+                id: entryId,
+                expectedRevision: '8',
+                actualRevision: '9',
+                cleanupState: 'ownedStagingMayRemain',
+                privatePath: '/private/archive.sqlite3',
+              },
+              currentState: {
+                bodyMarkdown: 'private writing must not become diagnostics',
+              },
+            },
+          }),
+        close: () => Promise.resolve(),
+      },
+    })
+
+    const result = await client.record.load(testWindow)
+    expect(result).toMatchObject({
+      status: 'failed',
+      failure: {
+        area: 'record',
+        code: 'ioFailure',
+        field: 'entryId',
+        subject: { kind: 'entry', id: entryId },
+        expectedRevision: revision('8'),
+        actualRevision: revision('9'),
+        cleanup: 'temporary-output-may-remain',
+      },
+    })
+    expect(JSON.stringify(result)).not.toContain('private writing')
+    expect(JSON.stringify(result)).not.toContain('/private/')
+  })
+
+  it('fails explicitly when a runtime-shaped result is missing a required field', async () => {
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: () =>
+          Promise.resolve({
+            outcome: 'success',
+            result: {
+              outcome: 'loaded',
+              current: {
+                entry: {
+                  id: stableId('A1000000-0000-4000-8000-000000000083'),
+                },
+              },
+              token: { storeInstanceId: 'missing-field', revision: '1' },
+            },
+          }),
+        close: () => Promise.resolve(),
+      },
+    })
+
+    await expect(client.record.load(testWindow)).resolves.toMatchObject({
+      status: 'failed',
+      failure: { code: 'invalidRuntimeResponse', durableOutcome: 'known' },
+    })
+  })
+
+  it('forwards contract-required opaque and civil evidence without inference', async () => {
+    const calls: Array<{ operation: string; request: unknown }> = []
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: ({ operation, payload }) => {
+          const prepared = payload as { readonly request: unknown }
+          calls.push({ operation, request: prepared.request })
+          return Promise.resolve({
+            outcome: 'failure',
+            failure: {
+              category: 'validation',
+              code: 'invalidRequest',
+              details: {
+                area: 'request',
+                phase: 'mutation',
+                retryable: false,
+              },
+            },
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+    const memberId = stableId('A1000000-0000-4000-8000-000000000084')
+    const token = { storeInstanceId: 'opaque-token', revision: revision('4') }
+
+    await client.structured.convertSpanToEvent({
+      spanId: memberId,
+      expectedRevision: revision('3'),
+      requestedStartDate: civilDate('2026-07-01'),
+      requestedEndDate: civilDate('2026-07-02'),
+      nowMs: 5,
+    })
+    await client.tracks.detachMember({
+      memberId,
+      memberKind: 'span',
+      expectedMemberRevision: revision('3'),
+      expectedInvalidation: token,
+      nowMs: 5,
+    })
+    await client.timeline.focus({
+      window: testWindow,
+      weekRules: { firstWeekday: 2, minimumDaysInFirstWeek: 3 },
+      entry: null,
+      expectedInvalidation: token,
+    })
+
+    expect(calls).toEqual([
+      {
+        operation: 'structured.convertSpanToEvent',
+        request: {
+          contractVersion: 2,
+          id: memberId,
+          expectedRevision: revision('3'),
+          requestedStartDate: civilDate('2026-07-01'),
+          requestedEndDate: civilDate('2026-07-02'),
+          nowMs: 5,
+        },
+      },
+      {
+        operation: 'track.detachMember',
+        request: {
+          memberId,
+          memberKind: 'span',
+          expectedMemberRevision: revision('3'),
+          expectedToken: token,
+          nowMs: 5,
+        },
+      },
+      {
+        operation: 'timeline.focusedDetail',
+        request: {
+          contractVersion: 1,
+          span: {
+            id: testWindow.id,
+            scale: testWindow.scale,
+            startMs: testWindow.startMs,
+            endMs: testWindow.endMs,
+            calendarIdentifier: testWindow.calendarId,
+            timeZoneIdentifier: testWindow.timeZoneId,
+          },
+          firstWeekday: 2,
+          minimumDaysInFirstWeek: 3,
+          expectedEntry: null,
+          expectedToken: token,
+        },
+      },
+    ])
   })
 })
