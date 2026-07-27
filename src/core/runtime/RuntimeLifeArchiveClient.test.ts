@@ -51,6 +51,43 @@ function runtimeOpenResult(
   }
 }
 
+function runtimeOverviewResult(
+  storeId: ReturnType<typeof stableId>,
+  storeInstanceId: string,
+  tokenRevision = '1',
+  schemaVersion = 7,
+) {
+  return {
+    contractVersion: '5',
+    outcome: 'overview',
+    storeId,
+    schemaVersion,
+    storeContractVersion: 5,
+    token: { storeInstanceId, revision: tokenRevision },
+    visibleEntryCount: 0,
+    entryCounts: {
+      moment: 0,
+      day: 0,
+      week: 0,
+      month: 0,
+      year: 0,
+      custom: 0,
+    },
+    structuredCounts: { events: 0, spans: 0 },
+    trackCounts: { active: 0, archived: 0, ongoingMembers: 0 },
+    attachmentCount: 0,
+    attachmentByteTotal: 0,
+    health: {
+      storeReadable: true,
+      schemaCompatible: true,
+      recoveryState: 'clean',
+      databaseIntegrity: 'ok',
+      foreignKeyViolationCount: 0,
+      status: 'healthy',
+    },
+  }
+}
+
 function deferred<Value>() {
   let resolve!: (value: Value) => void
   const promise = new Promise<Value>((settle) => {
@@ -524,6 +561,8 @@ describe('RuntimeLifeArchiveClient', () => {
   it('admits only one archive operation and never queues stale cross-operation work', async () => {
     const pendingVerify = deferred<unknown>()
     const operations: string[] = []
+    const initialStoreId = stableId('A1000000-0000-4000-8000-000000000020')
+    const freshStoreId = stableId('A1000000-0000-4000-8000-000000000026')
     const client = new RuntimeLifeArchiveClient({
       runtime,
       transport: {
@@ -531,6 +570,25 @@ describe('RuntimeLifeArchiveClient', () => {
           operations.push(request.operation)
           if (request.operation === 'archive.verify') {
             return pendingVerify.promise
+          }
+          if (request.operation === 'store.open') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: runtimeOpenResult(
+                initialStoreId,
+                'before-exclusive-erase',
+              ),
+            })
+          }
+          if (request.operation === 'archive.overview') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: runtimeOverviewResult(
+                freshStoreId,
+                'after-exclusive-erase',
+                '2',
+              ),
+            })
           }
           return Promise.resolve({
             outcome: 'success',
@@ -587,10 +645,16 @@ describe('RuntimeLifeArchiveClient', () => {
     await Promise.resolve()
     expect(operations).toEqual(['archive.verify'])
 
+    await client.archive.open()
     expect(
       await client.archive.erase({ confirmation: 'erase-this-archive' }),
     ).toMatchObject({ status: 'ok', value: { outcome: 'erased' } })
-    expect(operations).toEqual(['archive.verify', 'archive.erase'])
+    expect(operations).toEqual([
+      'archive.verify',
+      'store.open',
+      'archive.erase',
+      'archive.overview',
+    ])
   })
 
   it('keeps a confirmed product close definitive if transport teardown fails', async () => {
@@ -927,6 +991,7 @@ describe('RuntimeLifeArchiveClient', () => {
 
   it('publishes successful erase invalidation so stale archive views close, but publishes nothing on failure', async () => {
     const storeId = stableId('A1000000-0000-4000-8000-000000000016')
+    const freshStoreId = stableId('A1000000-0000-4000-8000-000000000017')
     const erasedInvalidation = {
       storeInstanceId: 'after-erase',
       revision: revision('1'),
@@ -956,6 +1021,17 @@ describe('RuntimeLifeArchiveClient', () => {
               },
             })
           }
+          if (request.operation === 'archive.overview') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: runtimeOverviewResult(
+                freshStoreId,
+                erasedInvalidation.storeInstanceId,
+                erasedInvalidation.revision,
+                9,
+              ),
+            })
+          }
           return Promise.resolve({
             outcome: 'success',
             result: {
@@ -977,7 +1053,17 @@ describe('RuntimeLifeArchiveClient', () => {
       status: 'ok',
       value: { outcome: 'erased', invalidation: erasedInvalidation },
     })
-    expect(changes).toEqual([{ storeId, invalidation: erasedInvalidation }])
+    expect(changes).toEqual([
+      { storeId: freshStoreId, invalidation: erasedInvalidation },
+    ])
+    expect(client.archive.session()).toMatchObject({
+      state: 'open',
+      transition: 'erased',
+      archive: {
+        storeId: freshStoreId,
+        invalidation: erasedInvalidation,
+      },
+    })
 
     eraseShouldFail = true
     expect(
@@ -985,6 +1071,208 @@ describe('RuntimeLifeArchiveClient', () => {
         .status,
     ).toBe('failed')
     expect(changes).toHaveLength(1)
+  })
+
+  it('adopts only the fresh erase generation and rejects stale reads and mutations', async () => {
+    const oldStoreId = stableId('A1000000-0000-4000-8000-000000000017')
+    const freshStoreId = stableId('A1000000-0000-4000-8000-000000000018')
+    const identityId = stableId('A1000000-0000-4000-8000-000000000019')
+    const subjectId = stableId('A1000000-0000-4000-8000-000000000020')
+    const oldInvalidation = {
+      storeInstanceId: 'stale-before-erase',
+      revision: revision('2'),
+    }
+    const freshInvalidation = {
+      storeInstanceId: 'fresh-after-erase',
+      revision: revision('1'),
+    }
+    const pendingRead = deferred<unknown>()
+    const pendingMutation = deferred<unknown>()
+    const pendingErase = deferred<unknown>()
+    let overviewCalls = 0
+    const operations: string[] = []
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: ({ operation }) => {
+          operations.push(operation)
+          switch (operation) {
+            case 'store.open':
+              return Promise.resolve({
+                outcome: 'success',
+                result: runtimeOpenResult(
+                  oldStoreId,
+                  oldInvalidation.storeInstanceId,
+                ),
+              })
+            case 'archive.identity.save':
+              return pendingMutation.promise
+            case 'archive.overview':
+              overviewCalls += 1
+              return overviewCalls === 1
+                ? pendingRead.promise
+                : Promise.resolve({
+                    outcome: 'success',
+                    result: runtimeOverviewResult(
+                      freshStoreId,
+                      freshInvalidation.storeInstanceId,
+                      freshInvalidation.revision,
+                    ),
+                  })
+            case 'archive.erase':
+              return pendingErase.promise
+            default:
+              throw new Error(`unexpected operation ${operation}`)
+          }
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+    await client.archive.open()
+    const identity = {
+      id: identityId,
+      title: null,
+      subject: {
+        id: subjectId,
+        displayName: null,
+        shortName: null,
+        lifeStatus: 'unspecified' as const,
+        dateOfBirth: null,
+        dateOfDeath: null,
+      },
+    }
+    const staleMutation = client.identity.save(identity)
+    const staleRead = client.archive.overview()
+    const erase = client.archive.erase({
+      confirmation: 'erase-this-archive',
+    })
+    await vi.waitFor(() =>
+      expect(operations).toEqual([
+        'store.open',
+        'archive.identity.save',
+        'archive.overview',
+        'archive.erase',
+      ]),
+    )
+
+    await expect(client.identity.save(identity)).resolves.toMatchObject({
+      status: 'failed',
+      failure: {
+        code: 'staleArchiveGeneration',
+        durableOutcome: 'not-started',
+      },
+    })
+    expect(operations).toHaveLength(4)
+
+    pendingRead.resolve({
+      outcome: 'success',
+      result: runtimeOverviewResult(
+        oldStoreId,
+        oldInvalidation.storeInstanceId,
+        oldInvalidation.revision,
+      ),
+    })
+    await expect(staleRead).resolves.toMatchObject({
+      status: 'failed',
+      failure: {
+        code: 'staleArchiveGeneration',
+        durableOutcome: 'known',
+      },
+    })
+
+    pendingErase.resolve({
+      outcome: 'success',
+      result: { outcome: 'erased', token: freshInvalidation },
+    })
+    await expect(erase).resolves.toMatchObject({
+      status: 'ok',
+      value: { outcome: 'erased', invalidation: freshInvalidation },
+    })
+    expect(client.archive.session()).toMatchObject({
+      state: 'open',
+      archive: {
+        storeId: freshStoreId,
+        invalidation: freshInvalidation,
+      },
+    })
+
+    pendingMutation.resolve({
+      outcome: 'failure',
+      failure: {
+        code: 'invalidIdentifier',
+        details: {
+          area: 'archive',
+          phase: 'mutation',
+          retryable: false,
+          durableOutcome: 'known',
+          entityKind: 'archive',
+          id: oldStoreId,
+        },
+      },
+    })
+    const rejectedMutation = await staleMutation
+    expect(rejectedMutation).toMatchObject({
+      status: 'failed',
+      failure: {
+        code: 'staleArchiveGeneration',
+        durableOutcome: 'known',
+      },
+    })
+    if (rejectedMutation.status === 'failed') {
+      expect(rejectedMutation.failure.subject).toBeNull()
+    }
+  })
+
+  it('marks the prior archive invalid when erase succeeds but fresh identity adoption fails', async () => {
+    const oldStoreId = stableId('A1000000-0000-4000-8000-000000000021')
+    const freshInvalidation = {
+      storeInstanceId: 'unreadable-fresh-archive',
+      revision: revision('1'),
+    }
+    const changes: unknown[] = []
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: ({ operation }) => {
+          if (operation === 'store.open') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: runtimeOpenResult(oldStoreId, 'before-unreadable-erase'),
+            })
+          }
+          if (operation === 'archive.erase') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: { outcome: 'erased', token: freshInvalidation },
+            })
+          }
+          return Promise.resolve({
+            outcome: 'failure',
+            failure: {
+              code: 'ioFailure',
+              details: {
+                area: 'archive',
+                phase: 'snapshot',
+                retryable: true,
+                durableOutcome: 'known',
+              },
+            },
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+    await client.archive.open()
+    client.operations.observeChanges((change) => changes.push(change))
+
+    await expect(
+      client.archive.erase({ confirmation: 'erase-this-archive' }),
+    ).resolves.toMatchObject({ status: 'ok' })
+    expect(client.archive.session()).toEqual({
+      state: 'needs-recovery',
+      previousArchiveInvalid: true,
+    })
+    expect(changes).toEqual([])
   })
 
   it('publishes all observable mutation invalidations at the shared boundary, but not reads or no-ops', async () => {
@@ -1292,14 +1580,28 @@ describe('RuntimeLifeArchiveClient', () => {
   })
 
   it('treats a malformed mutation reply without completion evidence as unknown', async () => {
+    let opened = false
     const client = new RuntimeLifeArchiveClient({
       runtime,
       transport: {
-        request: () => Promise.resolve({ outcome: 'malformed' }),
+        request: ({ operation }) => {
+          if (operation === 'store.open' && !opened) {
+            opened = true
+            return Promise.resolve({
+              outcome: 'success',
+              result: runtimeOpenResult(
+                stableId('A1000000-0000-4000-8000-000000000096'),
+                'before-malformed-erase',
+              ),
+            })
+          }
+          return Promise.resolve({ outcome: 'malformed' })
+        },
         close: () => Promise.resolve(),
       },
     })
 
+    await client.archive.open()
     await expect(
       client.archive.erase({ confirmation: 'erase-this-archive' }),
     ).resolves.toMatchObject({

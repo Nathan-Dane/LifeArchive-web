@@ -110,6 +110,7 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
   private readonly changeListeners = new Set<(change: ArchiveChange) => void>()
   private readonly cancellableOperations = new Map<string, AbortController>()
   private archiveOperationActive = false
+  private archiveReplacementActive = false
 
   constructor(options: RuntimeClientOptions) {
     this.options = options
@@ -262,9 +263,71 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
         }
       }),
     erase: (request: ArchiveEraseRequest) =>
-      this.runExclusiveArchiveOperation(() =>
-        this.invoke(runtimeBoundary.archiveErase, request),
-      ),
+      this.runExclusiveArchiveOperation(async () => {
+        if (this.archiveState.state !== 'open') {
+          return failed(
+            clientFailure({
+              area: 'lifecycle',
+              code: 'closed',
+              phase: 'mutation',
+              retryable: false,
+              durableOutcome: 'not-started',
+            }),
+          )
+        }
+        this.archiveReplacementActive = true
+        const previousArchive = this.archiveState.archive
+        try {
+          const result = await this.invoke(
+            runtimeBoundary.archiveErase,
+            request,
+            undefined,
+            {
+              allowDuringReplacement: true,
+              ignoreCapturedGeneration: true,
+            },
+          )
+          if (result.status !== 'ok') return result
+
+          const overview = await this.invoke(
+            runtimeBoundary.archiveOverview,
+            {},
+            undefined,
+            {
+              allowDuringReplacement: true,
+              ignoreCapturedGeneration: true,
+            },
+          )
+          if (
+            overview.status !== 'ok' ||
+            !sameInvalidation(
+              overview.value.invalidation,
+              result.value.invalidation,
+            )
+          ) {
+            this.setArchiveState({
+              state: 'needs-recovery',
+              previousArchiveInvalid: true,
+            })
+            return result
+          }
+
+          const archive: OpenArchive = {
+            ...previousArchive,
+            storeId: overview.value.storeId,
+            storeSchemaVersion: overview.value.storeSchemaVersion,
+            invalidation: result.value.invalidation,
+          }
+          this.setArchiveState({ state: 'open', archive, transition: 'erased' })
+          notify(this.changeListeners, {
+            storeId: archive.storeId,
+            invalidation: archive.invalidation,
+          })
+          return result
+        } finally {
+          this.archiveReplacementActive = false
+        }
+      }),
   }
 
   readonly identity: LifeArchiveClient['identity'] = {
@@ -375,8 +438,23 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
     boundary: RuntimeBoundary<Request, Value>,
     request: Request,
     signal?: AbortSignal,
+    options: {
+      readonly allowDuringReplacement?: boolean
+      readonly ignoreCapturedGeneration?: boolean
+    } = {},
   ): Promise<ClientResult<Value>> {
     const operation = boundary.operation
+    if (this.archiveReplacementActive && !options.allowDuringReplacement) {
+      return failed(staleArchiveFailure('not-started'))
+    }
+    const capturedGeneration =
+      !options.ignoreCapturedGeneration && this.archiveState.state === 'open'
+        ? {
+            storeId: this.archiveState.archive.storeId,
+            storeInstanceId:
+              this.archiveState.archive.invalidation.storeInstanceId,
+          }
+        : null
     let requestDispatched = false
     let completionEvidence = false
     try {
@@ -402,6 +480,12 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
         throw new TypeError('Mismatched runtime response operation')
       }
       completionEvidence = true
+      if (
+        capturedGeneration !== null &&
+        this.capturedGenerationIsStale(capturedGeneration)
+      ) {
+        return failed(staleArchiveFailure('known'))
+      }
       if (envelope.outcome === 'failure') {
         const conflict =
           boundary.mapFailure?.(envelope.failure, request) ?? null
@@ -425,8 +509,27 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       if (failure.code === 'worker-lost') {
         this.recordWorkerLoss(failure.durableOutcome)
       }
+      if (
+        capturedGeneration !== null &&
+        this.capturedGenerationIsStale(capturedGeneration)
+      ) {
+        return failed(staleArchiveFailure(failure.durableOutcome))
+      }
       return failed(failure)
     }
+  }
+
+  private capturedGenerationIsStale(captured: {
+    readonly storeId: StableId
+    readonly storeInstanceId: string
+  }): boolean {
+    return (
+      this.archiveReplacementActive ||
+      this.archiveState.state !== 'open' ||
+      this.archiveState.archive.storeId !== captured.storeId ||
+      this.archiveState.archive.invalidation.storeInstanceId !==
+        captured.storeInstanceId
+    )
   }
 
   private recordWorkerLoss(
@@ -472,6 +575,7 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       !mayMutateDurableState(operation) ||
       operation === 'store.open' ||
       operation === 'store.close' ||
+      operation === 'archive.erase' ||
       this.archiveState.state !== 'open' ||
       !isRecord(value) ||
       isNoChangeMutation(value) ||
@@ -566,6 +670,28 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
     this.archiveState = state
     notify(this.sessionListeners, state)
   }
+}
+
+function staleArchiveFailure(
+  durableOutcome: 'known' | 'not-started' | 'unknown',
+): ClientFailure {
+  return clientFailure({
+    area: 'lifecycle',
+    code: 'staleArchiveGeneration',
+    phase: 'mutation',
+    retryable: false,
+    durableOutcome,
+  })
+}
+
+function sameInvalidation(
+  left: { readonly storeInstanceId: string; readonly revision: string },
+  right: { readonly storeInstanceId: string; readonly revision: string },
+): boolean {
+  return (
+    left.storeInstanceId === right.storeInstanceId &&
+    left.revision === right.revision
+  )
 }
 
 function unsupportedClientCapability<Value>(): Promise<ClientResult<Value>> {

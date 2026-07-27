@@ -44,6 +44,8 @@ export const failureMessages = {
   'failure.revisionExhausted': 'This item cannot take any further revisions.',
   'failure.storeAlreadyOpen':
     'Another tab owns this archive. Nothing was replaced.',
+  'failure.staleArchiveGeneration':
+    'The archive was replaced while this operation was in progress. A result from the previous archive was ignored.',
   'failure.unsupportedCapability':
     'This browser does not offer something LifeArchive requires.',
   'failure.unsupportedContractVersion':

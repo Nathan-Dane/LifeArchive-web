@@ -28,6 +28,11 @@ export interface FocusTrapOptions {
   readonly active: boolean
   readonly onEscape: () => void
   readonly restoreFocus?: boolean
+  /**
+   * An explicit opener for surfaces whose activation hides the focused
+   * control before layout effects run.
+   */
+  readonly returnFocusRef?: RefObject<HTMLElement | null>
 }
 
 /**
@@ -40,7 +45,7 @@ export interface FocusTrapOptions {
  */
 export function useFocusTrap(
   container: RefObject<HTMLElement | null>,
-  { active, onEscape, restoreFocus = true }: FocusTrapOptions,
+  { active, onEscape, restoreFocus = true, returnFocusRef }: FocusTrapOptions,
 ): void {
   const returnFocus = useRef<HTMLElement | null>(null)
   const wasActive = useRef(false)
@@ -52,15 +57,16 @@ export function useFocusTrap(
   useLayoutEffect(() => {
     if (active && !wasActive.current) {
       returnFocus.current =
-        document.activeElement instanceof HTMLElement
+        returnFocusRef?.current ??
+        (document.activeElement instanceof HTMLElement
           ? document.activeElement
-          : null
+          : null)
     } else if (!active && wasActive.current && restoreFocus) {
       returnFocus.current?.focus()
       returnFocus.current = null
     }
     wasActive.current = active
-  }, [active, restoreFocus])
+  }, [active, restoreFocus, returnFocusRef])
 
   useEffect(
     () => () => {

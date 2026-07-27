@@ -18,6 +18,7 @@ import {
   FORBIDDEN_AVAILABILITY_CLAIMS,
   FORBIDDEN_PERSISTENCE_CLAIMS,
 } from '../test/claims'
+import { enMessages } from '../i18n/messages/en'
 import { renderAppAt } from '../test/render'
 import { FakeLifeArchiveClient } from '../test/FakeLifeArchiveClient'
 import { AppShell } from './AppShell'
@@ -227,6 +228,133 @@ describe('application availability states', () => {
     ).toEqual([])
   })
 
+  it('keeps route-local state mounted through recoverable failure and retry', async () => {
+    const client = clientWithSession(OPEN_SESSION)
+    let finishOpen:
+      ((result: ReturnType<typeof ok<OpenArchive>>) => void) | null = null
+    vi.spyOn(client.client.archive, 'open').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishOpen = resolve
+          client.emitSession({ state: 'opening' })
+        }),
+    )
+    const user = userEvent.setup()
+    renderAppAt('/record', clientBootstrap(client))
+    const routeHeading = await screen.findByRole('heading', { name: 'Record' })
+
+    act(() => client.emitSession({ state: 'needs-recovery' }))
+    expect(screen.getByRole('heading', { name: 'Record' })).toBe(routeHeading)
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Recovering archive')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Record' })).toBe(routeHeading)
+
+    act(() => {
+      client.emitSession(OPEN_SESSION)
+      finishOpen?.(ok(OPEN_ARCHIVE))
+    })
+    expect(screen.getByRole('heading', { name: 'Record' })).toBe(routeHeading)
+  })
+
+  it('resets routes only when the archive generation changes', async () => {
+    const client = clientWithSession(OPEN_SESSION)
+    const user = userEvent.setup()
+    renderAppAt('/record', clientBootstrap(client))
+    const originalHeading = await screen.findByRole('heading', {
+      name: 'Record',
+    })
+
+    act(() =>
+      client.emitSession({
+        state: 'open',
+        archive: {
+          ...OPEN_ARCHIVE,
+          invalidation: {
+            ...OPEN_ARCHIVE.invalidation,
+            revision: revision('2'),
+          },
+        },
+      }),
+    )
+    expect(screen.getByRole('heading', { name: 'Record' })).toBe(
+      originalHeading,
+    )
+
+    act(() =>
+      client.emitSession({
+        state: 'open',
+        transition: 'erased',
+        archive: {
+          ...OPEN_ARCHIVE,
+          storeId: stableId('7f1c0a10-0000-4000-8000-000000000002'),
+          invalidation: {
+            storeInstanceId: 'replacement',
+            revision: revision('1'),
+          },
+        },
+      }),
+    )
+    expect(screen.getByRole('heading', { name: 'Record' })).not.toBe(
+      originalHeading,
+    )
+    const replacementHeading = screen.getByRole('heading', { name: 'Record' })
+    const transition = screen
+      .getByText(
+        /prior archive was erased and a fresh empty archive was created/i,
+      )
+      .closest('[role="status"]')
+    expect(transition).not.toBeNull()
+    await user.click(
+      screen.getByRole('button', { name: 'Dismiss erase result' }),
+    )
+    expect(
+      screen.queryByText(
+        /prior archive was erased and a fresh empty archive was created/i,
+      ),
+    ).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Record' })).toBe(
+      replacementHeading,
+    )
+  })
+
+  it('unmounts the prior route generation when recovery says it is invalid', async () => {
+    const client = clientWithSession(OPEN_SESSION)
+    renderAppAt('/record', clientBootstrap(client))
+    const priorRouteHeading = await screen.findByRole('heading', {
+      name: 'Record',
+    })
+
+    act(() =>
+      client.emitSession({
+        state: 'needs-recovery',
+        previousArchiveInvalid: true,
+      }),
+    )
+    expect(
+      await screen.findByRole('heading', { name: 'Archive needs attention' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Record' })).toBeNull()
+    expect(priorRouteHeading).not.toBeInTheDocument()
+
+    act(() =>
+      client.emitSession({
+        state: 'open',
+        archive: {
+          ...OPEN_ARCHIVE,
+          storeId: stableId('7f1c0a10-0000-4000-8000-000000000003'),
+          invalidation: {
+            storeInstanceId: 'post-erase',
+            revision: revision('1'),
+          },
+        },
+      }),
+    )
+    expect(screen.getByRole('heading', { name: 'Record' })).not.toBe(
+      priorRouteHeading,
+    )
+  })
+
   it('retries worker loss with a fresh client and ignores the superseded client', async () => {
     const lostClient = clientWithSession(OPEN_SESSION)
     const freshClient = clientWithSession(OPEN_SESSION)
@@ -380,6 +508,30 @@ describe('application availability states', () => {
       }),
     ).toBeInTheDocument()
   })
+
+  it.each([
+    ['browser-engine-unsupported', 'app.status.browserUnsupported.engine'],
+    ['browser-version-unsupported', 'app.status.browserUnsupported.version'],
+    ['browser-device-unsupported', 'app.status.browserUnsupported.device'],
+    ['browser-storage-unsupported', 'app.status.browserUnsupported.storage'],
+  ] as const)(
+    'shows a localized, data-safe diagnostic for %s',
+    async (reason, detailKey) => {
+      const view = renderAppAt('/record', async () => ({
+        state: 'runtime',
+        runtime: { state: 'incompatible', reason },
+      }))
+
+      expect(
+        await screen.findByRole('heading', {
+          name: enMessages['app.status.browserUnsupported.title'],
+        }),
+      ).toBeInTheDocument()
+      expect(screen.getByText(enMessages[detailKey])).toBeInTheDocument()
+      expect(document.body).not.toHaveTextContent(reason)
+      view.unmount()
+    },
+  )
 
   it('shows recovery progress when retrying a recovery-required archive', async () => {
     const client = clientWithSession({ state: 'needs-recovery' })

@@ -38,12 +38,14 @@ export type AppState =
       readonly client: LifeArchiveClient
       readonly developmentMock: boolean
       readonly purpose: 'open' | 'recovery'
+      readonly previousOpen: OpenArchive | null
     }
   | {
       readonly state: 'open'
       readonly client: LifeArchiveClient
       readonly archive: OpenArchive
       readonly developmentMock: boolean
+      readonly transition?: 'erased'
     }
   | {
       readonly state: 'locked'
@@ -70,6 +72,10 @@ export type AppState =
 interface AppStateValue {
   readonly state: AppState
   readonly retry: () => void
+  readonly dismissArchiveTransition: () => void
+  readonly createFirstArchive: (
+    client: LifeArchiveClient,
+  ) => ReturnType<LifeArchiveClient['archive']['create']>
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null)
@@ -88,6 +94,7 @@ class AppStateController {
   private lastOpen: OpenArchive | null = null
   private openPurpose: 'open' | 'recovery' = 'open'
   private replacementRequired = false
+  private firstRunCreateActive = false
 
   constructor(bootstrap: AppBootstrap) {
     this.bootstrap = bootstrap
@@ -133,6 +140,29 @@ class AppStateController {
     }
   }
 
+  dismissArchiveTransition = (): void => {
+    if (this.state.state !== 'open' || !this.state.transition) return
+    this.setState({
+      state: 'open',
+      client: this.state.client,
+      archive: this.state.archive,
+      developmentMock: this.state.developmentMock,
+    })
+  }
+
+  createFirstArchive = (
+    client: LifeArchiveClient,
+  ): ReturnType<LifeArchiveClient['archive']['create']> => {
+    /*
+     * Runtime clients publish `opening` synchronously from create(). Register
+     * the operation before that notification so the first-run controller stays
+     * mounted and its retry remains a create, not the shell's open-existing
+     * recovery action.
+     */
+    if (client === this.client) this.firstRunCreateActive = true
+    return client.archive.create()
+  }
+
   private runBootstrap(): void {
     if (this.bootstrapPromise) return
     let bootstrap: Promise<AppBootstrapResult>
@@ -166,6 +196,7 @@ class AppStateController {
     this.openPurpose = 'open'
     this.lastOpen = null
     this.replacementRequired = false
+    this.firstRunCreateActive = false
     this.bootstrapPromise = null
     this.clearSubscriptions()
     this.setState({ state: 'booting' })
@@ -212,6 +243,7 @@ class AppStateController {
     this.clientEpoch += 1
     this.developmentMock = developmentMock
     this.replacementRequired = false
+    this.firstRunCreateActive = false
     if (this.started) this.observeClient(client)
     const runtimeStatus = client.runtime.status()
     this.applyRuntimeStatus(runtimeStatus)
@@ -276,6 +308,15 @@ class AppStateController {
       client: this.client,
       developmentMock: this.developmentMock,
     }
+    /*
+     * A create attempt owns the first-run surface until an open archive is
+     * confirmed. Failed create operations commonly publish opening followed
+     * by closed/no-archive/locked before their result settles; rendering those
+     * shell states would discard the operation intent and its actionable
+     * failure UI.
+     */
+    if (this.firstRunCreateActive && session.state !== 'open') return
+
     switch (session.state) {
       case 'no-archive':
         this.lastOpen = null
@@ -285,6 +326,7 @@ class AppStateController {
         this.setState({
           state: 'opening',
           purpose: this.openPurpose,
+          previousOpen: this.lastOpen,
           ...common,
         })
         return
@@ -296,13 +338,29 @@ class AppStateController {
         this.setState({ state: 'closed', ...common })
         return
       case 'open':
+        this.firstRunCreateActive = false
         this.lastOpen = session.archive
-        this.setState({ state: 'open', archive: session.archive, ...common })
+        this.setState({
+          state: 'open',
+          archive: session.archive,
+          ...(session.transition ? { transition: session.transition } : {}),
+          ...common,
+        })
         return
       case 'open-in-another-tab':
         this.setState({ state: 'locked', ...common })
         return
       case 'needs-recovery':
+        if (session.previousArchiveInvalid) {
+          /*
+           * Erase committed, but adopting the fresh archive overview failed.
+           * The prior generation is definitively gone, so no route carrying
+           * its identifiers or buffers may remain mounted during recovery.
+           */
+          this.lastOpen = null
+        }
+        this.setRecoverable(null)
+        return
       case 'lost':
         this.setRecoverable(null)
         return
@@ -321,6 +379,7 @@ class AppStateController {
     this.setState({
       state: 'opening',
       purpose: this.openPurpose,
+      previousOpen: this.lastOpen,
       client,
       developmentMock: this.developmentMock,
     })
@@ -408,7 +467,12 @@ export function AppStateProvider({
 
   return (
     <AppStateContext.Provider
-      value={{ state: controller.snapshot(), retry: controller.retry }}
+      value={{
+        state: controller.snapshot(),
+        retry: controller.retry,
+        dismissArchiveTransition: controller.dismissArchiveTransition,
+        createFirstArchive: controller.createFirstArchive,
+      }}
     >
       {children}
     </AppStateContext.Provider>

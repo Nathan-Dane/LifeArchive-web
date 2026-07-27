@@ -103,6 +103,7 @@ export const settingsMessages = {
   'archive.erase.refreshFailed.detail':
     'The coordinated erase completed, but the fresh empty archive could not be confirmed. Check the fresh archive again; do not repeat the erase.',
   'archive.erase.action.checkFresh': 'Check fresh archive',
+  'archive.erase.action.dismiss': 'Dismiss erase result',
   'archive.erase.complete.title': 'Fresh archive created',
   'archive.erase.complete.detail':
     '{name} now has a fresh identity and an empty local store.',

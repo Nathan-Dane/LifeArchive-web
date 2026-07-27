@@ -22,6 +22,8 @@ export interface FirstRunPageProps {
   readonly client: LifeArchiveClient
   /** Injected in tests; production uses the browser adapter. */
   readonly persistence?: StoragePersistence
+  /** Injected by the app state provider to preserve create intent. */
+  readonly createArchive?: LifeArchiveClient['archive']['create']
 }
 
 const DURABILITY_MESSAGES = {
@@ -72,7 +74,11 @@ function waitingMessage(phase: FirstRunPhase) {
  * once the runtime has confirmed the archive, so nothing here presents a store
  * that recovery, migration, and integrity have not finished with.
  */
-export function FirstRunPage({ client, persistence }: FirstRunPageProps) {
+export function FirstRunPage({
+  client,
+  persistence,
+  createArchive,
+}: FirstRunPageProps) {
   const navigate = useNavigate()
   const localisation = useLocalisation()
   const t = localisation.t
@@ -80,6 +86,7 @@ export function FirstRunPage({ client, persistence }: FirstRunPageProps) {
   const { state, begin, createAnyway, retry } = useFirstRun({
     client,
     persistence,
+    createArchive,
     onCreated: () => navigate('/record', { replace: true }),
   })
 

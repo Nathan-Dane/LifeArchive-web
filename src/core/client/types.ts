@@ -986,6 +986,10 @@ export type RuntimeIncompatibleReason =
   | 'contract-mismatch'
   | 'abi-mismatch'
   | 'capability-inventory-mismatch'
+  | 'browser-engine-unsupported'
+  | 'browser-version-unsupported'
+  | 'browser-device-unsupported'
+  | 'browser-storage-unsupported'
   | 'environment-unsupported'
 
 export type RuntimeUnavailableReason =
@@ -1037,11 +1041,26 @@ export interface OpenArchive {
 export type ArchiveSession =
   | { readonly state: 'no-archive' }
   | { readonly state: 'opening' }
-  | { readonly state: 'open'; readonly archive: OpenArchive }
+  | {
+      readonly state: 'open'
+      readonly archive: OpenArchive
+      /**
+       * A presentation handoff for a confirmed generation replacement. It
+       * carries no prior identifier or archive data.
+       */
+      readonly transition?: 'erased'
+    }
   | { readonly state: 'closing' }
   | { readonly state: 'closed' }
   | { readonly state: 'open-in-another-tab' }
-  | { readonly state: 'needs-recovery' }
+  | {
+      readonly state: 'needs-recovery'
+      /**
+       * True after a confirmed replacement whose fresh identity could not be
+       * read. No view may retain identifiers from the prior archive.
+       */
+      readonly previousArchiveInvalid?: true
+    }
   | { readonly state: 'incompatible' }
   | {
       readonly state: 'lost'

@@ -196,6 +196,21 @@ describe('contrast in both appearances', () => {
       }
     }
   })
+
+  it('uses compliant text tokens for normal Settings copy', () => {
+    expect(LAYOUT_CSS).toMatch(
+      /\.archive-health-card__facts dt\s*\{[^}]*color:\s*var\(--color-text-secondary\)/s,
+    )
+    expect(LAYOUT_CSS).toMatch(
+      /\.settings-group__footer\s*\{[^}]*color:\s*var\(--color-text-secondary\)/s,
+    )
+    for (const appearance of ['light', 'dark'] as const) {
+      expect(
+        ratio('--color-text-secondary', '--color-surface', appearance),
+        `${appearance} normal Settings text`,
+      ).toBeGreaterThanOrEqual(4.5)
+    }
+  })
 })
 
 describe('the responsive breakpoints', () => {
@@ -239,6 +254,18 @@ describe('the responsive breakpoints', () => {
     const navigationAt = LAYOUT_CSS.indexOf('shell-action--navigation')
     expect(detailsAt).toBeGreaterThan(-1)
     expect(navigationAt).toBeGreaterThan(detailsAt)
+  })
+
+  it('reflows Settings facts and wraps archive actions at compact widths', () => {
+    expect(LAYOUT_CSS).toMatch(
+      /@media \(max-width: 680px\)[\s\S]*?\.settings-value-list > div\s*\{[^}]*grid-template-columns:\s*1fr/,
+    )
+    expect(LAYOUT_CSS).toMatch(
+      /\.archive-import__actions,\s*\.archive-operation__actions\s*\{[^}]*flex-wrap:\s*wrap/s,
+    )
+    expect(LAYOUT_CSS).toMatch(
+      /\.archive-operation__actions\[hidden\]\s*\{[^}]*display:\s*none/s,
+    )
   })
 })
 

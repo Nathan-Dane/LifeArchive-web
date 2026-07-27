@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react'
 import { DevelopmentModeNotice } from '../core/bootstrap'
+import type {
+  ClientFailure,
+  LifeArchiveClient,
+  OpenArchive,
+  RuntimeIncompatibleReason,
+} from '../core/client'
 import { FirstRunPage } from '../features/archive/firstRun'
 import { failureMessage, useLocalisation, useTranslate } from '../i18n'
 import { AppRoutes, MainNavigation } from './AppRoutes'
@@ -22,7 +28,50 @@ function reloadApplication(): void {
 export function AppShell() {
   const localisation = useLocalisation()
   const t = useTranslate()
-  const { state, retry } = useAppState()
+  const { state, retry, dismissArchiveTransition, createFirstArchive } =
+    useAppState()
+
+  if (state.state === 'open') {
+    return (
+      <ArchiveWorkspace
+        client={state.client}
+        archive={state.archive}
+        developmentMock={state.developmentMock}
+        transition={state.transition}
+        dismissTransition={dismissArchiveTransition}
+      />
+    )
+  }
+
+  if (state.state === 'recoverable-failure' && state.previousOpen) {
+    return (
+      <ArchiveWorkspace
+        client={state.client}
+        archive={state.previousOpen}
+        developmentMock={state.developmentMock}
+        recovery={{
+          state: 'failed',
+          failure: state.failure,
+          retry,
+        }}
+      />
+    )
+  }
+
+  if (
+    state.state === 'opening' &&
+    state.purpose === 'recovery' &&
+    state.previousOpen
+  ) {
+    return (
+      <ArchiveWorkspace
+        client={state.client}
+        archive={state.previousOpen}
+        developmentMock={state.developmentMock}
+        recovery={{ state: 'retrying' }}
+      />
+    )
+  }
 
   switch (state.state) {
     case 'booting':
@@ -54,7 +103,8 @@ export function AppShell() {
       )
     }
     case 'fatal-incompatibility': {
-      const unsupportedBrowser = state.reason === 'environment-unsupported'
+      const unsupportedDetail = browserRejectionDetail(state.reason, t)
+      const unsupportedBrowser = unsupportedDetail !== null
       return (
         <Frame>
           <StatusScreen
@@ -63,11 +113,7 @@ export function AppShell() {
                 ? 'app.status.browserUnsupported.title'
                 : 'app.status.incompatible.title',
             )}
-            detail={t(
-              unsupportedBrowser
-                ? 'app.status.browserUnsupported.detail'
-                : 'app.status.incompatible.detail',
-            )}
+            detail={unsupportedDetail ?? t('app.status.incompatible.detail')}
             action={{ label: t('app.action.retry'), run: retry }}
             secondaryAction={{
               label: t('app.action.reload'),
@@ -86,7 +132,10 @@ export function AppShell() {
     case 'no-archive':
       return (
         <Frame developmentMock={state.developmentMock}>
-          <FirstRunPage client={state.client} />
+          <FirstRunPage
+            client={state.client}
+            createArchive={() => createFirstArchive(state.client)}
+          />
         </Frame>
       )
     case 'opening':
@@ -138,32 +187,6 @@ export function AppShell() {
       const failureDetail = state.failure
         ? failureMessage(localisation, state.failure)
         : t('app.status.recoverable.detail')
-      if (state.previousOpen) {
-        return (
-          <Frame
-            developmentMock={state.developmentMock}
-            navigation={<MainNavigation inert />}
-          >
-            <aside className="app-notice" role="alert">
-              <strong>{t('app.notice.recoverable.title')}</strong>{' '}
-              {failureDetail} {t('app.notice.recoverable.detail')}
-              <button type="button" className="button" onClick={retry}>
-                {t('app.action.retry')}
-              </button>
-              <button
-                type="button"
-                className="button"
-                onClick={reloadApplication}
-              >
-                {t('app.action.reload')}
-              </button>
-            </aside>
-            <div inert aria-disabled="true">
-              <AppRoutes client={state.client} />
-            </div>
-          </Frame>
-        )
-      }
       return (
         <Frame developmentMock={state.developmentMock}>
           <StatusScreen
@@ -178,16 +201,115 @@ export function AppShell() {
         </Frame>
       )
     }
-    case 'open':
-      return (
-        <Frame
-          developmentMock={state.developmentMock}
-          navigation={<MainNavigation />}
-        >
-          <AppRoutes client={state.client} />
-        </Frame>
-      )
   }
+}
+
+function browserRejectionDetail(
+  reason: RuntimeIncompatibleReason | 'archive-incompatible',
+  t: ReturnType<typeof useTranslate>,
+): string | null {
+  switch (reason) {
+    case 'browser-engine-unsupported':
+      return t('app.status.browserUnsupported.engine')
+    case 'browser-version-unsupported':
+      return t('app.status.browserUnsupported.version')
+    case 'browser-device-unsupported':
+      return t('app.status.browserUnsupported.device')
+    case 'browser-storage-unsupported':
+      return t('app.status.browserUnsupported.storage')
+    case 'environment-unsupported':
+      return t('app.status.browserUnsupported.detail')
+    default:
+      return null
+  }
+}
+
+function ArchiveWorkspace({
+  client,
+  archive,
+  developmentMock,
+  recovery,
+  transition,
+  dismissTransition,
+}: {
+  readonly client: LifeArchiveClient
+  readonly archive: OpenArchive
+  readonly developmentMock: boolean
+  readonly transition?: 'erased'
+  readonly dismissTransition?: () => void
+  readonly recovery?:
+    | {
+        readonly state: 'failed'
+        readonly failure: ClientFailure | null
+        readonly retry: () => void
+      }
+    | { readonly state: 'retrying' }
+}) {
+  const localisation = useLocalisation()
+  const t = useTranslate()
+  const recovering = recovery !== undefined
+  const generation = `${archive.storeId}:${archive.invalidation.storeInstanceId}`
+  const failureDetail =
+    recovery?.state === 'failed' && recovery.failure
+      ? failureMessage(localisation, recovery.failure)
+      : t('app.status.recoverable.detail')
+
+  return (
+    <Frame
+      developmentMock={developmentMock}
+      navigation={<MainNavigation inert={recovering} />}
+    >
+      {transition === 'erased' ? (
+        <aside className="app-notice" role="status">
+          <strong>{t('archive.erase.complete.title')}</strong>{' '}
+          {t('archive.erase.complete.announcement')}
+          <button type="button" className="button" onClick={dismissTransition}>
+            {t('archive.erase.action.dismiss')}
+          </button>
+        </aside>
+      ) : null}
+      {recovering ? (
+        <aside
+          className="app-notice"
+          role={recovery.state === 'failed' ? 'alert' : 'status'}
+        >
+          <strong>
+            {t(
+              recovery.state === 'failed'
+                ? 'app.notice.recoverable.title'
+                : 'app.status.recovering.title',
+            )}
+          </strong>{' '}
+          {recovery.state === 'failed' ? (
+            <>
+              {failureDetail} {t('app.notice.recoverable.detail')}
+            </>
+          ) : (
+            t('app.status.recovering.detail')
+          )}
+          {recovery.state === 'failed' ? (
+            <>
+              <button type="button" className="button" onClick={recovery.retry}>
+                {t('app.action.retry')}
+              </button>
+              <button
+                type="button"
+                className="button"
+                onClick={reloadApplication}
+              >
+                {t('app.action.reload')}
+              </button>
+            </>
+          ) : null}
+        </aside>
+      ) : null}
+      <AppRoutes
+        key={generation}
+        client={client}
+        inert={recovering || undefined}
+      />
+    </Frame>
+  )
 }
 
 function recoveryTitle(

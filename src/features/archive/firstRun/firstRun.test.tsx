@@ -427,6 +427,90 @@ describe('first run inside the application', () => {
     ).toBeNull()
   })
 
+  it('preserves create intent and its recovery surface across real-client session transitions', async () => {
+    const fake = new FakeLifeArchiveClient({ state: 'no-archive' })
+    const open = vi
+      .spyOn(fake.client.archive, 'open')
+      .mockImplementation(async () => {
+        fake.emitSession({ state: 'opening' })
+        await Promise.resolve()
+        fake.emitSession({ state: 'no-archive' })
+        return failed(
+          clientFailure({
+            area: 'storage',
+            code: 'archiveNotFound',
+            phase: 'open',
+            retryable: false,
+          }),
+        )
+      })
+    let createAttempt = 0
+    let finishCreateRetry: (() => void) | null = null
+    const create = vi
+      .spyOn(fake.client.archive, 'create')
+      .mockImplementation(async () => {
+        createAttempt += 1
+        fake.emitSession({ state: 'opening' })
+        await Promise.resolve()
+        if (createAttempt === 1) {
+          fake.emitSession({ state: 'closed' })
+          return failed(
+            clientFailure({
+              area: 'storage',
+              code: 'ioFailure',
+              phase: 'open',
+              retryable: true,
+            }),
+          )
+        }
+        await new Promise<void>((resolve) => {
+          finishCreateRetry = resolve
+        })
+        fake.emitSession({ state: 'open', archive: OPEN_ARCHIVE })
+        return ok(OPEN_ARCHIVE)
+      })
+    const user = userEvent.setup()
+    renderAppAt('/record', async () => ({
+      state: 'client',
+      client: fake.client,
+      developmentMock: false,
+    }))
+
+    await screen.findByRole('heading', { name: 'Create your local archive' })
+    await user.click(screen.getByRole('button', { name: CREATE }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Create archive anyway' }),
+    )
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'The archive was not created',
+      }),
+    ).toBeInTheDocument()
+    const firstRunSurface = screen
+      .getByRole('heading', { name: 'The archive was not created' })
+      .closest('section')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled()
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(create).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Creating the archive' }),
+    ).toBeInTheDocument()
+    expect(
+      screen
+        .getByRole('heading', { name: 'Creating the archive' })
+        .closest('section'),
+    ).toBe(firstRunSurface)
+    act(() => finishCreateRetry?.())
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(create).toHaveBeenCalledTimes(2)
+  })
+
   it('does not offer to create again on a later start with an archive', async () => {
     renderAppAt(
       '/record',
