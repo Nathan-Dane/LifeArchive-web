@@ -17,6 +17,7 @@ export const appMessages = {
 
   'app.action.retry': 'Try again',
   'app.action.reload': 'Reload application',
+  'app.action.skipToContent': 'Skip to main content',
   'app.action.closePanel': 'Close {panel}',
 
   /**

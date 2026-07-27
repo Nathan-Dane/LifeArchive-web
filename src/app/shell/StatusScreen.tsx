@@ -25,7 +25,7 @@ export function StatusScreen({
   secondaryAction,
 }: StatusScreenProps) {
   return (
-    <main className="workspace__content">
+    <main id="main-content" className="workspace__content" tabIndex={-1}>
       <section
         className="status-screen"
         aria-labelledby="app-state-title"

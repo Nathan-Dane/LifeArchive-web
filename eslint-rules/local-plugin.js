@@ -113,8 +113,68 @@ const noUserFacingLiterals = {
   },
 }
 
+const NATIVE_INTERACTIVE_ELEMENTS = new Set([
+  'button',
+  'input',
+  'select',
+  'summary',
+  'textarea',
+])
+
+/**
+ * Prevents a pointer handler from being attached to a static JSX element
+ * without an equivalent keyboard event.
+ *
+ * Native controls already provide keyboard activation. A static element may
+ * occasionally own a pointer interaction, but then it must explicitly expose
+ * the same operation to Enter/Space through a key handler.
+ *
+ * @type {import('eslint').Rule.RuleModule}
+ */
+const noPointerOnlyActions = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description:
+        'Require pointer actions on static JSX elements to have keyboard parity.',
+    },
+    schema: [],
+    messages: {
+      pointerOnly:
+        'A pointer action on a static element needs an equivalent keyboard handler or a native interactive element.',
+    },
+  },
+
+  create(context) {
+    return {
+      JSXOpeningElement(node) {
+        if (node.name.type !== 'JSXIdentifier') return
+        const element = node.name.name
+        if (element[0] !== element[0]?.toLowerCase()) return
+
+        const attributes = new Set(
+          node.attributes
+            .filter((attribute) => attribute.type === 'JSXAttribute')
+            .map((attribute) =>
+              attribute.name.type === 'JSXIdentifier'
+                ? attribute.name.name
+                : '',
+            ),
+        )
+        if (!attributes.has('onClick')) return
+        if (NATIVE_INTERACTIVE_ELEMENTS.has(element)) return
+        if (element === 'a' && attributes.has('href')) return
+        if (attributes.has('onKeyDown') || attributes.has('onKeyUp')) return
+
+        context.report({ node, messageId: 'pointerOnly' })
+      },
+    }
+  },
+}
+
 export default {
   rules: {
     'no-user-facing-literals': noUserFacingLiterals,
+    'no-pointer-only-actions': noPointerOnlyActions,
   },
 }
