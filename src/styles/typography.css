@@ -1,0 +1,67 @@
+/*
+ * The three voices of the interface.
+ *
+ * Serif display for the headings that name a moment in time, the platform sans
+ * for controls and metadata, and a calm serif reading face for writing. The
+ * classes here set nothing but type: colour, spacing, and layout stay with the
+ * surface that uses them, so a heading can be moved between regions without
+ * carrying a background along with it.
+ */
+
+.display-large,
+.display,
+.title {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  margin: 0;
+}
+
+.display-large {
+  font-size: var(--text-display-large);
+  line-height: var(--leading-display);
+}
+
+.display {
+  font-size: var(--text-display);
+  line-height: var(--leading-display);
+}
+
+.title {
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+}
+
+/* The words the user writes. Measured for reading, not for filling a column. */
+.reading {
+  max-width: var(--layout-reading-measure);
+  font-family: var(--font-reading);
+  font-size: var(--text-reading);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-reading);
+}
+
+/* Controls, labels, and everything else the application says about itself. */
+.ui-text {
+  font-family: var(--font-ui);
+  font-size: var(--text-ui);
+  line-height: var(--leading-ui);
+}
+
+/* Quiet chrome: eyebrows, captions, counts. */
+.meta-text {
+  font-family: var(--font-ui);
+  font-size: var(--text-meta);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-ui);
+  color: var(--color-text-secondary);
+}
+
+.eyebrow {
+  font-family: var(--font-ui);
+  font-size: var(--text-meta);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-ui);
+  letter-spacing: var(--tracking-meta);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}

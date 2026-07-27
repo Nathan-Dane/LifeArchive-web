@@ -1,10 +1,20 @@
 import { BrowserRouter } from 'react-router-dom'
-import { AppRoutes } from './AppRoutes'
+import type { AppBootstrap } from '../core/bootstrap'
+import { I18nProvider } from '../i18n'
+import { AppShell } from './AppShell'
+import { AppStateProvider } from './providers'
+import { AppearanceProvider } from './shell'
 
-export function App() {
+export function App({ bootstrap }: { readonly bootstrap?: AppBootstrap }) {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <I18nProvider>
+      <AppearanceProvider>
+        <BrowserRouter>
+          <AppStateProvider bootstrap={bootstrap}>
+            <AppShell />
+          </AppStateProvider>
+        </BrowserRouter>
+      </AppearanceProvider>
+    </I18nProvider>
   )
 }

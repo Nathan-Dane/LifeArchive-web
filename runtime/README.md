@@ -30,6 +30,65 @@ The `sha256` in the lock file is verified before the artifact is used — on
 fetch, in CI, and where the platform allows it, at load. A mismatch is a hard
 failure that installs and loads nothing. There is no override.
 
+The whole-bundle pin is separate from manifest format 1's per-file hashes.
+`src/core/runtime/runtimeCompatibility.ts` validates both lock states, the
+manifest shape and ordered capability inventory, and exact lock/manifest
+identity compatibility. The current lock remains deliberately unpinned.
+
+`pnpm runtime:fetch` is the only CI fetch path. With no pin it exits
+successfully without using the network. With a reviewed pin it refuses
+redirects, verifies the whole-archive checksum, archive allowlist, manifest
+identity, and payload checksums, then installs into ignored
+`runtime/installed/`. Any mismatch leaves no newly installed runtime.
+
+At browser load, the pinned tar is fetched with cache bypass, whole-artifact
+verified, and parsed as the exact approved ustar layout. Compatibility reads
+the manifest extracted from those verified bytes, and the worker receives
+short-lived object URLs made only from the matching extracted loader and Wasm.
+It never selects separately hosted stable manifest or module URLs. A verified
+in-memory extraction may be reused only under the exact artifact URL plus
+whole-artifact SHA-256 identity; failed or partial verification is never
+cached.
+
+For a private/public sibling development workspace, a developer may install an
+already packaged runtime without pretending it is a production pin:
+
+```bash
+pnpm runtime:install-local \
+  ../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-0.1.0.tar.gz \
+  ../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-0.1.0.tar.gz.sha256
+pnpm run dev
+```
+
+The installer requires the exact checksum sidecar, then runs the same archive
+allowlist, manifest identity, whole-bundle checksum, and per-file verification
+as `runtime:fetch`. It writes only ignored files under `runtime/installed/`.
+Development may consume the resulting verification receipt while the tracked
+lock is still `not-integrated`; production builds never do. This is a real
+runtime path, not mock selection and not a substitute for the reviewed Step 18
+publication and pin.
+
+## Runtime acceptance status
+
+There is no repository-local production runtime acceptance evidence while the
+tracked lock remains `not-integrated`. Playwright runs the qualified Chromium
+151 and Firefox 153 engines and covers the production browser archive adapter,
+but its archive output fixture simulates the runtime side of that handoff.
+Those tests do not prove runtime instantiation, durable persistence, archive
+format correctness, atomic application, or restart recovery.
+
+After installing a licensed, verified local artifact as described above, an
+opt-in smoke can establish only that artifact's machine-local development
+loader instantiation and negotiation:
+
+```bash
+LIFEARCHIVE_LOCAL_RUNTIME_E2E=1 pnpm exec playwright test \
+  e2e/local-runtime-smoke.spec.ts
+```
+
+The receipt and artifact remain ignored and unpublished. A passing local smoke
+is not reproducible production acceptance and does not alter the tracked lock.
+
 ## Public UI builds must work without the runtime
 
 A checkout of this repository alone, with no access to anything private, must

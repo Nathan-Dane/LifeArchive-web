@@ -1,7 +1,8 @@
 name: CI
 
-# This workflow must stay self-contained: it uses no secrets, never contacts
-# the private repository, and never downloads the proprietary runtime.
+# This workflow stays self-contained: it uses no secrets and never contacts the
+# private repository. A pinned-runtime job may fetch only the reviewed public
+# artifact URL in runtime/runtime.lock.json.
 # See docs/architecture/repository-boundary.md.
 
 on:
@@ -41,23 +42,36 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Repository safety check
-        run: pnpm safety
+      - name: Run the authoritative repository check
+        run: pnpm check
 
-      - name: Format check
-        run: pnpm format:check
+  pinned-runtime:
+    name: Verify pinned runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
 
-      - name: Lint
-        run: pnpm lint
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
 
-      - name: Unit tests
-        run: pnpm test:run
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build
+      - name: Fetch and independently verify the reviewed runtime pin
+        id: runtime
+        run: pnpm runtime:fetch
+
+      - name: Run runtime integration checks
+        if: steps.runtime.outputs.available == 'true'
+        run: pnpm check
 
   browser:
     name: Browser smoke tests
@@ -80,7 +94,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps
+        run: pnpm exec playwright install --with-deps chromium firefox
 
       - name: Playwright smoke tests
         run: pnpm test:e2e
