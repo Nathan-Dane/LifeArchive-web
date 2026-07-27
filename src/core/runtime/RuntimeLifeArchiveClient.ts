@@ -174,11 +174,14 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       return result
     },
     close: async () => {
+      const previousState = this.archiveState
       this.setArchiveState({ state: 'closing' })
       const result = await this.invoke<ArchiveCloseResult>('store.close', null)
       if (result.status === 'ok') {
         this.setArchiveState({ state: 'closed' })
         await this.options.transport.close()
+      } else if (this.archiveState.state !== 'lost') {
+        this.setArchiveState(previousState)
       }
       return result
     },
@@ -386,6 +389,20 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
     }
     if (result.failure.code === 'archiveNotFound') {
       this.setArchiveState({ state: 'no-archive' })
+      return
+    }
+    if (
+      result.failure.code === 'corruptStore' ||
+      result.failure.code === 'recoveryIncomplete'
+    ) {
+      this.setArchiveState({ state: 'needs-recovery' })
+      return
+    }
+    if (
+      result.failure.code === 'unsupportedSchema' ||
+      result.failure.code === 'unsupportedLayout'
+    ) {
+      this.setArchiveState({ state: 'incompatible' })
       return
     }
     this.setArchiveState({ state: 'closed' })

@@ -14,6 +14,96 @@ const runtime = {
 } as const
 
 describe('RuntimeLifeArchiveClient', () => {
+  it.each([
+    ['corruptStore', 'needs-recovery'],
+    ['recoveryIncomplete', 'needs-recovery'],
+    ['unsupportedSchema', 'incompatible'],
+    ['unsupportedLayout', 'incompatible'],
+  ] as const)('maps failed open %s to session %s', async (code, state) => {
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: () =>
+          Promise.resolve({
+            outcome: 'failure',
+            failure: {
+              code,
+              details: {
+                area: 'storage',
+                phase: 'open',
+                retryable: false,
+                durableOutcome: 'not-started',
+              },
+            },
+          }),
+        close: () => Promise.resolve(),
+      },
+    })
+
+    expect((await client.archive.open()).status).toBe('failed')
+    expect(client.archive.session().state).toBe(state)
+  })
+
+  it('closes definitively and restores the open session when close is rejected', async () => {
+    let closeShouldFail = true
+    const closeTransport = vi.fn(() => Promise.resolve())
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: (request) => {
+          if (request.operation === 'store.open') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: {
+                storeId: stableId('A1000000-0000-4000-8000-000000000020'),
+                productContract: '5',
+                storeSchemaVersion: '1',
+                rootLayoutVersion: '1',
+                invalidation: {
+                  storeInstanceId: 'close-test',
+                  revision: revision('1'),
+                },
+              },
+            })
+          }
+          if (closeShouldFail) {
+            return Promise.resolve({
+              outcome: 'failure',
+              failure: {
+                code: 'ioFailure',
+                details: {
+                  area: 'storage',
+                  phase: 'close',
+                  retryable: true,
+                  durableOutcome: 'known',
+                },
+              },
+            })
+          }
+          return Promise.resolve({
+            outcome: 'success',
+            result: { outcome: 'closed' },
+          })
+        },
+        close: closeTransport,
+      },
+    })
+    await client.archive.open()
+    const openSession = client.archive.session()
+
+    expect((await client.archive.close()).status).toBe('failed')
+    expect(client.archive.session()).toEqual(openSession)
+    expect(closeTransport).not.toHaveBeenCalled()
+
+    closeShouldFail = false
+    expect(await client.archive.close()).toEqual({
+      status: 'ok',
+      value: { outcome: 'closed' },
+    })
+    expect(client.archive.session()).toEqual({ state: 'closed' })
+    expect(closeTransport).toHaveBeenCalledOnce()
+  })
+
   it('cancels one active import out of band and publishes its invalidation', async () => {
     const importOperationId = operationId(
       'A1000000-0000-4000-8000-000000000010',
