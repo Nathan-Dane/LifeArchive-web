@@ -55,6 +55,48 @@ describe('civil dates', () => {
   })
 })
 
+describe('the parts a calendar cell shows', () => {
+  it('names the weekday of a date the locale s own way', () => {
+    expect(createFormatters('en-GB').civilWeekday(MARCH_NINTH)).toBe('Sat')
+    expect(createFormatters('en-GB').civilWeekday(MARCH_NINTH, 'long')).toBe(
+      'Saturday',
+    )
+    expect(createFormatters('da-DK').civilWeekday(MARCH_NINTH, 'long')).toBe(
+      'lørdag',
+    )
+  })
+
+  it('reads the day-of-month numeral out of the date', () => {
+    expect(createFormatters('en-GB').civilDayOfMonth(NEW_YEAR)).toBe('1')
+    expect(createFormatters('en-GB').civilDayOfMonth(MARCH_TWELFTH)).toBe('12')
+  })
+
+  it('spells the month and year a date falls in', () => {
+    expect(createFormatters('en-GB').civilMonthAndYear(MARCH_NINTH)).toBe(
+      'March 2024',
+    )
+    expect(createFormatters('da-DK').civilMonthAndYear(MARCH_NINTH)).toBe(
+      'marts 2024',
+    )
+  })
+
+  it('reads every part in UTC, so no part shifts with the device zone', () => {
+    const formatters = createFormatters('en-GB')
+    expect(formatters.civilDayOfMonth(NEW_YEAR)).toBe('1')
+    expect(formatters.civilMonthAndYear(NEW_YEAR)).toBe('January 2024')
+    expect(formatters.civilWeekday(NEW_YEAR, 'long')).toBe('Monday')
+  })
+
+  it('refuses malformed date text for every part', () => {
+    const formatters = createFormatters('en-GB')
+    for (const value of ['9 March 2024', '2024-3-9', '', 'today']) {
+      expect(() => formatters.civilWeekday(value)).toThrow(TypeError)
+      expect(() => formatters.civilDayOfMonth(value)).toThrow(TypeError)
+      expect(() => formatters.civilMonthAndYear(value)).toThrow(TypeError)
+    }
+  })
+})
+
 describe('numbers', () => {
   it('uses the locale s own grouping and decimal marks', () => {
     expect(createFormatters('en-GB').number(1234.5)).toBe('1,234.5')
