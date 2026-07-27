@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import packageMetadata from '../../../../package.json'
 import type {
   ArchiveExportResult,
   ClientFailure,
@@ -43,11 +42,6 @@ const INITIAL_STATE: ArchiveExportState = {
   delivery: null,
   result: null,
 }
-
-const APPLICATION = Object.freeze({
-  name: 'LifeArchive Web',
-  version: packageMetadata.version,
-})
 
 /**
  * Coordinates one core-verified export and one browser download handoff.
@@ -101,6 +95,7 @@ export function useArchiveExport(
 
     running.current = true
     const operationId = client.operations.newOperationId()
+    const artifactId = client.operations.newStableId()
     operation.current = operationId
     setState({
       phase: 'exporting',
@@ -111,9 +106,9 @@ export function useArchiveExport(
     try {
       const result = await client.archive.export({
         operationId,
-        archiveId: session.archive.storeId,
+        artifactId,
+        sourceStoreId: session.archive.storeId,
         createdAtMs: Date.now(),
-        application: APPLICATION,
       })
       if (result.status === 'ok') {
         handOff(result.value)

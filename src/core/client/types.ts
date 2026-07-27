@@ -163,6 +163,9 @@ export interface TimeWindowFields {
   readonly scale: TimeScale
   readonly startMs: Instant
   readonly endMs: Instant
+  /** Exact inclusive civil bounds produced by core for boundary requests. */
+  readonly startDate: CivilDate
+  readonly endDate: CivilDate
   readonly calendarId: string
   readonly timeZoneId: string
 }
@@ -274,6 +277,28 @@ export type OrdinaryEntryState =
       readonly invalidation: InvalidationToken
     }
 
+/**
+ * The current ordinary value returned with a rejected mutation. Conflict
+ * evidence is not a cache snapshot, so it deliberately carries no invalidation
+ * token.
+ */
+export type OrdinaryConflictState =
+  | {
+      readonly presence: 'absent'
+      readonly window: TimeWindow
+    }
+  | {
+      readonly presence: 'present'
+      readonly window: TimeWindow
+      readonly entry: OrdinaryEntry
+    }
+  | {
+      readonly presence: 'deleted'
+      readonly window: TimeWindow
+      readonly entry: OrdinaryEntry
+      readonly deletedAtMs: Instant
+    }
+
 /** Which entry a save expects to modify. Absence is stated, never inferred. */
 export type OrdinaryTarget =
   | { readonly expectation: 'absent'; readonly newEntryId: StableId }
@@ -314,10 +339,11 @@ export type OrdinarySaveResult =
     }
   | {
       readonly outcome: 'conflict'
-      readonly conflict: RevisionConflict<OrdinaryEntryState>
+      readonly conflict: RevisionConflict<OrdinaryConflictState>
     }
 
 export interface OrdinaryDeleteRequest {
+  readonly window: TimeWindow
   readonly entryId: StableId
   readonly expectedRevision: Revision
   readonly nowMs: Instant
@@ -332,7 +358,7 @@ export type OrdinaryDeleteResult =
     }
   | {
       readonly outcome: 'conflict'
-      readonly conflict: RevisionConflict<OrdinaryEntryState>
+      readonly conflict: RevisionConflict<OrdinaryConflictState>
     }
 
 /* -------------------------------------------------------------------------- */
@@ -405,6 +431,19 @@ export type StructuredObjectState =
       readonly invalidation: InvalidationToken
     }
 
+/** Tokenless current state returned only as revision-conflict evidence. */
+export type StructuredConflictState =
+  | { readonly presence: 'absent'; readonly id: StableId }
+  | {
+      readonly presence: 'present'
+      readonly object: StructuredObject
+    }
+  | {
+      readonly presence: 'deleted'
+      readonly object: StructuredObject
+      readonly deletedAtMs: Instant
+    }
+
 export interface StructuredDraft {
   readonly title: string
   readonly markdown: string
@@ -442,6 +481,8 @@ export interface StructuredDeleteRequest {
 export interface StructuredConvertRequest {
   readonly spanId: StableId
   readonly expectedRevision: Revision
+  readonly requestedStartDate: CivilDate
+  readonly requestedEndDate: CivilDate
   readonly nowMs: Instant
 }
 
@@ -453,7 +494,7 @@ export type StructuredMutationResult =
     }
   | {
       readonly outcome: 'conflict'
-      readonly conflict: RevisionConflict<StructuredObjectState>
+      readonly conflict: RevisionConflict<StructuredConflictState>
     }
 
 export type StructuredDeleteResult =
@@ -465,7 +506,7 @@ export type StructuredDeleteResult =
     }
   | {
       readonly outcome: 'conflict'
-      readonly conflict: RevisionConflict<StructuredObjectState>
+      readonly conflict: RevisionConflict<StructuredConflictState>
     }
 
 export interface StructuredListRequest {
@@ -512,6 +553,12 @@ export type TrackState =
       readonly track: Track
       readonly invalidation: InvalidationToken
     }
+
+/** Tokenless current state returned only as revision-conflict evidence. */
+export type TrackConflictState =
+  | { readonly presence: 'absent'; readonly id: StableId }
+  | { readonly presence: 'present'; readonly track: Track }
+  | { readonly presence: 'deleted'; readonly track: Track }
 
 export interface TrackDraft {
   readonly name: string
@@ -563,7 +610,7 @@ export type TrackMutationResult =
     }
   | {
       readonly outcome: 'conflict'
-      readonly conflict: RevisionConflict<TrackState>
+      readonly conflict: RevisionConflict<TrackConflictState>
     }
 
 export interface TrackWithFirstMemberRequest {
@@ -592,6 +639,7 @@ export interface TrackMemberCreateRequest {
 /** Attaching moves a member; detaching passes no Track. */
 export interface TrackMembershipRequest {
   readonly memberId: StableId
+  readonly memberKind: StructuredKind
   readonly expectedMemberRevision: Revision
   readonly expectedInvalidation: InvalidationToken
   readonly trackId: StableId
@@ -600,6 +648,7 @@ export interface TrackMembershipRequest {
 
 export interface TrackDetachRequest {
   readonly memberId: StableId
+  readonly memberKind: StructuredKind
   readonly expectedMemberRevision: Revision
   readonly expectedInvalidation: InvalidationToken
   readonly nowMs: Instant
@@ -709,6 +758,7 @@ export interface TimelinePage {
 
 export interface TimelineFocusRequest {
   readonly window: TimeWindow
+  readonly weekRules: WeekRules
   readonly entry: TimelineEntryReference | null
   readonly expectedInvalidation: InvalidationToken
 }
@@ -826,16 +876,11 @@ export interface MediaImportRequest {
   readonly kindHint: MediaKind | null
 }
 
-export type MediaImportResult =
-  | {
-      readonly outcome: 'imported'
-      readonly item: MediaItem
-      readonly invalidation: InvalidationToken
-    }
-  | {
-      readonly outcome: 'conflict'
-      readonly conflict: RevisionConflict<MediaListing>
-    }
+export type MediaImportResult = {
+  readonly outcome: 'imported'
+  readonly item: MediaItem
+  readonly invalidation: InvalidationToken
+}
 
 export interface MediaDeleteRequest {
   readonly mediaId: StableId
@@ -843,16 +888,11 @@ export interface MediaDeleteRequest {
   readonly expectedParentRevision: Revision
 }
 
-export type MediaDeleteResult =
-  | {
-      readonly outcome: 'deleted'
-      readonly deletedMediaId: StableId
-      readonly invalidation: InvalidationToken
-    }
-  | {
-      readonly outcome: 'conflict'
-      readonly conflict: RevisionConflict<MediaListing>
-    }
+export type MediaDeleteResult = {
+  readonly outcome: 'deleted'
+  readonly deletedMediaId: StableId
+  readonly invalidation: InvalidationToken
+}
 
 /* -------------------------------------------------------------------------- */
 /* Archive identity                                                           */
@@ -1081,14 +1121,17 @@ export interface ArchiveVerification {
 
 export interface ArchiveExportRequest {
   readonly operationId: OperationId
-  readonly archiveId: StableId
+  /** Fresh identity for this one portable package. */
+  readonly artifactId: StableId
+  /** Identity of the open source store; never reused as the artifact ID. */
+  readonly sourceStoreId: StableId
   readonly createdAtMs: Instant
-  readonly application: { readonly name: string; readonly version: string }
 }
 
 export interface ArchiveExportResult {
   readonly archive: ArchivePackage
-  readonly archiveId: StableId
+  readonly artifactId: StableId
+  readonly sourceStoreId: StableId
   /** The exact core-produced creation timestamp text. */
   readonly createdAt: string
   readonly counts: {
@@ -1110,6 +1153,8 @@ export interface ArchiveImportRequest {
 
 export interface ArchiveImportIssue {
   readonly code: string
+  /** Stable field identity for programmatic recovery; never display text. */
+  readonly field: string | null
   /** Absent when the issue is about the package rather than one record. */
   readonly recordKind: 'entry' | 'media' | 'track' | null
   readonly id: StableId | null
@@ -1127,8 +1172,12 @@ export type ArchiveImportIdentityOutcome =
   | { readonly outcome: 'preserved' }
   | { readonly outcome: 'adopted' }
   | {
-      readonly outcome: 'filled'
-      readonly unchangedFields: readonly string[]
+      readonly outcome: 'matched'
+    }
+  | {
+      readonly outcome: 'merged'
+      readonly filledFields: readonly string[]
+      readonly conflictingFields: readonly string[]
     }
 
 /**
@@ -1136,12 +1185,18 @@ export type ArchiveImportIdentityOutcome =
  * are reported so the user can be told exactly what was already present.
  */
 export interface ArchiveImportResult {
+  /** True for every durable content, identity, Track, or recovery mutation. */
+  readonly changed: boolean
+  readonly recovery: 'clean' | 'pending'
   readonly importedEntries: number
   readonly importedMedia: number
+  readonly importedTracks: number
   readonly skippedEntries: number
   readonly skippedMedia: number
+  readonly skippedTracks: number
   readonly skippedEntryIds: readonly StableId[]
   readonly skippedMediaIds: readonly StableId[]
+  readonly skippedTrackIds: readonly StableId[]
   readonly issues: readonly ArchiveImportIssue[]
   readonly identity: ArchiveImportIdentityOutcome
   readonly invalidation: InvalidationToken

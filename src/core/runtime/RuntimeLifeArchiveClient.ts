@@ -18,81 +18,52 @@ import {
   type Unsubscribe,
 } from '../client'
 import type {
-  ArchiveCloseResult,
   ArchiveEraseRequest,
-  ArchiveEraseResult,
   ArchiveExportRequest,
-  ArchiveExportResult,
   ArchiveIdentity,
-  ArchiveIdentitySaveResult,
-  ArchiveIdentityState,
-  ArchiveImportIdentityOutcome,
-  ArchiveImportIssue,
   ArchiveImportRequest,
-  ArchiveImportResult,
-  ArchiveOverview,
-  ArchiveVerification,
   ArchiveVerifyRequest,
   CalendarContext,
-  CalendarContextRequest,
   CancellationRequestResult,
-  InvalidationToken,
-  MediaContent,
   MediaContentRequest,
   MediaDeleteRequest,
-  MediaDeleteResult,
   MediaImportRequest,
-  MediaImportResult,
   MediaListRequest,
-  MediaListing,
   OrdinaryDeleteRequest,
-  OrdinaryDeleteResult,
-  OrdinaryEntryState,
   OrdinarySaveRequest,
-  OrdinarySaveResult,
   StableId,
   StorageFacts,
   StructuredConvertRequest,
   StructuredCreateRequest,
   StructuredDeleteRequest,
-  StructuredDeleteResult,
-  StructuredListPage,
   StructuredListRequest,
   StructuredLoadRequest,
-  StructuredMutationResult,
-  StructuredObjectState,
   StructuredSaveRequest,
   TimeWindow,
-  TimeWindowRequest,
   TimelineFocusRequest,
-  TimelineFocusResult,
   TimelineIndexRequest,
-  TimelinePage,
   TimelineStructuredDetailRequest,
-  TimelineStructuredDetailResult,
   TimelineStructuredListRequest,
-  TimelineStructuredListResult,
   TrackCreateRequest,
   TrackDeleteRequest,
   TrackDetachRequest,
-  TrackHistoryPage,
   TrackHistoryRequest,
-  TrackListPage,
   TrackListRequest,
   TrackMemberCreateRequest,
   TrackMembershipRequest,
-  TrackMutationResult,
   TrackSaveRequest,
-  TrackState,
-  TrackWithFirstMember,
   TrackWithFirstMemberRequest,
-  WindowStepRequest,
 } from '../client'
 import {
   WorkerTransportError,
   type WorkerTransport,
 } from './worker/WorkerTransport'
 import { mayMutateDurableState } from './worker/durableOperations'
+import {
+  mapInvalidation,
+  runtimeBoundary,
+  type RuntimeBoundary,
+} from './runtimeBoundary'
 
 interface WireSuccess {
   readonly outcome: 'success'
@@ -102,8 +73,10 @@ interface WireSuccess {
 interface WireFailure {
   readonly outcome: 'failure'
   readonly failure: {
+    readonly category?: unknown
     readonly code?: unknown
     readonly details?: unknown
+    readonly currentState?: unknown
   }
 }
 
@@ -112,12 +85,6 @@ type WireEnvelope = WireSuccess | WireFailure
 interface WireResponse {
   readonly envelope: unknown
   readonly transfers: readonly ArrayBuffer[]
-}
-
-interface PreparedRequest {
-  readonly request: unknown
-  readonly transfers: ArrayBuffer[]
-  readonly archive?: File
 }
 
 export interface RuntimeClientOptions {
@@ -155,7 +122,16 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
   readonly runtime: LifeArchiveClient['runtime'] = {
     status: () => this.runtimeState,
     observeStatus: (listener) => subscribe(this.statusListeners, listener),
-    storage: () => this.invoke<StorageFacts>('runtime.storage', null),
+    storage: () =>
+      Promise.resolve(
+        ok<StorageFacts>({
+          backend: this.options.runtime.backend,
+          durability: this.options.runtime.durability,
+          archiveOpen: this.archiveState.state === 'open',
+          grant: 'unknown',
+          estimate: null,
+        }),
+      ),
   }
 
   readonly archive: LifeArchiveClient['archive'] = {
@@ -164,8 +140,8 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
     create: () =>
       this.runExclusiveArchiveOperation(async () => {
         this.setArchiveState({ state: 'opening' })
-        const result = await this.invoke<OpenArchive>(
-          'store.open',
+        const result = await this.invoke(
+          runtimeBoundary.storeOpen,
           this.openRequest('create'),
         )
         this.finishOpen(result)
@@ -174,8 +150,8 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
     open: () =>
       this.runExclusiveArchiveOperation(async () => {
         this.setArchiveState({ state: 'opening' })
-        const result = await this.invoke<OpenArchive>(
-          'store.open',
+        const result = await this.invoke(
+          runtimeBoundary.storeOpen,
           this.openRequest('existing'),
         )
         this.finishOpen(result)
@@ -185,10 +161,7 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       this.runExclusiveArchiveOperation(async () => {
         const previousState = this.archiveState
         this.setArchiveState({ state: 'closing' })
-        const result = await this.invoke<ArchiveCloseResult>(
-          'store.close',
-          null,
-        )
+        const result = await this.invoke(runtimeBoundary.storeClose, null)
         if (result.status === 'ok') {
           this.setArchiveState({ state: 'closed' })
           try {
@@ -203,19 +176,33 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
         }
         return result
       }),
-    overview: () => this.invoke<ArchiveOverview>('archive.overview', {}),
+    overview: () => this.invoke(runtimeBoundary.archiveOverview, {}),
     verify: (request: ArchiveVerifyRequest) =>
       this.runExclusiveArchiveOperation(() =>
-        this.invoke<ArchiveVerification>('archive.verify', request),
+        this.invoke(runtimeBoundary.archiveVerify, request),
       ),
     import: (request: ArchiveImportRequest) =>
       this.runExclusiveArchiveOperation(async () => {
         const controller = new AbortController()
         this.cancellableOperations.set(request.operationId, controller)
         try {
-          return await this.invoke<ArchiveImportResult>(
-            'archive.apply',
-            request,
+          if (this.archiveState.state !== 'open') {
+            return failed(
+              clientFailure({
+                area: 'lifecycle',
+                code: 'closed',
+                phase: 'mutation',
+                retryable: false,
+                durableOutcome: 'not-started',
+              }),
+            )
+          }
+          return await this.invoke(
+            runtimeBoundary.archiveImport,
+            {
+              input: request,
+              previousInvalidation: this.archiveState.archive.invalidation,
+            },
             controller.signal,
           )
         } finally {
@@ -224,11 +211,49 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       }),
     export: (request: ArchiveExportRequest) =>
       this.runExclusiveArchiveOperation(async () => {
+        if (this.archiveState.state !== 'open') {
+          return failed(
+            clientFailure({
+              area: 'lifecycle',
+              code: 'closed',
+              phase: 'snapshot',
+              retryable: false,
+              durableOutcome: 'not-started',
+            }),
+          )
+        }
+        if (request.sourceStoreId !== this.archiveState.archive.storeId) {
+          return failed(
+            clientFailure({
+              area: 'archive',
+              code: 'invalidIdentifier',
+              phase: 'snapshot',
+              retryable: false,
+              field: 'sourceStoreId',
+              durableOutcome: 'not-started',
+            }),
+          )
+        }
         const controller = new AbortController()
         this.cancellableOperations.set(request.operationId, controller)
         try {
-          return await this.invoke<ArchiveExportResult>(
-            'archive.export',
+          if (
+            this.archiveState.state !== 'open' ||
+            this.archiveState.archive.storeId !== request.sourceStoreId
+          ) {
+            return failed(
+              clientFailure({
+                area: 'request',
+                code: 'invalidRequest',
+                phase: 'snapshot',
+                retryable: false,
+                field: 'sourceStoreId',
+                durableOutcome: 'not-started',
+              }),
+            )
+          }
+          return await this.invoke(
+            runtimeBoundary.archiveExport,
             request,
             controller.signal,
           )
@@ -238,101 +263,88 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       }),
     erase: (request: ArchiveEraseRequest) =>
       this.runExclusiveArchiveOperation(() =>
-        this.invoke<ArchiveEraseResult>('archive.erase', request),
+        this.invoke(runtimeBoundary.archiveErase, request),
       ),
   }
 
   readonly identity: LifeArchiveClient['identity'] = {
-    load: () =>
-      this.invoke<ArchiveIdentityState>('archive.identity.load', null),
+    load: () => this.invoke(runtimeBoundary.identityLoad, null),
     save: (identity: ArchiveIdentity) =>
-      this.invoke<ArchiveIdentitySaveResult>('archive.identity.save', identity),
+      this.invoke(runtimeBoundary.identitySave, identity),
   }
 
   readonly time: LifeArchiveClient['time'] = {
-    window: (request: TimeWindowRequest) =>
-      this.invoke<TimeWindow>('time.window', request),
-    step: (request: WindowStepRequest) =>
-      this.invoke<TimeWindow>('time.step', request),
-    calendarContext: (request: CalendarContextRequest) =>
-      this.invoke<CalendarContext>('time.calendarContext', request),
+    window: () => unsupportedClientCapability<TimeWindow>(),
+    step: () => unsupportedClientCapability<TimeWindow>(),
+    calendarContext: () => unsupportedClientCapability<CalendarContext>(),
   }
 
   readonly record: LifeArchiveClient['record'] = {
     load: (window: TimeWindow) =>
-      this.invoke<OrdinaryEntryState>('record.loadSpan', window),
+      this.invoke(runtimeBoundary.recordLoad, window),
     save: (request: OrdinarySaveRequest) =>
-      this.invoke<OrdinarySaveResult>('record.saveDraft', request),
+      this.invoke(runtimeBoundary.recordSave, request),
     delete: (request: OrdinaryDeleteRequest) =>
-      this.invoke<OrdinaryDeleteResult>('record.deleteEntry', request),
+      this.invoke(runtimeBoundary.recordDelete, request),
     listObjects: (request: StructuredListRequest) =>
-      this.invoke<StructuredListPage>('record.listObjects', request),
+      this.invoke(runtimeBoundary.recordListObjects, request),
   }
 
   readonly structured: LifeArchiveClient['structured'] = {
     load: (request: StructuredLoadRequest) =>
-      this.invoke<StructuredObjectState>('structured.load', request),
+      this.invoke(runtimeBoundary.structuredLoad, request),
     create: (request: StructuredCreateRequest) =>
-      this.invoke<StructuredMutationResult>('structured.create', request),
+      this.invoke(runtimeBoundary.structuredCreate, request),
     save: (request: StructuredSaveRequest) =>
-      this.invoke<StructuredMutationResult>('structured.save', request),
+      this.invoke(runtimeBoundary.structuredSave, request),
     delete: (request: StructuredDeleteRequest) =>
-      this.invoke<StructuredDeleteResult>('structured.delete', request),
+      this.invoke(runtimeBoundary.structuredDelete, request),
     convertSpanToEvent: (request: StructuredConvertRequest) =>
-      this.invoke<StructuredMutationResult>(
-        'structured.convertSpanToEvent',
-        request,
-      ),
+      this.invoke(runtimeBoundary.structuredConvert, request),
   }
 
   readonly tracks: LifeArchiveClient['tracks'] = {
     list: (request: TrackListRequest) =>
-      this.invoke<TrackListPage>('track.list', request),
-    load: (id: StableId) => this.invoke<TrackState>('track.load', { id }),
+      this.invoke(runtimeBoundary.trackList, request),
+    load: (id: StableId) => this.invoke(runtimeBoundary.trackLoad, id),
     create: (request: TrackCreateRequest) =>
-      this.invoke<TrackMutationResult>('track.create', request),
+      this.invoke(runtimeBoundary.trackCreate, request),
     save: (request: TrackSaveRequest) =>
-      this.invoke<TrackMutationResult>('track.save', request),
+      this.invoke(runtimeBoundary.trackSave, request),
     delete: (request: TrackDeleteRequest) =>
-      this.invoke<TrackMutationResult>('track.delete', request),
+      this.invoke(runtimeBoundary.trackDelete, request),
     createWithFirstMember: (request: TrackWithFirstMemberRequest) =>
-      this.invoke<TrackWithFirstMember>('track.createWithFirstMember', request),
+      this.invoke(runtimeBoundary.trackCreateWithFirstMember, request),
     history: (request: TrackHistoryRequest) =>
-      this.invoke<TrackHistoryPage>('track.history', request),
+      this.invoke(runtimeBoundary.trackHistory, request),
     attachMember: (request: TrackMembershipRequest) =>
-      this.invoke<StructuredMutationResult>('track.attachMember', request),
+      this.invoke(runtimeBoundary.trackAttachMember, request),
     detachMember: (request: TrackDetachRequest) =>
-      this.invoke<StructuredMutationResult>('track.detachMember', request),
+      this.invoke(runtimeBoundary.trackDetachMember, request),
     createMember: (request: TrackMemberCreateRequest) =>
-      this.invoke<StructuredMutationResult>('track.createMember', request),
+      this.invoke(runtimeBoundary.trackCreateMember, request),
   }
 
   readonly timeline: LifeArchiveClient['timeline'] = {
     index: (request: TimelineIndexRequest) =>
-      this.invoke<TimelinePage>('timeline.index', request),
+      this.invoke(runtimeBoundary.timelineIndex, request),
     focus: (request: TimelineFocusRequest) =>
-      this.invoke<TimelineFocusResult>('timeline.focusedDetail', request),
+      this.invoke(runtimeBoundary.timelineFocus, request),
     structuredDetail: (request: TimelineStructuredDetailRequest) =>
-      this.invoke<TimelineStructuredDetailResult>(
-        'timeline.structuredDetail',
-        request,
-      ),
+      this.invoke(runtimeBoundary.timelineStructuredDetail, request),
     structuredList: (request: TimelineStructuredListRequest) =>
-      this.invoke<TimelineStructuredListResult>(
-        'timeline.structuredList',
-        request,
-      ),
+      this.invoke(runtimeBoundary.timelineStructuredList, request),
   }
 
   readonly media: LifeArchiveClient['media'] = {
     list: (request: MediaListRequest) =>
-      this.invoke<MediaListing>('media.listForEntry', request),
+      this.invoke(runtimeBoundary.mediaList, request),
     content: (request: MediaContentRequest) =>
-      this.invoke<MediaContent>('media.resolveContent', request),
+      this.invoke(runtimeBoundary.mediaContent, request),
     import: (request: MediaImportRequest) =>
-      this.invoke<MediaImportResult>('media.import', request),
+      this.invoke(runtimeBoundary.mediaImport, request),
     delete: (request: MediaDeleteRequest) =>
-      this.invoke<MediaDeleteResult>('media.delete', request),
+      this.invoke(runtimeBoundary.mediaDelete, request),
   }
 
   readonly operations: LifeArchiveClient['operations'] = {
@@ -359,15 +371,16 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
     observeChanges: (listener) => subscribe(this.changeListeners, listener),
   }
 
-  private async invoke<Value>(
-    operation: string,
-    request: unknown,
+  private async invoke<Request, Value>(
+    boundary: RuntimeBoundary<Request, Value>,
+    request: Request,
     signal?: AbortSignal,
   ): Promise<ClientResult<Value>> {
+    const operation = boundary.operation
     let requestDispatched = false
     let completionEvidence = false
     try {
-      const prepared = await prepareRequest(operation, request)
+      const prepared = boundary.prepare(request)
       requestDispatched = true
       const payload = await this.options.transport.request({
         operation,
@@ -390,11 +403,17 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       }
       completionEvidence = true
       if (envelope.outcome === 'failure') {
-        return failed(mapWireFailure(envelope.failure))
+        const conflict =
+          boundary.mapFailure?.(envelope.failure, request) ?? null
+        if (conflict !== null) {
+          const value = deepFreeze(conflict)
+          return ok(value)
+        }
+        return failed(mapWireFailure(operation, envelope.failure))
       }
       const value = deepFreeze(
-        mapWireResult(operation, envelope.result, response.transfers),
-      ) as Value
+        boundary.map(envelope.result, response.transfers, request),
+      )
       this.publishMutationChange(operation, value)
       return ok(value)
     } catch (error) {
@@ -455,13 +474,20 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       operation === 'store.close' ||
       this.archiveState.state !== 'open' ||
       !isRecord(value) ||
-      isNoChangeMutation(value)
+      isNoChangeMutation(value) ||
+      value.changed === false
     ) {
       return
     }
+    const invalidation = mapInvalidation(value.invalidation)
+    const archive = this.archiveState.archive
+    this.archiveState = {
+      state: 'open',
+      archive: { ...archive, invalidation },
+    }
     notify(this.changeListeners, {
-      storeId: this.archiveState.archive.storeId,
-      invalidation: mapInvalidation(value.invalidation),
+      storeId: archive.storeId,
+      invalidation,
     })
   }
 
@@ -542,66 +568,18 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
   }
 }
 
-async function prepareRequest(
-  operation: string,
-  request: unknown,
-): Promise<PreparedRequest> {
-  if (operation === 'archive.export' && isRecord(request)) {
-    const application = request.application
-    if (
-      !isRecord(application) ||
-      typeof application.name !== 'string' ||
-      typeof application.version !== 'string'
-    ) {
-      throw new TypeError('Archive export application facts are missing')
-    }
-    return {
-      request: {
-        operationId: request.operationId,
-        contractVersion: '5',
-        archiveId: request.archiveId,
-        createdAtMs: request.createdAtMs,
-        createdBy: {
-          appName: application.name,
-          appVersion: application.version,
-        },
-        archiveName: 'LifeArchive.lifearchive',
-      },
-      transfers: [],
-    }
-  }
-  if (operation === 'media.import' && isRecord(request)) {
-    const bytes = request.bytes
-    if (!(bytes instanceof ArrayBuffer)) {
-      throw new TypeError('Media import bytes are missing')
-    }
-    return {
-      request: {
-        attachmentId: request.newMediaId,
-        entryId: request.parentEntryId,
-        expectedRevision: request.expectedParentRevision,
-        fileName: request.fileName,
-        createdAtMs: request.createdAtMs,
-        mimeTypeHint: request.mimeTypeHint,
-        kindHint: request.kindHint,
-        sourceTransferId: 'media-source',
-      },
-      transfers: [bytes],
-    }
-  }
-  if (
-    (operation === 'archive.verify' || operation === 'archive.apply') &&
-    isRecord(request) &&
-    request.archive instanceof File
-  ) {
-    const { archive, ...runtimeRequest } = request
-    return {
-      request: runtimeRequest,
-      transfers: [],
-      archive,
-    }
-  }
-  return { request, transfers: [] }
+function unsupportedClientCapability<Value>(): Promise<ClientResult<Value>> {
+  return Promise.resolve(
+    failed(
+      clientFailure({
+        area: 'compatibility',
+        code: 'unsupportedCapability',
+        phase: 'negotiation',
+        retryable: false,
+        durableOutcome: 'not-started',
+      }),
+    ),
+  )
 }
 
 /**
@@ -628,338 +606,51 @@ function unwrapWireResponse(value: unknown): WireResponse {
   return { envelope: value, transfers: [] }
 }
 
-function mapWireResult(
-  operation: string,
-  result: unknown,
-  transfers: readonly ArrayBuffer[],
-): unknown {
-  if (operation === 'archive.overview' && isRecord(result)) {
-    return mapArchiveOverview(result)
-  }
-  if (
-    operation === 'media.resolveContent' &&
-    isRecord(result) &&
-    transfers.length === 1
-  ) {
-    return { ...result, bytes: new Uint8Array(transfers[0]) }
-  }
-  if (
-    operation === 'archive.export' &&
-    isRecord(result) &&
-    transfers.length === 1
-  ) {
-    return mapArchiveExport(result, transfers[0])
-  }
-  if (operation === 'archive.apply' && isRecord(result)) {
-    return mapImportResult(result)
-  }
-  return result
-}
-
-function mapArchiveOverview(result: Record<string, unknown>): ArchiveOverview {
-  const storeId = requiredStableId(result.storeId, 'archive overview store ID')
-  const entryCounts = requiredRecord(
-    result.entryCounts,
-    'archive overview entry counts',
-  )
-  const structuredCounts = requiredRecord(
-    result.structuredCounts,
-    'archive overview structured counts',
-  )
-  const trackCounts = requiredRecord(
-    result.trackCounts,
-    'archive overview track counts',
-  )
-  const health = requiredRecord(result.health, 'archive overview health')
-
-  return {
-    storeId,
-    storeSchemaVersion: requiredIntegerText(
-      result.schemaVersion,
-      'archive overview schema version',
-    ),
-    storeContract: requiredIntegerText(
-      result.storeContractVersion,
-      'archive overview store contract',
-    ),
-    visibleEntryCount: requiredCount(
-      result.visibleEntryCount,
-      'archive overview visible entry count',
-    ),
-    entryCounts: {
-      moment: requiredCount(entryCounts.moment, 'moment entry count'),
-      day: requiredCount(entryCounts.day, 'day entry count'),
-      week: requiredCount(entryCounts.week, 'week entry count'),
-      month: requiredCount(entryCounts.month, 'month entry count'),
-      year: requiredCount(entryCounts.year, 'year entry count'),
-      custom: requiredCount(entryCounts.custom, 'custom entry count'),
-    },
-    structuredCounts: {
-      events: requiredCount(structuredCounts.events, 'event count'),
-      spans: requiredCount(structuredCounts.spans, 'span count'),
-    },
-    trackCounts: {
-      active: requiredCount(trackCounts.active, 'active track count'),
-      archived: requiredCount(trackCounts.archived, 'archived track count'),
-      ongoingMembers: requiredCount(
-        trackCounts.ongoingMembers,
-        'ongoing track member count',
-      ),
-    },
-    mediaCount: requiredCount(
-      result.attachmentCount,
-      'archive overview attachment count',
-    ),
-    mediaByteTotal: requiredCount(
-      result.attachmentByteTotal,
-      'archive overview attachment byte total',
-    ),
-    health: {
-      readable: requiredBoolean(health.storeReadable, 'store readability'),
-      schemaCompatible: requiredBoolean(
-        health.schemaCompatible,
-        'schema compatibility',
-      ),
-      recovery: requiredLiteral(
-        health.recoveryState,
-        'clean',
-        'recovery state',
-      ),
-      integrity: mapDatabaseIntegrity(health.databaseIntegrity),
-      referenceViolationCount: requiredCount(
-        health.foreignKeyViolationCount,
-        'reference violation count',
-      ),
-      overall: requiredLiteral(health.status, 'healthy', 'archive health'),
-    },
-    invalidation: mapInvalidation(result.token),
-  }
-}
-
-function mapArchiveExport(
-  result: Record<string, unknown>,
-  transfer: ArrayBuffer,
-): ArchiveExportResult {
-  const transport = requiredRecord(
-    result.browserTransport,
-    'archive browser transport',
-  )
-  const counts = requiredRecord(result.counts, 'archive export counts')
-  const fileName = requiredString(transport.fileName, 'archive export filename')
-  const mimeType = requiredString(
-    transport.mimeType,
-    'archive export MIME type',
-  )
-  const range =
-    result.dateRange === null || result.dateRange === undefined
-      ? null
-      : requiredRecord(result.dateRange, 'archive export date range')
-
-  return {
-    archive: new File([transfer], fileName, { type: mimeType }),
-    archiveId: requiredStableId(result.archiveId, 'archive export ID'),
-    createdAt: requiredString(result.createdAt, 'archive creation time'),
-    counts: {
-      entries: requiredCount(counts.entries, 'exported entry count'),
-      media: requiredCount(counts.attachments, 'exported attachment count'),
-      summaries: requiredCount(counts.summaries, 'exported summary count'),
-    },
-    dateRange: range
-      ? {
-          start: requiredString(range.start, 'archive date range start'),
-          end: requiredString(range.end, 'archive date range end'),
-        }
-      : null,
-    filesWritten: requiredCount(
-      result.filesWritten,
-      'archive files written count',
-    ),
-    checkedFiles: requiredCount(
-      result.checkedFiles,
-      'archive checked files count',
-    ),
-    checksumAlgorithm: requiredLiteral(
-      result.checksumAlgorithm,
-      'sha256',
-      'archive checksum algorithm',
-    ),
-    invalidation: mapInvalidation(result.token),
-  }
-}
-
-/**
- * Renames the runtime's application vocabulary into the client's. It chooses
- * nothing: every count, identifier, and identity outcome is the one the
- * runtime decided, only under the name feature code reads.
- */
-function mapImportResult(result: Record<string, unknown>): ArchiveImportResult {
-  return {
-    importedEntries: count(result.importedEntries),
-    importedMedia: count(result.importedAttachments),
-    skippedEntries: count(result.skippedEntries),
-    skippedMedia: count(result.skippedAttachments),
-    skippedEntryIds: identifiers(result.skippedEntryIds),
-    skippedMediaIds: identifiers(result.skippedAttachmentIds),
-    issues: Array.isArray(result.issues)
-      ? result.issues.filter(isRecord).map(mapImportIssue)
-      : [],
-    identity: mapImportIdentity(result),
-    invalidation: mapInvalidation(result.token),
-  }
-}
-
-function mapImportIssue(issue: Record<string, unknown>): ArchiveImportIssue {
-  const kind = issue.recordKind
-  return {
-    code: typeof issue.code === 'string' ? issue.code : 'unknown',
-    recordKind:
-      kind === 'entry'
-        ? 'entry'
-        : kind === 'attachment'
-          ? 'media'
-          : kind === 'track'
-            ? 'track'
-            : null,
-    id:
-      typeof issue.id === 'string' && isStableId(issue.id)
-        ? stableId(issue.id)
-        : null,
-  }
-}
-
-function mapImportIdentity(
-  result: Record<string, unknown>,
-): ArchiveImportIdentityOutcome {
-  switch (result.identityOutcome) {
-    case 'adopted':
-      return { outcome: 'adopted' }
-    case 'filled':
-      return { outcome: 'filled', unchangedFields: [] }
-    case 'conflicts':
-      return {
-        outcome: 'filled',
-        unchangedFields: Array.isArray(result.identityConflicts)
-          ? result.identityConflicts
-              .filter(isRecord)
-              .map((conflict) => conflict.field)
-              .filter((field) => typeof field === 'string')
-          : [],
-      }
-    default:
-      return { outcome: 'preserved' }
-  }
-}
-
-function mapInvalidation(value: unknown): InvalidationToken {
-  if (
-    !isRecord(value) ||
-    typeof value.storeInstanceId !== 'string' ||
-    typeof value.revision !== 'string' ||
-    !isRevision(value.revision)
-  ) {
-    throw new TypeError('Malformed runtime invalidation token')
-  }
-  return {
-    storeInstanceId: value.storeInstanceId,
-    revision: revision(value.revision),
-  }
-}
-
-function count(value: unknown): number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
-    ? value
-    : 0
-}
-
-function requiredRecord(
-  value: unknown,
-  description: string,
-): Record<string, unknown> {
-  if (!isRecord(value)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return value
-}
-
-function requiredString(value: unknown, description: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return value
-}
-
-function requiredStableId(value: unknown, description: string): StableId {
-  if (typeof value !== 'string' || !isStableId(value)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return stableId(value)
-}
-
-function requiredCount(value: unknown, description: string): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return value
-}
-
-function requiredIntegerText(value: unknown, description: string): string {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return String(value)
-}
-
-function requiredBoolean(value: unknown, description: string): boolean {
-  if (typeof value !== 'boolean') {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return value
-}
-
-function mapDatabaseIntegrity(value: unknown): 'verified' {
-  requiredLiteral(value, 'ok', 'database integrity')
-  return 'verified'
-}
-
-function requiredLiteral<Value extends string>(
-  value: unknown,
-  expected: Value,
-  description: string,
-): Value {
-  if (value !== expected) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return expected
-}
-
-function identifiers(value: unknown): readonly StableId[] {
-  return Array.isArray(value)
-    ? value
-        .filter((entry) => typeof entry === 'string' && isStableId(entry))
-        .map((entry) => stableId(entry))
-    : []
-}
-
 function parseWireEnvelope(value: unknown): WireEnvelope {
   if (!isRecord(value)) {
     throw new TypeError('Malformed runtime response')
   }
   if (value.outcome === 'success' && 'result' in value) {
-    return value as unknown as WireSuccess
+    return { outcome: 'success', result: value.result }
   }
   if (value.outcome === 'failure' && isRecord(value.failure)) {
-    return value as unknown as WireFailure
+    return {
+      outcome: 'failure',
+      failure: {
+        category: value.failure.category,
+        code: value.failure.code,
+        details: value.failure.details,
+        currentState: value.failure.currentState,
+      },
+    }
   }
   throw new TypeError('Malformed runtime response')
 }
 
-function mapWireFailure(failure: WireFailure['failure']): ClientFailure {
+function mapWireFailure(
+  operation: string,
+  failure: WireFailure['failure'],
+): ClientFailure {
   const details = isRecord(failure.details) ? failure.details : {}
+  if (typeof failure.code !== 'string') {
+    throw new TypeError('Malformed runtime failure code')
+  }
   return clientFailure({
-    area: failureArea(details.area),
-    code: typeof failure.code === 'string' ? failure.code : 'runtimeFailure',
+    area: failureArea(details.area, operation, failure.category),
+    code: failure.code,
     phase: failurePhase(details.phase),
     retryable: details.retryable === true,
+    field: optionalString(details.field, 'runtime failure field'),
+    subject: failureSubject(details),
+    expectedRevision: optionalRevision(
+      details.expectedRevision,
+      'runtime expected revision',
+    ),
+    actualRevision: optionalRevision(
+      details.actualRevision,
+      'runtime actual revision',
+    ),
+    cleanup: cleanupState(details.cleanupState),
     durableOutcome:
       details.durableOutcome === 'known' || details.durableOutcome === 'unknown'
         ? details.durableOutcome
@@ -1035,7 +726,11 @@ function isNoChangeMutation(value: Record<string, unknown>): boolean {
   )
 }
 
-function failureArea(value: unknown): ClientFailure['area'] {
+function failureArea(
+  value: unknown,
+  operation: string,
+  category: unknown,
+): ClientFailure['area'] {
   const allowed: readonly ClientFailure['area'][] = [
     'request',
     'compatibility',
@@ -1050,9 +745,32 @@ function failureArea(value: unknown): ClientFailure['area'] {
     'cleanup',
     'transport',
   ]
-  return allowed.includes(value as ClientFailure['area'])
-    ? (value as ClientFailure['area'])
-    : 'transport'
+  const direct = allowed.find((area) => area === value)
+  if (direct) {
+    return direct
+  }
+  if (operation.startsWith('record.') || operation.startsWith('structured.')) {
+    return 'record'
+  }
+  if (operation.startsWith('track.')) {
+    return 'record'
+  }
+  if (operation.startsWith('timeline.')) {
+    return 'timeline'
+  }
+  if (operation.startsWith('media.')) {
+    return 'media'
+  }
+  if (operation.startsWith('archive.')) {
+    return 'archive'
+  }
+  if (operation.startsWith('store.')) {
+    return 'storage'
+  }
+  if (category === 'cancelled') {
+    return 'cancelled'
+  }
+  return 'transport'
 }
 
 function failurePhase(value: unknown): ClientFailure['phase'] {
@@ -1061,16 +779,114 @@ function failurePhase(value: unknown): ClientFailure['phase'] {
     'rootValidation',
     'lock',
     'open',
+    'validation',
+    'archiveStructureAndVersion',
+    'checksumScopeAndBytes',
+    'recordsAndReferences',
+    'attachmentMedia',
+    'destinationPlanning',
+    'mediaStagingAndJournal',
+    'finalCancellationCheckpoint',
+    'commit',
+    'compensation',
     'recovery',
     'snapshot',
+    'media',
+    'encoding',
+    'verification',
+    'publication',
+    'cleanup',
     'mutation',
     'cancellation',
     'close',
     'transport',
   ]
-  return allowed.includes(value as ClientFailure['phase'])
-    ? (value as ClientFailure['phase'])
-    : 'transport'
+  return allowed.find((phase) => phase === value) ?? 'transport'
+}
+
+function failureSubject(
+  details: Record<string, unknown>,
+): ClientFailure['subject'] {
+  if (details.entityKind === undefined && details.id === undefined) {
+    return null
+  }
+  const kind = (() => {
+    switch (details.entityKind) {
+      case 'archive':
+        return 'archive'
+      case 'entry':
+        return 'entry'
+      case 'structuredObject':
+      case 'object':
+        return 'object'
+      case 'track':
+        return 'track'
+      case 'member':
+        return 'member'
+      case 'attachment':
+      case 'media':
+        return 'media'
+      default:
+        throw new TypeError('Malformed runtime failure subject kind')
+    }
+  })()
+  return {
+    kind,
+    id:
+      details.id === null || details.id === undefined
+        ? null
+        : requiredFailureStableId(details.id),
+  }
+}
+
+function requiredFailureStableId(value: unknown) {
+  if (typeof value !== 'string' || !isStableId(value)) {
+    throw new TypeError('Malformed runtime failure subject identifier')
+  }
+  return stableId(value)
+}
+
+function optionalRevision(
+  value: unknown,
+  description: string,
+): ReturnType<typeof revision> | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+  if (typeof value !== 'string' || !isRevision(value)) {
+    throw new TypeError(`Malformed ${description}`)
+  }
+  return revision(value)
+}
+
+function optionalString(value: unknown, description: string): string | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+  if (typeof value !== 'string') {
+    throw new TypeError(`Malformed ${description}`)
+  }
+  return value
+}
+
+function cleanupState(value: unknown): ClientFailure['cleanup'] {
+  if (value === null || value === undefined) {
+    return null
+  }
+  switch (value) {
+    case 'complete':
+      return 'complete'
+    case 'incomplete':
+      return 'incomplete'
+    case 'ownedStagingMayRemain':
+      return 'temporary-output-may-remain'
+    case 'verifiedDestinationMayRemain':
+      return 'verified-output-may-remain'
+    case 'ownedStagingAndVerifiedDestinationMayRemain':
+      return 'temporary-and-verified-output-may-remain'
+    default:
+      throw new TypeError('Malformed runtime cleanup state')
+  }
 }
 
 function subscribe<Value>(

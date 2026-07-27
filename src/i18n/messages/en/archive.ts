@@ -91,11 +91,15 @@ export const archiveMessages = {
   'archive.import.complete.announcement': 'Archive import complete',
   'archive.import.noOp.title': 'Nothing new to import',
   'archive.import.noOp.detail':
-    'The package made no changes to writing, media, or archive identity.',
+    'The package made no durable changes to writing, media, Tracks, archive identity, or recovery state.',
   'archive.import.count.importedEntries': 'Writing imported',
   'archive.import.count.importedMedia': 'Media imported',
+  'archive.import.count.importedTracks': 'Tracks imported',
   'archive.import.count.skippedEntries': 'Existing writing skipped',
   'archive.import.count.skippedMedia': 'Existing media skipped',
+  'archive.import.count.skippedTracks': 'Existing Tracks skipped',
+  'archive.import.recovery.pending':
+    'The import committed, but recovery cleanup is still pending. Reopen the archive before retrying.',
   'archive.import.issues': {
     one: 'One invalid item was skipped without changing the rest of the import.',
     other:
@@ -105,12 +109,18 @@ export const archiveMessages = {
     'The current archive identity was preserved.',
   'archive.import.identity.adopted':
     'The imported archive identity was adopted.',
+  'archive.import.identity.matched':
+    'The package and current archive identities matched.',
   'archive.import.identity.filled':
     'Empty archive identity details were filled from the package.',
   'archive.import.identity.conflicts': {
     one: 'Empty identity details were filled; one existing identity detail was kept.',
     other:
       'Empty identity details were filled; {count} existing identity details were kept.',
+  },
+  'archive.import.identity.conflictsOnly': {
+    one: 'One existing identity detail was kept unchanged.',
+    other: '{count} existing identity details were kept unchanged.',
   },
 
   'archive.export.eyebrow': 'Portable archive',

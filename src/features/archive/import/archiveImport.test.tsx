@@ -23,22 +23,29 @@ import { ArchiveImportPanel } from './ArchiveImportPanel'
 const OPERATION_ID = operationId('7f1c0a10-0000-4000-8000-0000000000b1')
 const PRIVATE_ISSUE_ID = stableId('7f1c0a10-0000-4000-8000-000000000099')
 const RESULT: ArchiveImportResult = {
+  changed: true,
+  recovery: 'clean',
   importedEntries: 12,
   importedMedia: 3,
+  importedTracks: 2,
   skippedEntries: 2,
   skippedMedia: 1,
+  skippedTracks: 1,
   skippedEntryIds: [PRIVATE_ISSUE_ID],
   skippedMediaIds: [],
+  skippedTrackIds: [],
   issues: [
     {
       code: 'private-record-taxonomy',
+      field: 'bodyMarkdown',
       recordKind: 'entry',
       id: PRIVATE_ISSUE_ID,
     },
   ],
   identity: {
-    outcome: 'filled',
-    unchangedFields: ['displayName'],
+    outcome: 'merged',
+    filledFields: ['archiveName'],
+    conflictingFields: ['displayName'],
   },
   invalidation: {
     storeInstanceId: 'after-import',
@@ -136,7 +143,9 @@ describe('atomic archive import', () => {
     expect(region).not.toBeNull()
     expect(within(region as HTMLElement).getByText('12')).toBeInTheDocument()
     expect(within(region as HTMLElement).getByText('3')).toBeInTheDocument()
-    expect(within(region as HTMLElement).getByText('2')).toBeInTheDocument()
+    expect(
+      within(region as HTMLElement).getAllByText('2').length,
+    ).toBeGreaterThanOrEqual(1)
     expect(document.body).toHaveTextContent(/one invalid item was skipped/i)
     expect(document.body).toHaveTextContent(
       /one existing identity detail was kept/i,
@@ -149,11 +158,16 @@ describe('atomic archive import', () => {
     const { client } = stubClient(
       ok({
         ...RESULT,
+        changed: false,
         importedEntries: 0,
         importedMedia: 0,
+        importedTracks: 0,
         skippedEntries: 0,
         skippedMedia: 0,
+        skippedTracks: 0,
         skippedEntryIds: [],
+        skippedMediaIds: [],
+        skippedTrackIds: [],
         issues: [],
         identity: { outcome: 'preserved' },
       }),
@@ -163,7 +177,68 @@ describe('atomic archive import', () => {
     expect(
       await screen.findByRole('heading', { name: 'Nothing new to import' }),
     ).toBeInTheDocument()
-    expect(document.body).toHaveTextContent(/made no changes/i)
+    expect(document.body).toHaveTextContent(/made no durable changes/i)
+  })
+
+  it('does not report a Track-only durable mutation as a no-op', async () => {
+    const { client } = stubClient(
+      ok({
+        ...RESULT,
+        changed: true,
+        importedEntries: 0,
+        importedMedia: 0,
+        importedTracks: 1,
+        skippedEntries: 0,
+        skippedMedia: 0,
+        skippedTracks: 0,
+        skippedEntryIds: [],
+        skippedMediaIds: [],
+        skippedTrackIds: [],
+        issues: [],
+        identity: { outcome: 'matched' },
+      }),
+    )
+    await selectAndImport(client)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Import complete' }),
+    ).toBeInTheDocument()
+    expect(document.body).toHaveTextContent('Tracks imported')
+    expect(
+      screen.queryByRole('heading', { name: 'Nothing new to import' }),
+    ).toBeNull()
+  })
+
+  it('does not report pending recovery cleanup as a no-op', async () => {
+    const { client } = stubClient(
+      ok({
+        ...RESULT,
+        changed: true,
+        recovery: 'pending',
+        importedEntries: 0,
+        importedMedia: 0,
+        importedTracks: 0,
+        skippedEntries: 0,
+        skippedMedia: 0,
+        skippedTracks: 0,
+        skippedEntryIds: [],
+        skippedMediaIds: [],
+        skippedTrackIds: [],
+        issues: [],
+        identity: { outcome: 'matched' },
+      }),
+    )
+    await selectAndImport(client)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Import complete' }),
+    ).toBeInTheDocument()
+    expect(document.body).toHaveTextContent(
+      /recovery cleanup is still pending/i,
+    )
+    expect(
+      screen.queryByRole('heading', { name: 'Nothing new to import' }),
+    ).toBeNull()
   })
 
   it('rejects an unsupported outer file before calling the client', async () => {
