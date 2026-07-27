@@ -37,6 +37,7 @@ export type AppState =
       readonly state: 'opening'
       readonly client: LifeArchiveClient
       readonly developmentMock: boolean
+      readonly purpose: 'open' | 'recovery'
     }
   | {
       readonly state: 'open'
@@ -55,6 +56,11 @@ export type AppState =
       readonly developmentMock: boolean
       readonly previousOpen: OpenArchive | null
       readonly failure: ClientFailure | null
+    }
+  | {
+      readonly state: 'closing' | 'closed'
+      readonly client: LifeArchiveClient
+      readonly developmentMock: boolean
     }
   | {
       readonly state: 'fatal-incompatibility'
@@ -77,8 +83,10 @@ class AppStateController {
   private bootstrapPromise: Promise<void> | null = null
   private openPromise: Promise<void> | null = null
   private client: LifeArchiveClient | null = null
+  private clientEpoch = 0
   private developmentMock = false
   private lastOpen: OpenArchive | null = null
+  private openPurpose: 'open' | 'recovery' = 'open'
 
   constructor(bootstrap: AppBootstrap) {
     this.bootstrap = bootstrap
@@ -111,6 +119,9 @@ class AppStateController {
       this.state.state === 'fatal-incompatibility'
     ) {
       this.client = null
+      this.clientEpoch += 1
+      this.openPromise = null
+      this.openPurpose = 'open'
       this.lastOpen = null
       this.clearSubscriptions()
       this.setState({ state: 'booting' })
@@ -120,9 +131,10 @@ class AppStateController {
     if (
       this.client &&
       (this.state.state === 'locked' ||
-        this.state.state === 'recoverable-failure')
+        this.state.state === 'recoverable-failure' ||
+        this.state.state === 'closed')
     ) {
-      this.openExisting(this.client)
+      this.openExisting(this.client, this.state.state === 'recoverable-failure')
     }
   }
 
@@ -176,9 +188,12 @@ class AppStateController {
     developmentMock: boolean,
   ): void {
     this.client = client
+    this.clientEpoch += 1
     this.developmentMock = developmentMock
     if (this.started) this.observeClient(client)
-    this.applyRuntimeStatus(client.runtime.status())
+    const runtimeStatus = client.runtime.status()
+    this.applyRuntimeStatus(runtimeStatus)
+    if (runtimeStatus.state !== 'available') return
     const session = client.archive.session()
     if (!developmentMock && session.state === 'no-archive') {
       this.openExisting(client)
@@ -189,9 +204,18 @@ class AppStateController {
 
   private observeClient(client: LifeArchiveClient): void {
     this.clearSubscriptions()
+    const epoch = this.clientEpoch
     this.subscriptions = [
-      client.runtime.observeStatus((status) => this.applyRuntimeStatus(status)),
-      client.archive.observeSession((session) => this.applySession(session)),
+      client.runtime.observeStatus((status) => {
+        if (this.client === client && this.clientEpoch === epoch) {
+          this.applyRuntimeStatus(status)
+        }
+      }),
+      client.archive.observeSession((session) => {
+        if (this.client === client && this.clientEpoch === epoch) {
+          this.applySession(session)
+        }
+      }),
     ]
   }
 
@@ -229,13 +253,22 @@ class AppStateController {
     }
     switch (session.state) {
       case 'no-archive':
-      case 'closed':
         this.lastOpen = null
         this.setState({ state: 'no-archive', ...common })
         return
       case 'opening':
+        this.setState({
+          state: 'opening',
+          purpose: this.openPurpose,
+          ...common,
+        })
+        return
       case 'closing':
-        this.setState({ state: 'opening', ...common })
+        this.setState({ state: 'closing', ...common })
+        return
+      case 'closed':
+        this.lastOpen = null
+        this.setState({ state: 'closed', ...common })
         return
       case 'open':
         this.lastOpen = session.archive
@@ -256,31 +289,51 @@ class AppStateController {
     }
   }
 
-  private openExisting(client: LifeArchiveClient): void {
+  private openExisting(client: LifeArchiveClient, recovering = false): void {
     if (this.openPromise) return
+    const epoch = this.clientEpoch
+    this.openPurpose = recovering ? 'recovery' : 'open'
     this.setState({
       state: 'opening',
+      purpose: this.openPurpose,
       client,
       developmentMock: this.developmentMock,
     })
     this.openPromise = client.archive
       .open()
       .then((result) => {
+        if (this.client !== client || this.clientEpoch !== epoch) return
+        const currentSession = client.archive.session()
+        if (currentSession.state === 'open') {
+          this.applySession(currentSession)
+          return
+        }
+        if (result.status === 'ok') {
+          this.applySession({ state: 'open', archive: result.value })
+          return
+        }
         if (result.status === 'failed') {
-          if (client.archive.session().state === 'open-in-another-tab') return
+          if (currentSession.state === 'open-in-another-tab') return
           if (
             result.failure.code === 'archiveNotFound' &&
-            client.archive.session().state === 'no-archive'
+            currentSession.state === 'no-archive'
           ) {
-            this.applySession(client.archive.session())
+            this.applySession(currentSession)
             return
           }
           this.setRecoverable(result.failure)
         }
       })
-      .catch(() => this.setRecoverable(null))
+      .catch(() => {
+        if (this.client === client && this.clientEpoch === epoch) {
+          this.setRecoverable(null)
+        }
+      })
       .finally(() => {
-        this.openPromise = null
+        if (this.client === client && this.clientEpoch === epoch) {
+          this.openPromise = null
+          this.openPurpose = 'open'
+        }
       })
   }
 

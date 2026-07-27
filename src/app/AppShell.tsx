@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { DevelopmentModeNotice } from '../core/bootstrap'
 import { FirstRunPage } from '../features/archive/firstRun'
-import { useTranslate } from '../i18n'
+import { failureMessage, useLocalisation, useTranslate } from '../i18n'
 import { AppRoutes, MainNavigation } from './AppRoutes'
 import { useAppState } from './providers'
 import { AppFrame, StatusScreen } from './shell'
@@ -20,6 +20,7 @@ function reloadApplication(): void {
  * on screen.
  */
 export function AppShell() {
+  const localisation = useLocalisation()
   const t = useTranslate()
   const { state, retry } = useAppState()
 
@@ -30,22 +31,43 @@ export function AppShell() {
           <StatusScreen title={t('app.status.booting.title')} busy />
         </Frame>
       )
-    case 'runtime-unavailable':
+    case 'runtime-unavailable': {
+      const unsupportedBrowser =
+        state.reason === 'worker-unsupported' ||
+        state.reason === 'insecure-context'
       return (
         <Frame>
           <StatusScreen
-            title={t('app.status.runtimeUnavailable.title')}
-            detail={t('app.status.runtimeUnavailable.detail')}
+            title={t(
+              unsupportedBrowser
+                ? 'app.status.browserUnsupported.title'
+                : 'app.status.runtimeUnavailable.title',
+            )}
+            detail={t(
+              unsupportedBrowser
+                ? 'app.status.browserUnsupported.detail'
+                : 'app.status.runtimeUnavailable.detail',
+            )}
             action={{ label: t('app.action.retry'), run: retry }}
           />
         </Frame>
       )
-    case 'fatal-incompatibility':
+    }
+    case 'fatal-incompatibility': {
+      const unsupportedBrowser = state.reason === 'environment-unsupported'
       return (
         <Frame>
           <StatusScreen
-            title={t('app.status.incompatible.title')}
-            detail={t('app.status.incompatible.detail')}
+            title={t(
+              unsupportedBrowser
+                ? 'app.status.browserUnsupported.title'
+                : 'app.status.incompatible.title',
+            )}
+            detail={t(
+              unsupportedBrowser
+                ? 'app.status.browserUnsupported.detail'
+                : 'app.status.incompatible.detail',
+            )}
             action={{ label: t('app.action.retry'), run: retry }}
             secondaryAction={{
               label: t('app.action.reload'),
@@ -54,6 +76,7 @@ export function AppShell() {
           />
         </Frame>
       )
+    }
     /*
      * No archive is the first run. It is the one unavailable-looking state
      * that has something to offer, so it gets the feature rather than a status
@@ -69,7 +92,35 @@ export function AppShell() {
     case 'opening':
       return (
         <Frame developmentMock={state.developmentMock}>
-          <StatusScreen title={t('app.status.opening.title')} busy />
+          <StatusScreen
+            title={t(
+              state.purpose === 'recovery'
+                ? 'app.status.recovering.title'
+                : 'app.status.opening.title',
+            )}
+            detail={
+              state.purpose === 'recovery'
+                ? t('app.status.recovering.detail')
+                : undefined
+            }
+            busy
+          />
+        </Frame>
+      )
+    case 'closing':
+      return (
+        <Frame developmentMock={state.developmentMock}>
+          <StatusScreen title={t('app.status.closing.title')} busy />
+        </Frame>
+      )
+    case 'closed':
+      return (
+        <Frame developmentMock={state.developmentMock}>
+          <StatusScreen
+            title={t('app.status.closed.title')}
+            detail={t('app.status.closed.detail')}
+            action={{ label: t('app.action.openArchive'), run: retry }}
+          />
         </Frame>
       )
     case 'locked':
@@ -82,7 +133,11 @@ export function AppShell() {
           />
         </Frame>
       )
-    case 'recoverable-failure':
+    case 'recoverable-failure': {
+      const failureTitle = recoveryTitle(state.failure?.code, t)
+      const failureDetail = state.failure
+        ? failureMessage(localisation, state.failure)
+        : t('app.status.recoverable.detail')
       if (state.previousOpen) {
         return (
           <Frame
@@ -91,7 +146,7 @@ export function AppShell() {
           >
             <aside className="app-notice" role="alert">
               <strong>{t('app.notice.recoverable.title')}</strong>{' '}
-              {t('app.notice.recoverable.detail')}
+              {failureDetail} {t('app.notice.recoverable.detail')}
               <button type="button" className="button" onClick={retry}>
                 {t('app.action.retry')}
               </button>
@@ -103,15 +158,17 @@ export function AppShell() {
                 {t('app.action.reload')}
               </button>
             </aside>
-            <AppRoutes client={state.client} />
+            <div inert aria-disabled="true">
+              <AppRoutes client={state.client} />
+            </div>
           </Frame>
         )
       }
       return (
         <Frame developmentMock={state.developmentMock}>
           <StatusScreen
-            title={t('app.status.recoverable.title')}
-            detail={t('app.status.recoverable.detail')}
+            title={failureTitle}
+            detail={failureDetail}
             action={{ label: t('app.action.retry'), run: retry }}
             secondaryAction={{
               label: t('app.action.reload'),
@@ -120,6 +177,7 @@ export function AppShell() {
           />
         </Frame>
       )
+    }
     case 'open':
       return (
         <Frame
@@ -129,6 +187,27 @@ export function AppShell() {
           <AppRoutes client={state.client} />
         </Frame>
       )
+  }
+}
+
+function recoveryTitle(
+  code: string | undefined,
+  t: ReturnType<typeof useTranslate>,
+): string {
+  switch (code) {
+    case 'unsupportedSchema':
+    case 'unsupportedLayout':
+      return t('app.status.newerArchive.title')
+    case 'corruptStore':
+      return t('app.status.corruptArchive.title')
+    case 'recoveryIncomplete':
+      return t('app.status.recoveryIncomplete.title')
+    case 'ioFailure':
+    case 'quotaExceeded':
+    case 'storageQuotaExceeded':
+      return t('app.status.storageFailure.title')
+    default:
+      return t('app.status.recoverable.title')
   }
 }
 

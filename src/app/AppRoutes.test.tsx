@@ -4,6 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  clientFailure,
+  failed,
+  ok,
   revision,
   stableId,
   type ArchiveSession,
@@ -50,6 +53,14 @@ function clientBootstrap(client: FakeLifeArchiveClient): AppBootstrap {
   })
 }
 
+function runtimeBootstrap(client: FakeLifeArchiveClient): AppBootstrap {
+  return async () => ({
+    state: 'client',
+    client: client.client,
+    developmentMock: false,
+  })
+}
+
 describe('ready application routes', () => {
   it.each(ROUTES)('routes $path to $heading', async ({ path, heading }) => {
     renderAppAt(path)
@@ -93,6 +104,32 @@ describe('ready application routes', () => {
 })
 
 describe('application availability states', () => {
+  it('automatically reopens the canonical archive after reload or browser restart', async () => {
+    const openAfterStart = (client: FakeLifeArchiveClient) =>
+      vi.spyOn(client.client.archive, 'open').mockImplementation(async () => {
+        client.emitSession({ state: 'opening' })
+        client.emitSession(OPEN_SESSION)
+        return ok(OPEN_ARCHIVE)
+      })
+
+    const firstClient = clientWithSession({ state: 'no-archive' })
+    const firstOpen = openAfterStart(firstClient)
+    const firstView = renderAppAt('/record', runtimeBootstrap(firstClient))
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+    expect(firstOpen).toHaveBeenCalledOnce()
+    firstView.unmount()
+
+    const restartedClient = clientWithSession({ state: 'no-archive' })
+    const restartedOpen = openAfterStart(restartedClient)
+    renderAppAt('/record', runtimeBootstrap(restartedClient))
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+    expect(restartedOpen).toHaveBeenCalledOnce()
+  })
+
   it('shows booting without mounting feature routes', () => {
     renderAppAt('/record', () => new Promise(() => undefined))
     expect(
@@ -197,6 +234,152 @@ describe('application availability states', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Record' })).toBeNull()
     expect(document.body).not.toHaveTextContent(/empty archive/i)
+  })
+
+  it.each([
+    ['unsupportedSchema', 'Archive needs a newer LifeArchive'],
+    ['corruptStore', 'Archive could not be read safely'],
+    ['recoveryIncomplete', 'Archive recovery did not finish'],
+    ['ioFailure', 'Storage could not open the archive'],
+  ] as const)(
+    'maps %s without offering a new empty archive',
+    async (code, title) => {
+      const client = clientWithSession({ state: 'no-archive' })
+      vi.spyOn(client.client.archive, 'open').mockResolvedValue(
+        failed(
+          clientFailure({
+            area: 'storage',
+            code,
+            phase: code === 'recoveryIncomplete' ? 'recovery' : 'open',
+            retryable: true,
+          }),
+        ),
+      )
+      renderAppAt('/record', runtimeBootstrap(client))
+
+      expect(
+        await screen.findByRole('heading', { name: title }),
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('heading', { name: 'Create your local archive' }),
+      ).toBeNull()
+    },
+  )
+
+  it('shows unsupported browser and runtime incompatibility as distinct states', async () => {
+    const unsupported = renderAppAt('/record', async () => ({
+      state: 'runtime',
+      runtime: { state: 'unavailable', reason: 'worker-unsupported' },
+    }))
+    expect(
+      await screen.findByRole('heading', { name: 'Browser not supported' }),
+    ).toBeInTheDocument()
+    unsupported.unmount()
+
+    const unsupportedEnvironment = renderAppAt('/record', async () => ({
+      state: 'runtime',
+      runtime: {
+        state: 'incompatible',
+        reason: 'environment-unsupported',
+      },
+    }))
+    expect(
+      await screen.findByRole('heading', { name: 'Browser not supported' }),
+    ).toBeInTheDocument()
+    unsupportedEnvironment.unmount()
+
+    renderAppAt('/record', async () => ({
+      state: 'runtime',
+      runtime: { state: 'incompatible', reason: 'abi-mismatch' },
+    }))
+    expect(
+      await screen.findByRole('heading', {
+        name: 'LifeArchive is incompatible',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows recovery progress when retrying a recovery-required archive', async () => {
+    const client = clientWithSession({ state: 'needs-recovery' })
+    let finishOpen:
+      ((result: ReturnType<typeof ok<OpenArchive>>) => void) | null = null
+    vi.spyOn(client.client.archive, 'open').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishOpen = resolve
+          client.emitSession({ state: 'opening' })
+        }),
+    )
+    const user = userEvent.setup()
+    renderAppAt('/record', clientBootstrap(client))
+
+    await user.click(await screen.findByRole('button', { name: 'Try again' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Recovering archive' }),
+    ).toBeInTheDocument()
+    act(() => {
+      client.emitSession(OPEN_SESSION)
+      finishOpen?.(ok(OPEN_ARCHIVE))
+    })
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+  })
+
+  it('ignores a stale failed open after a newer open session is confirmed', async () => {
+    const client = clientWithSession({ state: 'no-archive' })
+    let finishOpen:
+      ((result: ReturnType<typeof failed<OpenArchive>>) => void) | null = null
+    vi.spyOn(client.client.archive, 'open').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishOpen = resolve
+        }),
+    )
+    renderAppAt('/record', runtimeBootstrap(client))
+    expect(
+      await screen.findByRole('heading', { name: 'Opening archive' }),
+    ).toBeInTheDocument()
+
+    act(() => client.emitSession(OPEN_SESSION))
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+    act(() =>
+      finishOpen?.(
+        failed(
+          clientFailure({
+            area: 'storage',
+            code: 'corruptStore',
+            phase: 'open',
+            retryable: false,
+          }),
+        ),
+      ),
+    )
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+  })
+
+  it('presents clean closing and closed states without treating them as first run', async () => {
+    const client = clientWithSession(OPEN_SESSION)
+    renderAppAt('/record', clientBootstrap(client))
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+
+    act(() => client.emitSession({ state: 'closing' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Closing archive' }),
+    ).toBeInTheDocument()
+    act(() => client.emitSession({ state: 'closed' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Archive closed' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Create your local archive' }),
+    ).toBeNull()
   })
 
   it('reacts to session and runtime observations', async () => {
