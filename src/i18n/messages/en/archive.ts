@@ -63,4 +63,53 @@ export const archiveMessages = {
   'archive.firstRun.failed.title': 'The archive was not created',
   'archive.firstRun.failed.detail':
     'Nothing was created and nothing was replaced.',
+
+  'archive.import.eyebrow': 'Archive lifecycle',
+  'archive.import.title': 'Import an archive',
+  'archive.import.detail':
+    'Choose a supported LifeArchive package. It is checked and applied as one operation; if it cannot be applied, the open archive stays in place.',
+  'archive.import.file.label': 'Archive package',
+  'archive.import.file.selected': 'Selected: {name}',
+  'archive.import.file.invalidExtension':
+    'Choose a file ending in .lifearchive.tar.',
+  'archive.import.file.invalidType':
+    'That file type is not supported. Choose a LifeArchive package.',
+  'archive.import.file.empty': 'That package is empty and cannot be imported.',
+  'archive.import.action.import': 'Import archive',
+  'archive.import.action.cancel': 'Cancel import',
+  'archive.import.action.chooseAnother': 'Choose another package',
+  'archive.import.status.progress': 'Archive import progress',
+  'archive.import.status.importing': 'Checking and importing the archive',
+  'archive.import.status.cancelling':
+    'Requesting cancellation and waiting for a final result',
+  'archive.import.failed.title': 'The archive was not imported',
+  'archive.import.failed.unchanged':
+    'The archive that was open before this attempt is still open.',
+  'archive.import.failed.differentArchive':
+    'This package belongs to a different archive identity, so it was not applied.',
+  'archive.import.complete.title': 'Import complete',
+  'archive.import.complete.announcement': 'Archive import complete',
+  'archive.import.noOp.title': 'Nothing new to import',
+  'archive.import.noOp.detail':
+    'The package made no changes to writing, media, or archive identity.',
+  'archive.import.count.importedEntries': 'Writing imported',
+  'archive.import.count.importedMedia': 'Media imported',
+  'archive.import.count.skippedEntries': 'Existing writing skipped',
+  'archive.import.count.skippedMedia': 'Existing media skipped',
+  'archive.import.issues': {
+    one: 'One invalid item was skipped without changing the rest of the import.',
+    other:
+      '{count} invalid items were skipped without changing the rest of the import.',
+  },
+  'archive.import.identity.preserved':
+    'The current archive identity was preserved.',
+  'archive.import.identity.adopted':
+    'The imported archive identity was adopted.',
+  'archive.import.identity.filled':
+    'Empty archive identity details were filled from the package.',
+  'archive.import.identity.conflicts': {
+    one: 'Empty identity details were filled; one existing identity detail was kept.',
+    other:
+      'Empty identity details were filled; {count} existing identity details were kept.',
+  },
 } as const

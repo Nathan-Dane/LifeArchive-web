@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { revision, stableId } from '../client'
+import { describe, expect, it, vi } from 'vitest'
+import { operationId, revision, stableId } from '../client'
 import { RuntimeLifeArchiveClient } from './RuntimeLifeArchiveClient'
 import { WorkerTransportError } from './worker/WorkerTransport'
 
@@ -14,6 +14,159 @@ const runtime = {
 } as const
 
 describe('RuntimeLifeArchiveClient', () => {
+  it('cancels one active import out of band and publishes its invalidation', async () => {
+    const importOperationId = operationId(
+      'A1000000-0000-4000-8000-000000000010',
+    )
+    const storeId = stableId('A1000000-0000-4000-8000-000000000011')
+    const invalidation = {
+      storeInstanceId: 'after-import',
+      revision: revision('2'),
+    }
+    let importSignal: AbortSignal | undefined
+    let finishImport: ((value: unknown) => void) | undefined
+    let requestCount = 0
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: (request) => {
+          requestCount += 1
+          if (request.operation === 'store.open') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: {
+                storeId,
+                productContract: '5',
+                storeSchemaVersion: '1',
+                rootLayoutVersion: '1',
+                invalidation: {
+                  storeInstanceId: 'before-import',
+                  revision: revision('1'),
+                },
+              },
+            })
+          }
+          importSignal = request.signal
+          return new Promise((resolve) => {
+            finishImport = resolve
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+    await client.archive.open()
+    const changes: unknown[] = []
+    client.operations.observeChanges((change) => changes.push(change))
+
+    const archive = new File([Uint8Array.from([1])], 'Selected.lifearchive.tar')
+    const arrayBuffer = vi
+      .spyOn(archive, 'arrayBuffer')
+      .mockRejectedValue(new Error('whole-file buffering is forbidden'))
+    const imported = client.archive.import({
+      operationId: importOperationId,
+      archive,
+    })
+    await vi.waitFor(() => expect(importSignal).toBeDefined())
+    expect(await client.operations.requestCancel(importOperationId)).toEqual({
+      status: 'ok',
+      value: { operationId: importOperationId, outcome: 'requested' },
+    })
+    expect(importSignal?.aborted).toBe(true)
+    // The runtime's own application vocabulary, which the client renames.
+    finishImport?.({
+      outcome: 'success',
+      result: {
+        outcome: 'applied',
+        importedEntries: 1,
+        importedAttachments: 1,
+        importedTracks: 0,
+        skippedEntries: 0,
+        skippedAttachments: 0,
+        skippedTracks: 0,
+        skippedEntryIds: [],
+        skippedAttachmentIds: [],
+        skippedTrackIds: [],
+        issues: [],
+        identityOutcome: 'legacyPreserved',
+        identityConflicts: [],
+        identityFilledFields: [],
+        token: invalidation,
+      },
+    })
+    const result = await imported
+    expect(result).toMatchObject({
+      status: 'ok',
+      value: {
+        importedEntries: 1,
+        importedMedia: 1,
+        skippedMedia: 0,
+        identity: { outcome: 'preserved' },
+        invalidation,
+      },
+    })
+    expect(arrayBuffer).not.toHaveBeenCalled()
+    expect(changes).toEqual([{ storeId, invalidation }])
+    expect(requestCount).toBe(2)
+    expect(await client.operations.requestCancel(importOperationId)).toEqual({
+      status: 'ok',
+      value: { operationId: importOperationId, outcome: 'not-active' },
+    })
+  })
+
+  it('keeps the open archive selected after a runtime import failure', async () => {
+    const storeId = stableId('A1000000-0000-4000-8000-000000000012')
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: (request) => {
+          if (request.operation === 'store.open') {
+            return Promise.resolve({
+              outcome: 'success',
+              result: {
+                storeId,
+                productContract: '5',
+                storeSchemaVersion: '1',
+                rootLayoutVersion: '1',
+                invalidation: {
+                  storeInstanceId: 'before-failure',
+                  revision: revision('1'),
+                },
+              },
+            })
+          }
+          return Promise.resolve({
+            outcome: 'failure',
+            failure: {
+              code: 'archiveTransportFailure',
+              details: {
+                area: 'archive',
+                phase: 'mutation',
+                retryable: true,
+                durableOutcome: 'known',
+              },
+            },
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+    const opened = await client.archive.open()
+    expect(opened.status).toBe('ok')
+    const sessionBefore = client.archive.session()
+
+    const imported = await client.archive.import({
+      operationId: operationId('A1000000-0000-4000-8000-000000000013'),
+      archive: new File([Uint8Array.from([1])], 'Failed.lifearchive.tar'),
+    })
+
+    expect(imported).toMatchObject({
+      status: 'failed',
+      failure: { code: 'archiveTransportFailure' },
+    })
+    expect(client.archive.session()).toEqual(sessionBefore)
+    expect(client.archive.session().state).toBe('open')
+  })
+
   it('maps one fixed runtime result without changing exact values or order', async () => {
     const exactRevision = revision('18446744073709551615')
     const exactId = stableId('A1000000-0000-4000-8000-000000000002')
