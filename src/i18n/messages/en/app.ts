@@ -17,6 +17,23 @@ export const appMessages = {
 
   'app.action.retry': 'Try again',
   'app.action.reload': 'Reload application',
+  'app.action.closePanel': 'Close {panel}',
+
+  /**
+   * The two flanking workspace regions, named both as regions and as the
+   * controls that reveal them while they are drawers.
+   */
+  'app.panel.navigation': 'Navigation',
+  'app.panel.details': 'Details',
+
+  /**
+   * Appearance. The control shows the appearance in force, so its label is a
+   * state and its accessible name says which setting that state belongs to.
+   */
+  'app.appearance.action': 'Appearance: {appearance}',
+  'app.appearance.system': 'System',
+  'app.appearance.light': 'Light',
+  'app.appearance.dark': 'Dark',
 
   'app.status.booting.title': 'Starting LifeArchive',
 

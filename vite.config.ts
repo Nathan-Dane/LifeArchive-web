@@ -8,6 +8,11 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    /*
+     * Vitest returns an empty string for a stylesheet unless CSS processing is
+     * on. The token and layout tests read the real stylesheets, so it is on.
+     */
+    css: true,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
   },

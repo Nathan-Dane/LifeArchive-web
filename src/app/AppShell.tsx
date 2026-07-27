@@ -1,90 +1,110 @@
+import type { ReactNode } from 'react'
 import { DevelopmentModeNotice } from '../core/bootstrap'
 import { useTranslate } from '../i18n'
 import { AppRoutes, MainNavigation } from './AppRoutes'
 import { useAppState } from './providers'
+import { AppFrame, StatusScreen } from './shell'
 
 function reloadApplication(): void {
   globalThis.location.reload()
 }
 
+/**
+ * The composed application.
+ *
+ * Every state renders inside the same frame, so the window, the appearance
+ * control, and the page treatment do not appear and disappear as availability
+ * changes. Main navigation is passed to the frame only in the states that may
+ * reach a feature; runtime absence therefore never puts a route to an editor
+ * on screen.
+ */
 export function AppShell() {
   const t = useTranslate()
   const { state, retry } = useAppState()
 
   switch (state.state) {
     case 'booting':
-      return <StatusScreen title={t('app.status.booting.title')} busy />
+      return (
+        <Frame>
+          <StatusScreen title={t('app.status.booting.title')} busy />
+        </Frame>
+      )
     case 'runtime-unavailable':
       return (
-        <StatusScreen
-          title={t('app.status.runtimeUnavailable.title')}
-          detail={t('app.status.runtimeUnavailable.detail')}
-          action={{ label: t('app.action.retry'), run: retry }}
-        />
+        <Frame>
+          <StatusScreen
+            title={t('app.status.runtimeUnavailable.title')}
+            detail={t('app.status.runtimeUnavailable.detail')}
+            action={{ label: t('app.action.retry'), run: retry }}
+          />
+        </Frame>
       )
     case 'fatal-incompatibility':
       return (
-        <StatusScreen
-          title={t('app.status.incompatible.title')}
-          detail={t('app.status.incompatible.detail')}
-          action={{ label: t('app.action.retry'), run: retry }}
-          secondaryAction={{
-            label: t('app.action.reload'),
-            run: reloadApplication,
-          }}
-        />
+        <Frame>
+          <StatusScreen
+            title={t('app.status.incompatible.title')}
+            detail={t('app.status.incompatible.detail')}
+            action={{ label: t('app.action.retry'), run: retry }}
+            secondaryAction={{
+              label: t('app.action.reload'),
+              run: reloadApplication,
+            }}
+          />
+        </Frame>
       )
     case 'no-archive':
       return (
-        <>
-          {state.developmentMock ? <DevelopmentModeNotice /> : null}
+        <Frame developmentMock={state.developmentMock}>
           <StatusScreen
             title={t('app.status.noArchive.title')}
             detail={t('app.status.noArchive.detail')}
           />
-        </>
+        </Frame>
       )
     case 'opening':
       return (
-        <>
-          {state.developmentMock ? <DevelopmentModeNotice /> : null}
+        <Frame developmentMock={state.developmentMock}>
           <StatusScreen title={t('app.status.opening.title')} busy />
-        </>
+        </Frame>
       )
     case 'locked':
       return (
-        <>
-          {state.developmentMock ? <DevelopmentModeNotice /> : null}
+        <Frame developmentMock={state.developmentMock}>
           <StatusScreen
             title={t('app.status.locked.title')}
             detail={t('app.status.locked.detail')}
             action={{ label: t('app.action.retry'), run: retry }}
           />
-        </>
+        </Frame>
       )
     case 'recoverable-failure':
       if (state.previousOpen) {
         return (
-          <>
-            {state.developmentMock ? <DevelopmentModeNotice /> : null}
-            <aside className="app-state-notice" role="alert">
+          <Frame
+            developmentMock={state.developmentMock}
+            navigation={<MainNavigation inert />}
+          >
+            <aside className="app-notice" role="alert">
               <strong>{t('app.notice.recoverable.title')}</strong>{' '}
               {t('app.notice.recoverable.detail')}
-              <button type="button" onClick={retry}>
+              <button type="button" className="button" onClick={retry}>
                 {t('app.action.retry')}
               </button>
-              <button type="button" onClick={reloadApplication}>
+              <button
+                type="button"
+                className="button"
+                onClick={reloadApplication}
+              >
                 {t('app.action.reload')}
               </button>
             </aside>
-            <MainNavigation inert />
             <AppRoutes />
-          </>
+          </Frame>
         )
       }
       return (
-        <>
-          {state.developmentMock ? <DevelopmentModeNotice /> : null}
+        <Frame developmentMock={state.developmentMock}>
           <StatusScreen
             title={t('app.status.recoverable.title')}
             detail={t('app.status.recoverable.detail')}
@@ -94,61 +114,33 @@ export function AppShell() {
               run: reloadApplication,
             }}
           />
-        </>
+        </Frame>
       )
     case 'open':
       return (
-        <>
-          {state.developmentMock ? <DevelopmentModeNotice /> : null}
-          <MainNavigation />
+        <Frame
+          developmentMock={state.developmentMock}
+          navigation={<MainNavigation />}
+        >
           <AppRoutes />
-        </>
+        </Frame>
       )
   }
 }
 
-interface StatusAction {
-  readonly label: string
-  readonly run: () => void
-}
-
-/**
- * Every string reaching this component is already localised: it takes copy,
- * not keys, so no phrase can be assembled here out of translated fragments.
- */
-function StatusScreen({
-  title,
-  detail,
-  busy = false,
-  action,
-  secondaryAction,
+function Frame({
+  children,
+  navigation,
+  developmentMock = false,
 }: {
-  readonly title: string
-  readonly detail?: string
-  readonly busy?: boolean
-  readonly action?: StatusAction
-  readonly secondaryAction?: StatusAction
+  readonly children: ReactNode
+  readonly navigation?: ReactNode
+  readonly developmentMock?: boolean
 }) {
   return (
-    <main>
-      <section
-        className="app-state-screen"
-        aria-labelledby="app-state-title"
-        aria-busy={busy || undefined}
-      >
-        <h1 id="app-state-title">{title}</h1>
-        {detail ? <p>{detail}</p> : null}
-        {action ? (
-          <button type="button" onClick={action.run}>
-            {action.label}
-          </button>
-        ) : null}
-        {secondaryAction ? (
-          <button type="button" onClick={secondaryAction.run}>
-            {secondaryAction.label}
-          </button>
-        ) : null}
-      </section>
-    </main>
+    <AppFrame navigation={navigation}>
+      {developmentMock ? <DevelopmentModeNotice /> : null}
+      {children}
+    </AppFrame>
   )
 }
