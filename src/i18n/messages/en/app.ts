@@ -46,15 +46,10 @@ export const appMessages = {
   'app.status.incompatible.detail':
     'This application cannot safely open the archive with the available runtime.',
 
-  'app.status.noArchive.title': 'No local archive found',
-  /**
-   * Worded to state what is unavailable without the phrase "an archive is
-   * opened", which the availability tripwire in `test/claims.ts` reads as a
-   * claim that one already is.
+  /*
+   * There is no "no archive" status screen: that state is the first run, and
+   * its copy lives with the feature that offers to create one.
    */
-  'app.status.noArchive.detail':
-    'Record, Timeline, and Settings remain unavailable until you open an archive.',
-
   'app.status.opening.title': 'Opening archive',
 
   'app.status.locked.title': 'Archive in use',

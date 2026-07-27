@@ -336,6 +336,10 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       this.setArchiveState({ state: 'open-in-another-tab' })
       return
     }
+    if (result.failure.code === 'archiveNotFound') {
+      this.setArchiveState({ state: 'no-archive' })
+      return
+    }
     this.setArchiveState({ state: 'closed' })
   }
 

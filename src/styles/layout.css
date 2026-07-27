@@ -423,6 +423,49 @@
   gap: var(--space-compact);
 }
 
+/*
+ * First run. It shares the status screen's calm measure and rhythm, because it
+ * is read in the same situation: one thing to understand, then one thing to
+ * decide.
+ */
+
+.first-run {
+  display: flex;
+  max-width: 40rem;
+  flex-direction: column;
+  gap: var(--space-standard);
+  align-items: flex-start;
+  padding: var(--space-content);
+  margin: 0 auto;
+}
+
+.first-run__detail {
+  max-width: var(--layout-reading-measure);
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.first-run__facts {
+  display: flex;
+  max-width: var(--layout-reading-measure);
+  flex-direction: column;
+  gap: var(--space-compact);
+  padding: 0;
+  margin: 0;
+  color: var(--color-text-secondary);
+  list-style: none;
+}
+
+.first-run__facts:empty {
+  display: none;
+}
+
+.first-run__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-compact);
+}
+
 .app-notice {
   display: flex;
   flex-wrap: wrap;

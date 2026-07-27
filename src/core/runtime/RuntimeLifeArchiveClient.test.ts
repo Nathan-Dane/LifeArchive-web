@@ -161,4 +161,41 @@ describe('RuntimeLifeArchiveClient', () => {
       durableOutcome: 'unknown',
     })
   })
+
+  it('distinguishes an absent existing root from creation without substituting an archive', async () => {
+    const dispositions: unknown[] = []
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: (request) => {
+          const payload = request.payload as {
+            readonly request: { readonly disposition?: unknown }
+          }
+          dispositions.push(payload.request.disposition)
+          return Promise.resolve({
+            outcome: 'failure',
+            failure: {
+              code: 'archiveNotFound',
+              details: {
+                area: 'lifecycle',
+                phase: 'rootValidation',
+                retryable: false,
+                durableOutcome: 'not-started',
+              },
+            },
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+
+    const result = await client.archive.open()
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      failure: { code: 'archiveNotFound' },
+    })
+    expect(dispositions).toEqual(['existing'])
+    expect(client.archive.session()).toEqual({ state: 'no-archive' })
+  })
 })

@@ -2,6 +2,7 @@ import {
   WORKER_PROTOCOL_VERSION,
   isWorkerToMainMessage,
   type MainToWorkerMessage,
+  type RuntimeWorkerStartup,
   type WorkerResponseError,
   type WorkerToMainMessage,
 } from './protocol'
@@ -34,6 +35,7 @@ export interface WorkerRequestOptions {
 
 export interface WorkerTransportOptions {
   readonly createWorker: () => Worker
+  readonly runtime?: RuntimeWorkerStartup
   readonly generation?: string
   readonly createRequestId?: () => string
 }
@@ -87,6 +89,7 @@ export class WorkerTransport {
       type: 'start',
       protocolVersion: WORKER_PROTOCOL_VERSION,
       generation: this.generation,
+      runtime: options.runtime,
     })
   }
 

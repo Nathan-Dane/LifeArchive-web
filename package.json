@@ -18,6 +18,7 @@
     "safety": "node scripts/check-repo-safety.mjs",
     "safety:mock": "node scripts/check-mock-excluded.mjs",
     "runtime:fetch": "node scripts/fetch-runtime.mjs",
+    "runtime:install-local": "node scripts/install-local-runtime.mjs",
     "test:runtime-fetch": "node --test scripts/fetch-runtime.test.mjs scripts/runtime-ci-policy.test.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm safety && pnpm test:runtime-fetch && pnpm test:run && pnpm build && pnpm safety:mock"
   },
