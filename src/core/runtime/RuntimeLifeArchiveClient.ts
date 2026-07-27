@@ -221,8 +221,19 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
         this.cancellableOperations.delete(request.operationId)
       }
     },
-    erase: (request: ArchiveEraseRequest) =>
-      this.invoke<ArchiveEraseResult>('archive.erase', request),
+    erase: async (request: ArchiveEraseRequest) => {
+      const result = await this.invoke<ArchiveEraseResult>(
+        'archive.erase',
+        request,
+      )
+      if (result.status === 'ok' && this.archiveState.state === 'open') {
+        notify(this.changeListeners, {
+          storeId: this.archiveState.archive.storeId,
+          invalidation: result.value.invalidation,
+        })
+      }
+      return result
+    },
   }
 
   readonly identity: LifeArchiveClient['identity'] = {

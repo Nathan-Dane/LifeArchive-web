@@ -17,6 +17,7 @@ import {
 import { I18nProvider } from '../../../i18n'
 import type { StoragePersistence } from '../../../platform/storage'
 import { SettingsPage } from '../SettingsPage'
+import { ArchiveManagementPage } from './ArchiveManagementPage'
 
 const ARCHIVE_ID = stableId('7f1c0a10-0000-4000-8000-000000000001')
 const SUBJECT_ID = stableId('7f1c0a10-0000-4000-8000-000000000002')
@@ -137,7 +138,7 @@ function renderSettings(
           />
           <Route
             path="/settings/archive"
-            element={<h1>Manage Archive destination</h1>}
+            element={<ArchiveManagementPage client={client} />}
           />
         </Routes>
       </MemoryRouter>
@@ -274,7 +275,10 @@ describe('Settings archive overview', () => {
     expect(manage).toHaveAttribute('href', '/settings/archive')
     await user.click(manage)
     expect(
-      screen.getByRole('heading', { name: 'Manage Archive destination' }),
+      screen.getByRole('heading', { name: 'Manage Archive' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Erase archive…' }),
     ).toBeInTheDocument()
   })
 })
