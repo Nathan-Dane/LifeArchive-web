@@ -5,6 +5,7 @@ import type {
   PersistenceGrant,
   StorageDurability,
 } from '../../../core/client'
+import { archiveTitle } from '../../archive/archiveTitle'
 import { useFormat, useTranslate } from '../../../i18n'
 import type { StoragePersistence } from '../../../platform/storage'
 import {
@@ -58,7 +59,7 @@ function ArchiveHealthCard({
   const t = useTranslate()
   const title =
     identity.status === 'available'
-      ? archiveTitle(identity.value, t)
+      ? archiveTitle(identity.value.identity, t)
       : t('settings.archive.title.fallback')
 
   return (
@@ -264,18 +265,4 @@ function CheckIcon() {
       />
     </svg>
   )
-}
-
-function archiveTitle(
-  state: ArchiveIdentityState,
-  t: ReturnType<typeof useTranslate>,
-): string {
-  const title = state.identity.title?.trim()
-  if (title) return title
-  const subject =
-    state.identity.subject.displayName?.trim() ||
-    state.identity.subject.shortName?.trim()
-  return subject
-    ? t('settings.archive.title.subject', { name: subject })
-    : t('settings.archive.title.fallback')
 }

@@ -16,11 +16,13 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "safety": "node scripts/check-repo-safety.mjs",
-    "safety:mock": "node scripts/check-mock-excluded.mjs",
+    "safety:production": "node scripts/check-mock-excluded.mjs",
+    "safety:mock": "pnpm safety:production",
     "runtime:fetch": "node scripts/fetch-runtime.mjs",
     "runtime:install-local": "node scripts/install-local-runtime.mjs",
+    "test:policy": "node --test scripts/*.test.mjs",
     "test:runtime-fetch": "node --test scripts/fetch-runtime.test.mjs scripts/runtime-ci-policy.test.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm safety && pnpm test:runtime-fetch && pnpm test:run && pnpm build && pnpm safety:mock"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm safety && pnpm test:policy && pnpm test:run && pnpm build && pnpm safety:production"
   },
   "dependencies": {
     "react": "^19.2.7",
@@ -30,7 +32,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "1.62.0",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

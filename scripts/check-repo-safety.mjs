@@ -18,6 +18,7 @@
 import { execFileSync } from 'node:child_process'
 import { readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import process from 'node:process'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -83,10 +84,22 @@ const RULES = [
   },
   {
     name: 'User archive',
-    why: '.lifearchive files are user archives, not repository content.',
-    matches: (file) => file.endsWith('.lifearchive'),
+    why: '.lifearchive directories and .lifearchive.tar transports are user archives, not repository content.',
+    matches: (file) => {
+      const lower = file.toLowerCase()
+      return (
+        lower.endsWith('.lifearchive') || lower.endsWith('.lifearchive.tar')
+      )
+    },
   },
 ]
+
+export function findRepositoryViolations(files) {
+  return RULES.map((rule) => ({
+    rule,
+    files: files.filter((file) => rule.matches(file)),
+  })).filter((violation) => violation.files.length > 0)
+}
 
 function listTrackedFiles() {
   try {
@@ -124,33 +137,40 @@ function describeSize(file) {
   }
 }
 
-const tracked = listTrackedFiles()
-const files = tracked ?? walkWorkingTree()
-const source = tracked ? 'tracked by Git' : 'in the working tree'
+function main() {
+  const tracked = listTrackedFiles()
+  const files = tracked ?? walkWorkingTree()
+  const source = tracked ? 'tracked by Git' : 'in the working tree'
+  const violations = findRepositoryViolations(files)
 
-const violations = RULES.map((rule) => ({
-  rule,
-  files: files.filter((file) => rule.matches(file)),
-})).filter((violation) => violation.files.length > 0)
-
-if (violations.length === 0) {
-  console.log(
-    `repo-safety: ${files.length} files ${source} checked, no forbidden material found.`,
-  )
-  console.log(
-    'repo-safety: this is a boundary tripwire for obvious mistakes, not a complete security scan.',
-  )
-  process.exit(0)
-}
-
-console.error('repo-safety: forbidden material found in the public repository.')
-for (const { rule, files: offending } of violations) {
-  console.error(`\n  ${rule.name} — ${rule.why}`)
-  for (const file of offending) {
-    console.error(`    ${file} (${describeSize(file)})`)
+  if (violations.length === 0) {
+    console.log(
+      `repo-safety: ${files.length} files ${source} checked, no forbidden material found.`,
+    )
+    console.log(
+      'repo-safety: this is a boundary tripwire for obvious mistakes, not a complete security scan.',
+    )
+    return
   }
+
+  console.error(
+    'repo-safety: forbidden material found in the public repository.',
+  )
+  for (const { rule, files: offending } of violations) {
+    console.error(`\n  ${rule.name} — ${rule.why}`)
+    for (const file of offending) {
+      console.error(`    ${file} (${describeSize(file)})`)
+    }
+  }
+  console.error(
+    '\nRemove these files, and if they were committed, rewrite the history that contains them.',
+  )
+  process.exitCode = 1
 }
-console.error(
-  '\nRemove these files, and if they were committed, rewrite the history that contains them.',
-)
-process.exit(1)
+
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  main()
+}

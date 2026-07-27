@@ -30,7 +30,7 @@ const SOURCES: readonly SourceFile[] = Object.entries(RAW_SOURCES)
   .map(([key, text]) => ({
     path: key.replace(/^\/src\//, ''),
     text,
-    isTest: /\.test\.tsx?$/.test(key),
+    isTest: /\.test\.tsx?$/.test(key) || key.includes('/src/test/'),
   }))
   .sort((left, right) => (left.path < right.path ? -1 : 1))
 

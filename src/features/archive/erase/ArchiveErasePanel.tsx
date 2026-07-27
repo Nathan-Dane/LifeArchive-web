@@ -12,6 +12,7 @@ import {
   useLocalisation,
   useTranslate,
 } from '../../../i18n'
+import { archiveTitle } from '../archiveTitle'
 import { useArchiveErase } from './eraseController'
 
 export function ArchiveErasePanel({
@@ -258,11 +259,7 @@ function FreshArchiveView({
 }) {
   const t = useTranslate()
   const format = useFormat()
-  const name =
-    identity.identity.title?.trim() ||
-    identity.identity.subject.displayName?.trim() ||
-    identity.identity.subject.shortName?.trim() ||
-    t('settings.archive.title.fallback')
+  const name = archiveTitle(identity.identity, t)
   return (
     <div className="archive-operation__result">
       <h3 className="title">{t('archive.erase.complete.title')}</h3>

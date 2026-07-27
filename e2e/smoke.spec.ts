@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './qualified-browser-fixtures'
 
 const ROUTES = ['/', '/record', '/timeline', '/settings'] as const
 

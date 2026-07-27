@@ -15,11 +15,3 @@ export {
 }
 
 export type { RuntimeLock, RuntimeManifest }
-
-export function requiredCapabilities(
-  manifest: RuntimeManifest,
-): ReadonlyMap<string, string> {
-  return new Map(
-    manifest.capabilities.map(({ name, version }) => [name, version]),
-  )
-}

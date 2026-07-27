@@ -68,6 +68,27 @@ lock is still `not-integrated`; production builds never do. This is a real
 runtime path, not mock selection and not a substitute for the reviewed Step 18
 publication and pin.
 
+## Runtime acceptance status
+
+There is no repository-local production runtime acceptance evidence while the
+tracked lock remains `not-integrated`. Playwright runs the qualified Chromium
+151 and Firefox 153 engines and covers the production browser archive adapter,
+but its archive output fixture simulates the runtime side of that handoff.
+Those tests do not prove runtime instantiation, durable persistence, archive
+format correctness, atomic application, or restart recovery.
+
+After installing a licensed, verified local artifact as described above, an
+opt-in smoke can establish only that artifact's machine-local development
+loader instantiation and negotiation:
+
+```bash
+LIFEARCHIVE_LOCAL_RUNTIME_E2E=1 pnpm exec playwright test \
+  e2e/local-runtime-smoke.spec.ts
+```
+
+The receipt and artifact remain ignored and unpublished. A passing local smoke
+is not reproducible production acceptance and does not alter the tracked lock.
+
 ## Public UI builds must work without the runtime
 
 A checkout of this repository alone, with no access to anything private, must

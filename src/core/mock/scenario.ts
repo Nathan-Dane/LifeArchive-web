@@ -511,8 +511,8 @@ export interface MockScenario {
 }
 
 function exportPackage(): File {
-  return new File([EXPORT_BYTES], 'development-mock-export.lifearchive', {
-    type: 'application/octet-stream',
+  return new File([EXPORT_BYTES], 'development-mock-export.lifearchive.tar', {
+    type: 'application/x-tar',
   })
 }
 

@@ -20,7 +20,7 @@ import {
 } from '../test/claims'
 import { enMessages } from '../i18n/messages/en'
 import { renderAppAt } from '../test/render'
-import { FakeLifeArchiveClient } from '../test/FakeLifeArchiveClient'
+import { TestLifeArchiveClient } from '../test/TestLifeArchiveClient'
 import { AppShell } from './AppShell'
 import { AppStateProvider } from './providers/AppStateProvider'
 
@@ -43,11 +43,11 @@ const OPEN_ARCHIVE: OpenArchive = {
 
 const OPEN_SESSION: ArchiveSession = { state: 'open', archive: OPEN_ARCHIVE }
 
-function clientWithSession(session: ArchiveSession): FakeLifeArchiveClient {
-  return new FakeLifeArchiveClient(session)
+function clientWithSession(session: ArchiveSession): TestLifeArchiveClient {
+  return new TestLifeArchiveClient(session)
 }
 
-function clientBootstrap(client: FakeLifeArchiveClient): AppBootstrap {
+function clientBootstrap(client: TestLifeArchiveClient): AppBootstrap {
   return async () => ({
     state: 'client',
     client: client.client,
@@ -55,7 +55,7 @@ function clientBootstrap(client: FakeLifeArchiveClient): AppBootstrap {
   })
 }
 
-function runtimeBootstrap(client: FakeLifeArchiveClient): AppBootstrap {
+function runtimeBootstrap(client: TestLifeArchiveClient): AppBootstrap {
   return async () => ({
     state: 'client',
     client: client.client,
@@ -107,7 +107,7 @@ describe('ready application routes', () => {
 
 describe('application availability states', () => {
   it('automatically reopens the canonical archive after reload or browser restart', async () => {
-    const openAfterStart = (client: FakeLifeArchiveClient) =>
+    const openAfterStart = (client: TestLifeArchiveClient) =>
       vi.spyOn(client.client.archive, 'open').mockImplementation(async () => {
         client.emitSession({ state: 'opening' })
         client.emitSession(OPEN_SESSION)

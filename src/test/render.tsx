@@ -5,7 +5,7 @@ import { AppShell } from '../app/AppShell'
 import { AppStateProvider } from '../app/providers/AppStateProvider'
 import { revision, stableId } from '../core/client'
 import { I18nProvider } from '../i18n'
-import { FakeLifeArchiveClient } from './FakeLifeArchiveClient'
+import { TestLifeArchiveClient } from './TestLifeArchiveClient'
 
 export interface RenderAppOptions {
   /** The locale for dates, numbers, and plurals. Copy stays English. */
@@ -20,7 +20,7 @@ export function renderAppAt(
   path: string,
   bootstrap: AppBootstrap = async () => ({
     state: 'client',
-    client: new FakeLifeArchiveClient({
+    client: new TestLifeArchiveClient({
       state: 'open',
       archive: {
         storeId: stableId('7f1c0a10-0000-4000-8000-000000000001'),

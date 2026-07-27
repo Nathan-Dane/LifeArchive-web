@@ -21,6 +21,10 @@ import { MockLifeArchiveClient } from './MockLifeArchiveClient'
 import { MockCallRecorder } from './callRecorder'
 import { ProductionMockError, type BuildMode } from './developmentOnly'
 import {
+  ARCHIVE_TRANSPORT_EXTENSION,
+  ARCHIVE_TRANSPORT_MIME_TYPE,
+} from '../../platform/files/archiveTransfer'
+import {
   DEVELOPMENT_MOCK_SCENARIO,
   MOCK_FIXTURES,
   ORDINARY_SAVE_CONFLICT,
@@ -111,6 +115,16 @@ describe('the development mock as a client', () => {
     expect(facts.value.durability).toBe('unproven')
     expect(facts.value.grant).toBe('unsupported')
     expect(facts.value.estimate).toBeNull()
+  })
+
+  it('uses the browser archive transport contract for its fixed export', async () => {
+    const result = await createMock().archive.export({} as never)
+    if (!isOk(result)) throw new Error('expected an export package')
+
+    expect(result.value.archive.name).toBe(
+      `development-mock-export${ARCHIVE_TRANSPORT_EXTENSION}`,
+    )
+    expect(result.value.archive.type).toBe(ARCHIVE_TRANSPORT_MIME_TYPE)
   })
 })
 

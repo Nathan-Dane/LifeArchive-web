@@ -31,7 +31,7 @@ import {
   FORBIDDEN_AVAILABILITY_CLAIMS,
   FORBIDDEN_PERSISTENCE_CLAIMS,
 } from '../../../test/claims'
-import { FakeLifeArchiveClient } from '../../../test/FakeLifeArchiveClient'
+import { TestLifeArchiveClient } from '../../../test/TestLifeArchiveClient'
 import { renderAppAt } from '../../../test/render'
 import { FirstRunPage } from './FirstRunPage'
 
@@ -117,7 +117,7 @@ function renderFirstRun(
 function appBootstrap(session: ArchiveSession): AppBootstrap {
   return async () => ({
     state: 'client',
-    client: new FakeLifeArchiveClient(session).client,
+    client: new TestLifeArchiveClient(session).client,
     developmentMock: true,
   })
 }
@@ -409,7 +409,7 @@ describe('first run inside the application', () => {
   })
 
   it('leaves the first run behind once the runtime reports the archive', async () => {
-    const fake = new FakeLifeArchiveClient({ state: 'no-archive' })
+    const fake = new TestLifeArchiveClient({ state: 'no-archive' })
     renderAppAt('/record', async () => ({
       state: 'client',
       client: fake.client,
@@ -428,7 +428,7 @@ describe('first run inside the application', () => {
   })
 
   it('preserves create intent and its recovery surface across real-client session transitions', async () => {
-    const fake = new FakeLifeArchiveClient({ state: 'no-archive' })
+    const fake = new TestLifeArchiveClient({ state: 'no-archive' })
     const open = vi
       .spyOn(fake.client.archive, 'open')
       .mockImplementation(async () => {

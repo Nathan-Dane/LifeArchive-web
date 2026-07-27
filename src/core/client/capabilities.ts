@@ -77,13 +77,6 @@ export const EXCLUDED_SURFACE_AREAS = [
 
 export type ExcludedSurfaceArea = (typeof EXCLUDED_SURFACE_AREAS)[number]
 
-/**
- * Whether the client is speaking to something that negotiated the entire
- * approved surface. There is no partial state: an incomplete surface makes the
- * runtime incompatible rather than partly usable.
- */
-export type ClientSurfaceState = 'complete' | 'incomplete'
-
 /** The whole surface as sorted `area.method` paths. */
 export function describeClientSurface(): readonly string[] {
   return Object.entries(CLIENT_SURFACE)

@@ -221,6 +221,18 @@ describe('Settings archive overview', () => {
   it.each([
     ['subject display name', identity({ title: null }), 'Naan’s Archive'],
     [
+      'subject display name before short name',
+      identity({
+        title: null,
+        subject: {
+          ...identity().subject,
+          displayName: 'Full Name',
+          shortName: 'Short',
+        },
+      }),
+      'Full Name’s Archive',
+    ],
+    [
       'generic identity',
       identity({
         title: null,
