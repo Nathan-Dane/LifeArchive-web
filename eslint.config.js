@@ -32,7 +32,10 @@ export default tseslint.config([
     files: ['src/**/*.tsx'],
     ignores: ['src/**/*.test.tsx', 'src/test/**'],
     plugins: { local },
-    rules: { 'local/no-user-facing-literals': 'error' },
+    rules: {
+      'local/no-user-facing-literals': 'error',
+      'local/no-pointer-only-actions': 'error',
+    },
   },
   {
     files: ['eslint-rules/**/*.js', 'scripts/**/*.{js,mjs}'],

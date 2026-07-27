@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { SkipLink } from '../../accessibility'
+import { useTranslate } from '../../i18n'
 import { ShellHeader } from './ShellHeader'
 import {
   WorkspacePanelsContext,
@@ -32,6 +34,7 @@ export interface AppFrameProps {
  * regions are in the workspace below it.
  */
 export function AppFrame({ children, navigation }: AppFrameProps) {
+  const t = useTranslate()
   const [available, setAvailable] = useState<readonly WorkspacePanel[]>([])
   const [requested, setRequested] = useState<WorkspacePanel | null>(null)
 
@@ -56,6 +59,9 @@ export function AppFrame({ children, navigation }: AppFrameProps) {
   return (
     <WorkspacePanelsContext.Provider value={panels}>
       <div className="shell">
+        <SkipLink targetId="main-content">
+          {t('app.action.skipToContent')}
+        </SkipLink>
         <ShellHeader navigation={navigation} />
         <div className="shell-body">{children}</div>
       </div>

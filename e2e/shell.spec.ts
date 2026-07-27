@@ -1,4 +1,10 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import {
+  expect,
+  horizontalOverflow,
+  test,
+  type ClientViewport,
+} from './client-fixtures'
 
 /**
  * The shell in real engines.
@@ -16,11 +22,14 @@ import { expect, test, type Page } from '@playwright/test'
  * pixels moved but not whether anything is legible.
  */
 
-const VIEWPORTS = [
-  { name: 'desktop', width: 1280, height: 800, headerRows: 1 },
-  { name: 'tablet', width: 900, height: 900, headerRows: 1 },
-  { name: 'mobile', width: 375, height: 812, headerRows: 2 },
-] as const
+const VIEWPORTS: ReadonlyArray<{
+  readonly name: ClientViewport
+  readonly headerRows: number
+}> = [
+  { name: 'desktop', headerRows: 1 },
+  { name: 'tablet', headerRows: 1 },
+  { name: 'mobile', headerRows: 2 },
+]
 
 function channel(value: number): number {
   const ratio = value / 255
@@ -55,23 +64,18 @@ async function headingColours(
 
 test.describe('the application shell', () => {
   for (const viewport of VIEWPORTS) {
-    test(`fits its ${viewport.name} viewport`, async ({ page }) => {
-      await page.setViewportSize({
-        width: viewport.width,
-        height: viewport.height,
-      })
+    test(`fits its ${viewport.name} viewport`, async ({
+      page,
+      useClientViewport,
+    }) => {
+      await useClientViewport(viewport.name)
       await page.goto('/record')
 
       await expect(
         page.getByRole('heading', { name: 'LifeArchive cannot start' }),
       ).toBeVisible()
 
-      const overflow = await page.evaluate(
-        () =>
-          document.documentElement.scrollWidth -
-          document.documentElement.clientWidth,
-      )
-      expect(overflow).toBeLessThanOrEqual(0)
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0)
 
       /* The top bar gives navigation its own row only on small screens. */
       const header = page.locator('.shell-header')

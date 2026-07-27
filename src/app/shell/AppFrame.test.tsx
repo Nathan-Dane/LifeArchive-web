@@ -1,8 +1,9 @@
 import { StrictMode } from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '../../i18n'
+import { setClientMedia } from '../../test/clientMedia'
 import { AppFrame } from './AppFrame'
 import { APPEARANCE_ATTRIBUTE, APPEARANCE_STORAGE_KEY } from './appearance'
 import { AppearanceProvider } from './AppearanceProvider'
@@ -45,6 +46,21 @@ describe('the frame', () => {
 
     renderShell(<p>Body</p>, <nav aria-label="Main" />)
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
+  })
+
+  it('offers a first-tab shortcut to the main landmark', async () => {
+    const user = userEvent.setup()
+    renderShell(
+      <WorkspaceLayout>
+        <h1>Record</h1>
+      </WorkspaceLayout>,
+    )
+
+    await user.tab()
+    const skip = screen.getByRole('link', { name: 'Skip to main content' })
+    expect(skip).toHaveFocus()
+    expect(skip).toHaveAttribute('href', '#main-content')
+    expect(document.querySelector('main#main-content')).toBeInTheDocument()
   })
 })
 
@@ -141,6 +157,7 @@ describe('the staged workspace regions', () => {
   })
 
   it('opens one region at a time', async () => {
+    setClientMedia('(max-width: 820px)', '(max-width: 1120px)')
     const user = userEvent.setup()
     const { container } = renderShell(
       <WorkspaceLayout navigation={<p>Days</p>} details={<p>Facts</p>}>
@@ -151,6 +168,13 @@ describe('the staged workspace regions', () => {
 
     await user.click(screen.getByRole('button', { name: 'Navigation' }))
     expect(workspace.dataset.open).toBe('navigation')
+    expect(screen.getByRole('dialog', { name: 'Navigation' })).toHaveAttribute(
+      'aria-modal',
+      'true',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Close Navigation' }),
+    ).toHaveFocus()
 
     await user.click(screen.getByRole('button', { name: 'Details' }))
     expect(workspace.dataset.open).toBe('details')
@@ -164,6 +188,7 @@ describe('the staged workspace regions', () => {
   })
 
   it('closes the open region from the region itself', async () => {
+    setClientMedia('(max-width: 1120px)')
     const user = userEvent.setup()
     const { container } = renderShell(
       <WorkspaceLayout details={<p>Facts</p>}>
@@ -172,14 +197,17 @@ describe('the staged workspace regions', () => {
     )
     const workspace = workspaceOf(container)
 
-    await user.click(screen.getByRole('button', { name: 'Details' }))
+    const toggle = screen.getByRole('button', { name: 'Details' })
+    await user.click(toggle)
     expect(workspace.dataset.open).toBe('details')
 
     await user.click(screen.getByRole('button', { name: 'Close Details' }))
     expect(workspace.dataset.open).toBe('none')
+    await waitFor(() => expect(toggle).toHaveFocus())
   })
 
   it('cannot leave a region open once the view stops offering it', async () => {
+    setClientMedia('(max-width: 1120px)')
     const user = userEvent.setup()
     const { container, rerender } = render(
       <StrictMode>

@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { useFocusTrap, useMediaQuery } from '../../accessibility'
 import { useTranslate } from '../../i18n'
 import { ShellIcon } from './ShellIcon'
 import { useWorkspacePanels, type WorkspacePanel } from './workspacePanels'
@@ -34,6 +35,8 @@ export function WorkspaceLayout({
   const { open, close, declareAvailable } = useWorkspacePanels()
   const hasNavigation = navigation !== undefined
   const hasDetails = details !== undefined
+  const navigationIsDrawer = useMediaQuery('(max-width: 820px)')
+  const detailsIsDrawer = useMediaQuery('(max-width: 1120px)')
 
   useEffect(() => {
     const panels: WorkspacePanel[] = []
@@ -43,6 +46,15 @@ export function WorkspaceLayout({
     return () => declareAvailable([])
   }, [hasNavigation, hasDetails, declareAvailable])
 
+  useEffect(() => {
+    if (
+      (open === 'navigation' && !navigationIsDrawer) ||
+      (open === 'details' && !detailsIsDrawer)
+    ) {
+      close()
+    }
+  }, [close, detailsIsDrawer, navigationIsDrawer, open])
+
   return (
     <div
       className="workspace"
@@ -51,15 +63,31 @@ export function WorkspaceLayout({
       data-open={open ?? 'none'}
     >
       {hasNavigation ? (
-        <WorkspaceRegion panel="navigation">{navigation}</WorkspaceRegion>
+        <WorkspaceRegion
+          panel="navigation"
+          drawer={navigationIsDrawer}
+          open={open === 'navigation'}
+        >
+          {navigation}
+        </WorkspaceRegion>
       ) : null}
-      <main className="workspace__content">{children}</main>
+      <main id="main-content" className="workspace__content" tabIndex={-1}>
+        {children}
+      </main>
       {hasDetails ? (
-        <WorkspaceRegion panel="details">{details}</WorkspaceRegion>
+        <WorkspaceRegion
+          panel="details"
+          drawer={detailsIsDrawer}
+          open={open === 'details'}
+        >
+          {details}
+        </WorkspaceRegion>
       ) : null}
       {hasNavigation || hasDetails ? (
-        <div
+        <button
+          type="button"
           className="workspace__backdrop"
+          tabIndex={-1}
           aria-hidden="true"
           onClick={close}
         />
@@ -75,20 +103,32 @@ export function WorkspaceLayout({
  */
 function WorkspaceRegion({
   panel,
+  drawer,
+  open,
   children,
 }: {
   readonly panel: WorkspacePanel
+  readonly drawer: boolean
+  readonly open: boolean
   readonly children: ReactNode
 }) {
   const t = useTranslate()
   const { close } = useWorkspacePanels()
   const label = t(REGION_LABELS[panel])
+  const region = useRef<HTMLElement>(null)
+  useFocusTrap(region, { active: drawer && open, onEscape: close })
 
   return (
     <aside
+      ref={region}
       id={`workspace-${panel}`}
       className={`workspace__${panel}`}
       aria-label={label}
+      role={drawer ? 'dialog' : undefined}
+      aria-modal={drawer && open ? 'true' : undefined}
+      aria-hidden={drawer && !open ? 'true' : undefined}
+      inert={drawer && !open ? true : undefined}
+      tabIndex={-1}
     >
       <div className="workspace__panel-head">
         <span className="eyebrow">{label}</span>
