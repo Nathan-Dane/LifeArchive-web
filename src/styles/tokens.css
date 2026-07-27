@@ -1,0 +1,183 @@
+/*
+ * The visual primitives every surface draws from.
+ *
+ * Colour values are the LifeArchive design tokens as the native application
+ * defines them: the accent palette (archive gold) has authority over the
+ * general theme tokens wherever the two name the same role. Each colour is one
+ * `light-dark()` pair, so both appearances are fully specified here rather than
+ * one being derived from the other, and switching appearance is a change of
+ * `color-scheme` alone.
+ *
+ * No component hard-codes a colour, radius, duration, or spacing step. If a
+ * value is needed twice it belongs in this file; if it is needed once it still
+ * belongs here, because that is where the next person will look for it.
+ *
+ * Fonts are deliberately platform stacks. A web font would add a network
+ * request, a licence, and an offline-install cost to an application whose whole
+ * point is that it keeps working without a network.
+ */
+
+:root {
+  /*
+   * Both palettes are complete, so the page can honour the reader's system
+   * preference before any script runs. `AppearanceProvider` narrows this to a
+   * single scheme when the reader has chosen one.
+   */
+  color-scheme: light dark;
+
+  /* Ground and surfaces. Dark is the home appearance; light keeps the warm
+     archival character rather than turning clinical white. */
+  --color-page: light-dark(#f6f4f2, #0e0d0c);
+  --color-page-warm: light-dark(#f0f0ec, #13120f);
+  --color-surface: light-dark(#fcfcfc, #191815);
+  --color-surface-alt: light-dark(#f6f4f2, #2a2823);
+  --color-surface-raised: light-dark(#ebe6dd, #343128);
+  --color-border: light-dark(#e9e6e0, #201e18);
+
+  /* Text. */
+  --color-text-primary: light-dark(#1d1c18, #f4efe4);
+  --color-text-secondary: light-dark(#57544b, #b8b0a2);
+  --color-text-tertiary: light-dark(#8b877c, #7e7669);
+  --color-text-inverted: light-dark(#fbfaf7, #1b1710);
+
+  /* Accent. Restrained: current and selected state, primary action, focus. */
+  --color-accent: light-dark(#cb9c1a, #f6b935);
+  --color-accent-muted: light-dark(#d9b959, #9d7726);
+  --color-accent-glow: light-dark(#e1ae23, #ffd66b);
+  --color-on-accent: light-dark(#1b1710, #1b1710);
+
+  /*
+   * The focus ring. Dark reuses the accent glow, which is exactly what that
+   * value is for. Light cannot: the light glow is tuned to read as highlighted
+   * text on a surface, and as a ring against the page it lands near 1.9:1,
+   * below the 3:1 a focus indicator has to reach. This is a deeper member of
+   * the same gold, and it is the only colour here that the native palette does
+   * not already name.
+   */
+  --color-focus-ring: light-dark(#8a6a10, #ffd66b);
+
+  /* Meaning. Never the only cue for a state. */
+  --color-destructive: light-dark(#e54d2e, #b85c4a);
+  --color-success: light-dark(#50a14f, #8ea66b);
+  --color-note: light-dark(#4c6e8f, #7e9cb8);
+
+  /* Scrim behind an open drawer. */
+  --color-backdrop: light-dark(rgb(29 28 24 / 30%), rgb(0 0 0 / 48%));
+
+  /* Borders: always the border colour at one of three strengths. */
+  --border-hairline: 1px;
+  --border-strong: var(--color-border);
+  --border-muted: color-mix(in srgb, var(--color-border) 60%, transparent);
+  --border-subtle: color-mix(in srgb, var(--color-border) 40%, transparent);
+
+  /* Shared opacity levels for states, overlays, and tinted fills. */
+  --opacity-pressed: 0.75;
+  --opacity-disabled: 0.45;
+  --opacity-dimmed: 0.4;
+  --opacity-tint-fill: 0.18;
+  --opacity-scrim: 0.95;
+  --opacity-floating-surface: 0.8;
+  --opacity-wash: 0.55;
+
+  /* Corner radii. Four sizes tune the softness of the whole interface. */
+  --radius-small: 8px;
+  --radius-control: 10px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+
+  /* Shadows stay faint: they separate a surface from the ground, no more. */
+  --shadow-card: 0 3px 10px light-dark(rgb(81 73 58 / 4%), rgb(0 0 0 / 20%));
+  --shadow-floating: 0 6px 16px
+    light-dark(rgb(81 73 58 / 12%), rgb(0 0 0 / 45%));
+  --shadow-accent-glow: 0 4px 12px
+    color-mix(in srgb, var(--color-accent) 18%, transparent);
+
+  /* Spacing. */
+  --space-tight: 6px;
+  --space-compact: 8px;
+  --space-standard: 12px;
+  --space-section: 16px;
+  --space-content: 20px;
+  --space-card-padding: 16px;
+  --space-control-inline: 10px;
+
+  /* Control sizing. `--size-tap-target` is the floor for anything tappable. */
+  --size-tap-target: 44px;
+  --size-control-compact: 36px;
+  --size-control-featured: 48px;
+
+  /* Type. Serif for display and reading, the platform sans for controls. */
+  --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  --font-reading: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  --font-ui:
+    system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial,
+    sans-serif;
+
+  --text-display-large: clamp(1.875rem, 3vw, 2.375rem);
+  --text-display: 1.375rem;
+  --text-title: 1.0625rem;
+  --text-reading: 1.0625rem;
+  --text-body: 1rem;
+  --text-ui: 0.875rem;
+  --text-meta: 0.75rem;
+
+  --leading-display: 1.1;
+  --leading-title: 1.3;
+  --leading-reading: 1.65;
+  --leading-ui: 1.4;
+  --tracking-meta: 0.08em;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Motion. Movement through time, never decoration. */
+  --motion-quick: 200ms;
+  --motion-panel: 250ms;
+  --motion-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* Shell geometry. */
+  --layout-topbar-height: 64px;
+  --layout-navigation-width: 276px;
+  --layout-details-width: 310px;
+  --layout-content-minimum: 620px;
+  --layout-navigation-drawer-width: min(310px, 90vw);
+  --layout-details-drawer-width: min(342px, 88vw);
+  --layout-reading-measure: 68ch;
+
+  /*
+   * The staged responsive breakpoints, recorded as tokens so scripts and tests
+   * can read the same numbers the media queries use. Custom properties cannot
+   * be used inside a media query, so `layout.css` repeats these widths as
+   * literals and names the token it is honouring in a comment.
+   */
+  --breakpoint-details: 1120px;
+  --breakpoint-navigation: 820px;
+  --breakpoint-compact: 680px;
+  --breakpoint-tight: 480px;
+}
+
+/*
+ * A chosen appearance narrows the scheme, which is what re-resolves every
+ * `light-dark()` pair above. `system` is the absence of a choice and stays on
+ * both.
+ */
+:root[data-appearance='light'] {
+  color-scheme: light;
+}
+
+:root[data-appearance='dark'] {
+  color-scheme: dark;
+}
+
+:root[data-appearance='system'] {
+  color-scheme: light dark;
+}
+
+/* Small screens give the top bar a second row for primary navigation. */
+@media (max-width: 680px) {
+  /* --breakpoint-compact */
+  :root {
+    --layout-topbar-height: 108px;
+  }
+}

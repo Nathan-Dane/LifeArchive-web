@@ -1,9 +1,10 @@
-import { Link, Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { RecordPage } from '../features/record/RecordPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { TimelinePage } from '../features/timeline/TimelinePage'
 import { useTranslate } from '../i18n'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
+import { WorkspaceLayout } from './shell'
 
 /**
  * The routes, paired with the catalog key that names them. The path is an
@@ -16,6 +17,11 @@ const MAIN_ROUTES = [
   { path: '/settings', label: 'app.navigation.settings' },
 ] as const
 
+/**
+ * `NavLink` marks the current section with `aria-current`, which is what the
+ * stylesheet styles. The state is therefore announced and weighted, not
+ * signalled by the accent colour alone.
+ */
 export function MainNavigation({
   inert = false,
 }: {
@@ -24,16 +30,19 @@ export function MainNavigation({
   const t = useTranslate()
   return (
     <nav
+      className="shell-nav"
       aria-label={t('app.navigation.main')}
       aria-disabled={inert || undefined}
     >
-      <ul>
+      <ul className="shell-nav__list ui-text">
         {MAIN_ROUTES.map((route) => (
           <li key={route.path}>
             {inert ? (
-              <span>{t(route.label)}</span>
+              <span className="shell-nav__link">{t(route.label)}</span>
             ) : (
-              <Link to={route.path}>{t(route.label)}</Link>
+              <NavLink to={route.path} className="shell-nav__link">
+                {t(route.label)}
+              </NavLink>
             )}
           </li>
         ))}
@@ -46,9 +55,17 @@ function routeElement(element: React.ReactNode) {
   return <RouteErrorBoundary>{element}</RouteErrorBoundary>
 }
 
+/**
+ * The feature routes, inside the workspace.
+ *
+ * The workspace is given no flanking regions yet: time navigation and object
+ * details belong to Record, which supplies them when those panels exist. Until
+ * then the primary surface is the whole workspace and the shell offers no
+ * drawer to open.
+ */
 export function AppRoutes() {
   return (
-    <main>
+    <WorkspaceLayout>
       <Routes>
         <Route path="/" element={<Navigate to="/record" replace />} />
         <Route path="/record" element={routeElement(<RecordPage />)} />
@@ -56,6 +73,6 @@ export function AppRoutes() {
         <Route path="/settings" element={routeElement(<SettingsPage />)} />
         <Route path="*" element={<Navigate to="/record" replace />} />
       </Routes>
-    </main>
+    </WorkspaceLayout>
   )
 }

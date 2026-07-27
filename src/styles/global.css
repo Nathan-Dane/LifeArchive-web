@@ -1,33 +1,74 @@
-:root {
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
+/*
+ * The document baseline. Everything reusable lives in the imported files; this
+ * one only prepares the page for them.
+ */
+
+@import './tokens.css';
+@import './typography.css';
+@import './layout.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
 }
 
 body {
-  margin: 0;
-  padding: 1rem;
+  min-width: 0;
+  background: var(--color-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-ui);
+  -webkit-font-smoothing: antialiased;
 }
 
-nav ul {
-  display: flex;
-  gap: 1rem;
-  list-style: none;
-  margin: 0 0 1rem;
-  padding: 0;
+#root {
+  height: 100%;
 }
 
-.app-state-screen {
-  max-width: 40rem;
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
 }
 
-.app-state-screen button,
-.app-state-notice button {
-  margin-inline-end: 0.75rem;
+/* One focus treatment for the whole application, and it is always visible. */
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
-.app-state-notice {
-  display: block;
-  margin-block: 1rem;
-  padding: 1rem;
-  border: 1px solid currentcolor;
+/*
+ * Links keep the text colour and carry an underline. Gold link text would sit
+ * near 2.3:1 on the light page, and the accent is reserved for current state
+ * and primary action rather than every reference.
+ */
+a {
+  color: inherit;
+  text-decoration-color: var(--color-accent-muted);
+  text-underline-offset: 0.2em;
+}
+
+/*
+ * Reduced motion is honoured globally rather than per component, so a new
+ * transition cannot forget it.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
 }
