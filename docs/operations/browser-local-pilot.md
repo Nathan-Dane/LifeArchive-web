@@ -1,27 +1,27 @@
 # Browser-local pilot operations and acceptance
 
-This runbook is for a limited, browser-local LifeArchive pilot. It does not
-authorize publication and is not production acceptance while the tracked
-runtime remains unpinned.
+This runbook is for the qualified, limited, browser-local LifeArchive pilot at
+<https://lifearchive-web.pages.dev>. It does not expand the product claims
+beyond the archive-lifecycle foundation described below.
 
 ## Release record
 
-Complete this table for one immutable candidate before testing. The values are
-filled as each release gate is completed; frontend deployment and acceptance
-remain blocked until the exact public commit is approved.
+This table records the immutable production pair that completed every release
+gate. A later change requires a new exact commit approval and acceptance run.
 
 | Field | Candidate value |
 |---|---|
-| Stable HTTPS URL | `BLOCKED — release-time value required` |
-| Public commit SHA | `BLOCKED — release-time value required` |
+| Stable HTTPS URL | `https://lifearchive-web.pages.dev` |
+| Deployed public merge commit | `4ac50d8551c13926786269468b95195d188ae698` |
+| User-approved production head contained by that merge | `b4fc9e923c91f6878cd48e8b0b75f67c938b32fb` |
 | App version | `0.1.0` |
 | Runtime version | `0.1.0` |
 | Runtime artifact SHA-256 | `b7880b44395d48aecdfeb5b6e93bda0252aa2ecd06ce97f12d44c9875b52d613` |
 | Runtime licence and notices | `LICENSE-RUNTIME.txt` and `NOTICES.md` are included in the immutable artifact; public distribution was authorized by the LifeArchive copyright holder on 2026-07-27 |
-| Acceptance date and operator | `BLOCKED — record at execution` |
+| Acceptance date and operator | `2026-07-28 Europe/Copenhagen (2026-07-27 UTC); coordinated by Codex and independently repeated by Agent C` |
 
-Do not substitute a local development runtime, mutable URL, branch name, or
-`latest` alias for any blocked value.
+Do not substitute a local development runtime, mutable URL, branch name,
+preview deployment, or `latest` alias for these values.
 
 ## Supported pilot environment
 
@@ -37,6 +37,10 @@ non-regular storage modes are not supported by this pilot.
 
 Use dedicated disposable acceptance profiles. Never point acceptance work at a
 person's normal browser profile or real archive.
+
+Firefox asks the user whether to allow persistent storage on first creation.
+Answer that browser prompt deliberately. The application waits for the choice;
+the grant reduces eviction risk but is not a backup.
 
 ## Data location and loss model
 
@@ -216,17 +220,40 @@ site data to force a result.
 | O2 | All exported files and browser profiles remain outside the repository and publication bundle; retained evidence contains no personal or private archive content. | | |
 | O3 | Every prior row has an explicit result and evidence reference. Any failure blocks the candidate rather than being converted to a known issue after the run. | | |
 
+### Completed production acceptance — 2026-07-28
+
+The production pair was tested from clean disposable profiles on macOS 26.4
+arm64. Only application-generated empty archives were used; no personal or
+private archive content entered a profile, report, repository, or deployment.
+
+| Evidence | Record |
+|---|---|
+| E1 | Coordinator Chromium report SHA-256 `ce228f78371992340a89e7b6b89a31cf578e697cf2928809824a2e1255865500`; Chromium `151.0.7922.34`; 2026-07-27 22:35:16–22:36:16 UTC |
+| E2 | Coordinator Firefox report SHA-256 `5c2de192d16caeb4575bf02c07c4828d475d2d7502c5c8b0e786e5f10a11bc60`; Firefox `153.0`; 2026-07-27 22:40:47–22:41:52 UTC; Firefox's test-only prompt bypass made the explicit persistent-storage decision `allow` in disposable profiles |
+| E3 | Independent Chromium report SHA-256 `756ac7f824017b6f0c36e0be9b08e2d93ebf3441057cdf341c7028d38e5cd5e0` and Firefox report SHA-256 `41f73bb7ee911a14b28e586eb79304970d00b1d2d94e3a8edaccedffff0ddf1e`; all lifecycle checks independently reproduced |
+| E4 | Direct production HTTP recheck on 2026-07-27 22:43 UTC: all documented and unknown routes returned the same shell with direct `200`; required isolation/security headers were present; the runtime returned direct `200`, 1,788,455 bytes, immutable one-year caching, exact frontend CORS, and the recorded SHA-256 |
+
+| Checklist rows | Result | Evidence and notes |
+|---|---|---|
+| P1–P5 | `PASS` | E1–E4. Exact app/runtime pair, supported engines, secure and cross-origin-isolated contexts, real runtime/no mock, and capture from first navigation. |
+| R1–R4 | `PASS` | E1–E4. `/`, all named routes, reloads, and an unknown path returned the production shell directly; in-app routing and current sections were correct. |
+| D1–D6 | `PASS` | E1–E3. Canonical empty archive creation, runtime-derived healthy/clean state with zero counts, reload and full-process restart durability, identity adoption on import, and exclusive-writer reacquisition all passed. |
+| T1–T6 | `PASS` | E1–E3. Both engines exported a 6,656-byte `LifeArchive.lifearchive.tar`; five-file read-only verification passed; a byte-damaged duplicate was rejected by verification and import without mutation; valid re-import was a no-op; no archive bytes appeared in local storage, Cache Storage, or a service worker. |
+| I1–I7 | `PASS` | E1–E3. A second profile began separate, imported and retained the first profile's valid export, preserved the external export through cancel and confirmed erase, retained its fresh state across restart, restored from export, and never changed profile A. |
+| O1 | `PASS` | E1–E3. Zero console errors, page/worker errors, failed requests, HTTP failures, or unexpected origins. Firefox reports a repeated Wasm `try`/`try_table` deprecation warning on runtime instantiation; it is explained, does not indicate a failed runtime/storage/integrity operation, and is recorded rather than hidden. |
+| O2–O3 | `PASS` | E1–E4. Disposable profiles, exports, and detailed reports remained outside Git and the publication bundle; every checklist row has a result and evidence reference. |
+
 ## Pilot decision
 
 | Decision field | Recorded value |
 |---|---|
-| Chromium result and exact version | |
-| Firefox result and exact version | |
-| Data-safety blockers | |
-| Other blockers | |
-| Rollback pair rechecked | |
-| Decision (`BLOCKED` or `LIMITED PILOT`) | |
-| Approver and date | |
+| Chromium result and exact version | `PASS — 151.0.7922.34` |
+| Firefox result and exact version | `PASS — 153.0`; known explained Wasm deprecation warning recorded above |
+| Data-safety blockers | `None found` |
+| Other blockers | `None for the stated archive-lifecycle scope` |
+| Rollback pair rechecked | The production deployment history retains the qualified `4ac50d8551c13926786269468b95195d188ae698` frontend with Runtime `0.1.0` at SHA-256 `b7880b44395d48aecdfeb5b6e93bda0252aa2ecd06ce97f12d44c9875b52d613`; restore both as one pair at the same origin |
+| Decision (`BLOCKED` or `LIMITED PILOT`) | `LIMITED PILOT` |
+| Approver and date | Production head approved by the LifeArchive creator on `2026-07-28`; production acceptance completed the same day |
 
 `LIMITED PILOT` means only the supported browser-local lifecycle described
 here. It does not expand the current claim limits.
