@@ -20,6 +20,7 @@ export interface RuntimeLoaderOptions {
   readonly isSecureContext?: boolean
   readonly createWorker?: (manifest: RuntimeManifest) => Worker
   readonly installedBaseUrl?: string
+  readonly allowDevelopmentRuntime?: boolean
 }
 
 export class RuntimeLoader {
@@ -36,7 +37,37 @@ export class RuntimeLoader {
 
   async load(): Promise<RuntimeLoadState> {
     this.state = { state: 'checking' }
-    const lock = parseRuntimeLock(this.options.lock ?? runtimeLockInput)
+    const fetchImpl = this.options.fetch ?? fetch
+    const baseUrl =
+      this.options.installedBaseUrl ??
+      new URL('/runtime/installed/', globalThis.location?.href).href
+    let lockInput: unknown = this.options.lock ?? runtimeLockInput
+    let localArtifactUrl: string | null = null
+    let developmentRevision: string | null = null
+    const allowDevelopmentRuntime =
+      (import.meta.env.DEV || import.meta.env.MODE === 'test') &&
+      (this.options.allowDevelopmentRuntime ??
+        (!this.options.lock && !this.options.fetch))
+    if (
+      allowDevelopmentRuntime &&
+      isRecord(lockInput) &&
+      lockInput.status === 'not-integrated'
+    ) {
+      try {
+        const local = await readDevelopmentRuntime(baseUrl, fetchImpl)
+        if (local) {
+          lockInput = local.lock
+          localArtifactUrl = local.artifactUrl
+          developmentRevision = local.revision
+        }
+      } catch {
+        return this.finish({
+          state: 'incompatible',
+          reason: 'manifest-mismatch',
+        })
+      }
+    }
+    const lock = parseRuntimeLock(lockInput)
     if (lock.status === 'not-integrated') {
       return this.finish({ state: 'unavailable', reason: 'not-integrated' })
     }
@@ -53,9 +84,12 @@ export class RuntimeLoader {
       return this.finish({ state: 'unavailable', reason: 'insecure-context' })
     }
 
-    const fetchImpl = this.options.fetch ?? fetch
     try {
-      await fetchVerifiedBytes(lock.artifactUrl, lock.sha256, fetchImpl)
+      await fetchVerifiedBytes(
+        localArtifactUrl ?? lock.artifactUrl,
+        lock.sha256,
+        fetchImpl,
+      )
     } catch (error) {
       if (error instanceof RuntimeFetchError) {
         if (error.kind === 'checksum') {
@@ -72,13 +106,14 @@ export class RuntimeLoader {
       return this.finish({ state: 'unavailable', reason: 'download-failed' })
     }
 
-    const baseUrl =
-      this.options.installedBaseUrl ??
-      new URL('/runtime/installed/', globalThis.location?.href).href
     let manifestInput: unknown
     try {
       const bytes = await fetchBytes(
-        new URL('runtime-manifest.json', baseUrl).href,
+        installedRuntimeUrl(
+          'runtime-manifest.json',
+          baseUrl,
+          developmentRevision,
+        ),
         fetchImpl,
       )
       manifestInput = JSON.parse(new TextDecoder().decode(bytes))
@@ -95,7 +130,7 @@ export class RuntimeLoader {
         reason: compatibilityReason(error, manifestInput, lock),
       })
     }
-    if (!supportsEnvironment(manifest)) {
+    if (!supportsEnvironment(manifest, Boolean(this.options.createWorker))) {
       return this.finish({
         state: 'incompatible',
         reason: 'environment-unsupported',
@@ -105,7 +140,11 @@ export class RuntimeLoader {
     try {
       await Promise.all(
         manifest.files.map(({ path, sha256 }) =>
-          fetchVerifiedBytes(new URL(path, baseUrl).href, sha256, fetchImpl),
+          fetchVerifiedBytes(
+            installedRuntimeUrl(path, baseUrl, developmentRevision),
+            sha256,
+            fetchImpl,
+          ),
         ),
       )
     } catch (error) {
@@ -121,25 +160,26 @@ export class RuntimeLoader {
     try {
       const createWorker =
         this.options.createWorker ??
-        (() => {
-          const workerUrl = new URL(
-            './worker/runtime.worker.ts',
-            import.meta.url,
-          )
-          workerUrl.searchParams.set(
-            'loader',
-            new URL(manifest.modules.loader, baseUrl).href,
-          )
-          workerUrl.searchParams.set(
-            'wasm',
-            new URL(manifest.modules.wasm, baseUrl).href,
-          )
-          workerUrl.searchParams.set('contract', manifest.productContract)
-          workerUrl.searchParams.set('abi', manifest.bindingsAbi)
-          return new Worker(workerUrl, { type: 'module' })
-        })
+        (() =>
+          new Worker(new URL('./worker/runtime.worker.ts', import.meta.url), {
+            type: 'module',
+          }))
       const transport = new WorkerTransport({
         createWorker: () => createWorker(manifest),
+        runtime: {
+          loaderUrl: installedRuntimeUrl(
+            manifest.modules.loader,
+            baseUrl,
+            developmentRevision,
+          ),
+          wasmUrl: installedRuntimeUrl(
+            manifest.modules.wasm,
+            baseUrl,
+            developmentRevision,
+          ),
+          productContract: manifest.productContract,
+          bindingsAbi: manifest.bindingsAbi,
+        },
       })
       await transport.start()
       const negotiation = await transport.request({
@@ -189,11 +229,76 @@ export class RuntimeLoader {
   }
 }
 
-function supportsEnvironment(manifest: RuntimeManifest): boolean {
-  const supported = new Set(['webassembly', 'worker'])
-  return manifest.requiredEnvironment.features.every((feature) =>
-    supported.has(feature),
+function supportsEnvironment(
+  manifest: RuntimeManifest,
+  hasInjectedWorker: boolean,
+): boolean {
+  const webAssembly = globalThis.WebAssembly as typeof WebAssembly & {
+    readonly Suspending?: unknown
+  }
+  const available: Readonly<Record<string, boolean>> = {
+    'cross-origin-isolated': globalThis.crossOriginIsolated === true,
+    jspi: typeof webAssembly.Suspending === 'function',
+    opfs:
+      typeof navigator !== 'undefined' &&
+      typeof navigator.storage?.getDirectory === 'function',
+    'web-locks':
+      typeof navigator !== 'undefined' &&
+      typeof navigator.locks?.request === 'function',
+    webassembly: typeof globalThis.WebAssembly === 'object',
+    worker: hasInjectedWorker || typeof globalThis.Worker === 'function',
+  }
+  return manifest.requiredEnvironment.features.every(
+    (feature) => available[feature] === true,
   )
+}
+
+async function readDevelopmentRuntime(
+  baseUrl: string,
+  fetchImpl: typeof fetch,
+): Promise<{
+  readonly lock: unknown
+  readonly artifactUrl: string
+  readonly revision: string
+} | null> {
+  const response = await fetchImpl(
+    new URL('local-runtime.json', baseUrl).href,
+    { cache: 'no-store' },
+  )
+  if (response.status === 404) return null
+  if (!response.ok) throw new Error('development runtime receipt unavailable')
+  const receipt = (await response.json()) as unknown
+  if (
+    !isRecord(receipt) ||
+    !isRecord(receipt.lock) ||
+    typeof receipt.lock.sha256 !== 'string' ||
+    typeof receipt.artifactFile !== 'string' ||
+    receipt.artifactFile !==
+      `lifearchive-runtime-web-${String(receipt.lock.runtimeVersion)}.tar.gz`
+  ) {
+    throw new Error('development runtime receipt is invalid')
+  }
+  return {
+    lock: receipt.lock,
+    artifactUrl: installedRuntimeUrl(
+      receipt.artifactFile,
+      baseUrl,
+      receipt.lock.sha256,
+    ),
+    revision: receipt.lock.sha256,
+  }
+}
+
+function installedRuntimeUrl(
+  path: string,
+  baseUrl: string,
+  developmentRevision: string | null,
+): string {
+  const url = new URL(path, baseUrl)
+  if (developmentRevision) {
+    url.searchParams.set('local-runtime', developmentRevision)
+  }
+  return url.href
 }
 
 function validateNegotiation(
@@ -204,21 +309,23 @@ function validateNegotiation(
   | 'capability-inventory-mismatch'
   | 'manifest-mismatch'
   | null {
-  if (!isRecord(input)) return 'manifest-mismatch'
-  if (input.outcome === 'failure') return 'capability-inventory-mismatch'
-  if (input.outcome !== 'success' || !isRecord(input.result)) {
+  const envelope =
+    isRecord(input) && 'envelope' in input ? input.envelope : input
+  if (!isRecord(envelope)) return 'manifest-mismatch'
+  if (envelope.outcome === 'failure') return 'capability-inventory-mismatch'
+  if (envelope.outcome !== 'success' || !isRecord(envelope.result)) {
     return 'manifest-mismatch'
   }
-  if (input.result.productContractVersion !== manifest.productContract) {
+  if (envelope.result.productContractVersion !== manifest.productContract) {
     return 'contract-mismatch'
   }
-  if (!Array.isArray(input.result.capabilities)) {
+  if (!Array.isArray(envelope.result.capabilities)) {
     return 'capability-inventory-mismatch'
   }
   const expected = manifest.capabilities.map(
     ({ name, version }) => `${name}@${version}`,
   )
-  const actual = input.result.capabilities.map((capability) =>
+  const actual = envelope.result.capabilities.map((capability) =>
     isRecord(capability)
       ? `${String(capability.id)}@${String(capability.version)}`
       : '',

@@ -130,7 +130,7 @@ describe('application availability states', () => {
 
   it('shows no archive, opening, locked, and fatal states explicitly', async () => {
     const cases: readonly [ArchiveSession, string][] = [
-      [{ state: 'no-archive' }, 'No local archive found'],
+      [{ state: 'no-archive' }, 'Create your local archive'],
       [{ state: 'opening' }, 'Opening archive'],
       [{ state: 'open-in-another-tab' }, 'Archive in use'],
       [{ state: 'incompatible' }, 'LifeArchive is incompatible'],
@@ -203,7 +203,7 @@ describe('application availability states', () => {
     const client = clientWithSession({ state: 'no-archive' })
     renderAppAt('/settings', clientBootstrap(client))
     expect(
-      await screen.findByRole('heading', { name: 'No local archive found' }),
+      await screen.findByRole('heading', { name: 'Create your local archive' }),
     ).toBeInTheDocument()
 
     act(() => client.emitSession({ state: 'opening' }))

@@ -115,14 +115,17 @@ class NegotiatingWorker extends FixedWorker {
       message.operation === 'product.describe'
     ) {
       this.respond(message.generation, message.requestId, {
-        outcome: 'success',
-        result: {
-          productContractVersion: '5',
-          capabilities: this.capabilities.map(({ name, version }) => ({
-            id: name,
-            version,
-          })),
+        envelope: {
+          outcome: 'success',
+          result: {
+            productContractVersion: '5',
+            capabilities: this.capabilities.map(({ name, version }) => ({
+              id: name,
+              version,
+            })),
+          },
         },
+        transfers: [],
       })
     }
   }
@@ -194,6 +197,57 @@ describe('RuntimeLoader', () => {
       reason: 'not-integrated',
     })
     expect(fetched).toBe(false)
+  })
+
+  it('loads a verified local receipt only through the development runtime gate', async () => {
+    const fixed = await fixture()
+    const worker = new NegotiatingWorker(fixed.manifest.capabilities)
+    const baseUrl = 'https://app.example/runtime/installed/'
+    const artifactFile = `lifearchive-runtime-web-${fixed.lock.runtimeVersion}.tar.gz`
+    const fetched: { readonly url: string; readonly cache?: RequestCache }[] =
+      []
+    const fetchImpl: typeof fetch = (input, init) => {
+      const url = new URL(String(input))
+      fetched.push({ url: url.href, cache: init?.cache })
+      if (url.href === `${baseUrl}local-runtime.json`) {
+        return response(JSON.stringify({ lock: fixed.lock, artifactFile }))
+      }
+      if (url.pathname.endsWith(`/${artifactFile}`)) {
+        return response(fixed.artifact)
+      }
+      if (url.pathname.endsWith('/runtime-manifest.json')) {
+        return response(JSON.stringify(fixed.manifest))
+      }
+      const payload = fixed.payloads.get(url.pathname.split('/').at(-1) ?? '')
+      return response(payload ? new Uint8Array(payload).buffer : null)
+    }
+    const state = await new RuntimeLoader({
+      fetch: fetchImpl,
+      installedBaseUrl: baseUrl,
+      allowDevelopmentRuntime: true,
+      isSecureContext: true,
+      createWorker: () => worker.asWorker(),
+    }).load()
+
+    expect(state).toMatchObject({ state: 'open' })
+    expect(fetched[0]).toEqual({
+      url: `${baseUrl}local-runtime.json`,
+      cache: 'no-store',
+    })
+    for (const request of fetched.slice(1)) {
+      expect(new URL(request.url).searchParams.get('local-runtime')).toBe(
+        fixed.lock.sha256,
+      )
+    }
+    const start = worker.received.find((message) => message.type === 'start')
+    expect(start).toMatchObject({
+      runtime: {
+        loaderUrl: expect.stringContaining(
+          `local-runtime=${fixed.lock.sha256}`,
+        ),
+        wasmUrl: expect.stringContaining(`local-runtime=${fixed.lock.sha256}`),
+      },
+    })
   })
 
   it('reports unsupported and insecure environments before fetching', async () => {

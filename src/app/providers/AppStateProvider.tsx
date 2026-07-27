@@ -178,8 +178,13 @@ class AppStateController {
     this.client = client
     this.developmentMock = developmentMock
     if (this.started) this.observeClient(client)
-    this.applySession(client.archive.session())
     this.applyRuntimeStatus(client.runtime.status())
+    const session = client.archive.session()
+    if (!developmentMock && session.state === 'no-archive') {
+      this.openExisting(client)
+      return
+    }
+    this.applySession(session)
   }
 
   private observeClient(client: LifeArchiveClient): void {
@@ -263,6 +268,13 @@ class AppStateController {
       .then((result) => {
         if (result.status === 'failed') {
           if (client.archive.session().state === 'open-in-another-tab') return
+          if (
+            result.failure.code === 'archiveNotFound' &&
+            client.archive.session().state === 'no-archive'
+          ) {
+            this.applySession(client.archive.session())
+            return
+          }
           this.setRecoverable(result.failure)
         }
       })

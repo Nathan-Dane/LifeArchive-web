@@ -3,11 +3,19 @@ export const WORKER_PROTOCOL_VERSION = 1 as const
 export type WorkerGeneration = string
 export type WorkerRequestId = string
 
+export interface RuntimeWorkerStartup {
+  readonly loaderUrl: string
+  readonly wasmUrl: string
+  readonly productContract: string
+  readonly bindingsAbi: string
+}
+
 export type MainToWorkerMessage =
   | {
       readonly type: 'start'
       readonly protocolVersion: typeof WORKER_PROTOCOL_VERSION
       readonly generation: WorkerGeneration
+      readonly runtime?: RuntimeWorkerStartup
     }
   | {
       readonly type: 'request'
@@ -113,6 +121,9 @@ export function isMainToWorkerMessage(
 
   switch (value.type) {
     case 'start':
+      return (
+        value.runtime === undefined || isRuntimeWorkerStartup(value.runtime)
+      )
     case 'close':
       return true
     case 'cancel':
@@ -126,6 +137,16 @@ export function isMainToWorkerMessage(
     default:
       return false
   }
+}
+
+function isRuntimeWorkerStartup(value: unknown): value is RuntimeWorkerStartup {
+  return (
+    isRecord(value) &&
+    typeof value.loaderUrl === 'string' &&
+    typeof value.wasmUrl === 'string' &&
+    typeof value.productContract === 'string' &&
+    typeof value.bindingsAbi === 'string'
+  )
 }
 
 function isWorkerResponseError(value: unknown): value is WorkerResponseError {

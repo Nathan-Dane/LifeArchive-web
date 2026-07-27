@@ -1,9 +1,11 @@
 import {
   WORKER_PROTOCOL_VERSION,
   isMainToWorkerMessage,
+  type RuntimeWorkerStartup,
   type WorkerResponseError,
   type WorkerToMainMessage,
 } from './protocol'
+import { RootOwnership } from './RootOwnership'
 
 export interface RuntimeWorkerResult {
   readonly payload: unknown
@@ -11,7 +13,7 @@ export interface RuntimeWorkerResult {
 }
 
 export interface RuntimeWorkerExecutor {
-  start(): Promise<void>
+  start(runtime?: RuntimeWorkerStartup): Promise<void>
   execute(
     operation: string,
     payload: unknown,
@@ -70,7 +72,7 @@ export function installRuntimeWorker(
       }
       generation = message.generation
       void executor
-        .start()
+        .start(message.runtime)
         .then(() => {
           post({
             type: 'ready',
@@ -205,15 +207,15 @@ type RuntimeFactory = (options: {
 class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
   private module: EmscriptenRuntimeModule | null = null
   private handle = 0
-  private readonly parameters = new URL(self.location.href).searchParams
+  private readonly ownership = new RootOwnership()
+  private runtime: RuntimeWorkerStartup | null = null
 
-  async start(): Promise<void> {
-    const loaderUrl = this.parameters.get('loader')
-    const wasmUrl = this.parameters.get('wasm')
-    if (!loaderUrl || !wasmUrl) {
+  async start(runtime?: RuntimeWorkerStartup): Promise<void> {
+    if (!runtime) {
       throw new Error('runtime-location-missing')
     }
-    const imported = (await import(/* @vite-ignore */ loaderUrl)) as {
+    this.runtime = runtime
+    const imported = (await import(/* @vite-ignore */ runtime.loaderUrl)) as {
       readonly default?: RuntimeFactory
     }
     if (typeof imported.default !== 'function') {
@@ -221,7 +223,7 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
     }
     this.module = await imported.default({
       noInitialRun: true,
-      locateFile: (path) => (path.endsWith('.wasm') ? wasmUrl : path),
+      locateFile: (path) => (path.endsWith('.wasm') ? runtime.wasmUrl : path),
     })
   }
 
@@ -231,12 +233,13 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
     signal: AbortSignal,
   ): Promise<RuntimeWorkerResult> {
     const module = this.requiredModule()
+    const runtime = this.requiredRuntime()
     const requestId = crypto.randomUUID()
     const prepared = await prepareWorkerRequest(payload)
     const envelope = {
-      abiVersion: this.parameters.get('abi'),
+      abiVersion: runtime.bindingsAbi,
       requestId,
-      productContractVersion: this.parameters.get('contract'),
+      productContractVersion: runtime.productContract,
       operation,
       request: prepared.request,
       transfers: prepared.descriptors,
@@ -266,24 +269,55 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
       }
       if (operation === 'store.open') {
         if (this.handle) throw new Error('runtime-handle-already-open')
-        return this.callInvocation(
-          module,
-          async (input, pointers, lengths, count) => {
-            const outHandle = module.stackAlloc(4)
-            module.HEAPU32[outHandle >>> 2] = 0
-            const invocation = await module._lifearchive_browser_v1_open(
-              input,
-              pointers,
-              lengths,
-              count,
-              outHandle,
-            )
-            this.handle = module.HEAPU32[outHandle >>> 2]
-            return invocation
-          },
-          envelope,
-          prepared.transfers,
-        )
+        if (!(await this.ownership.acquire())) {
+          return {
+            payload: {
+              envelope: {
+                abiVersion: runtime.bindingsAbi,
+                requestId,
+                operation,
+                outcome: 'failure',
+                failure: {
+                  category: 'unavailable',
+                  code: 'storeAlreadyOpen',
+                  details: {
+                    area: 'concurrency',
+                    phase: 'lock',
+                    retryable: true,
+                    durableOutcome: 'not-started',
+                  },
+                },
+                transfers: [],
+              },
+              transfers: [],
+            },
+          }
+        }
+        try {
+          const result = await this.callInvocation(
+            module,
+            async (input, pointers, lengths, count) => {
+              const outHandle = module.stackAlloc(4)
+              module.HEAPU32[outHandle >>> 2] = 0
+              const invocation = await module._lifearchive_browser_v1_open(
+                input,
+                pointers,
+                lengths,
+                count,
+                outHandle,
+              )
+              this.handle = module.HEAPU32[outHandle >>> 2]
+              return invocation
+            },
+            envelope,
+            prepared.transfers,
+          )
+          if (!this.handle) await this.ownership.release()
+          return result
+        } catch (error) {
+          await this.ownership.release()
+          throw error
+        }
       }
       if (!this.handle) throw new Error('runtime-handle-closed')
       if (operation === 'store.close') {
@@ -295,6 +329,7 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
         )
         await module._lifearchive_browser_v1_handle_free(this.handle)
         this.handle = 0
+        await this.ownership.release()
         return result
       }
       if (operation === 'operation.cancel') {
@@ -328,12 +363,19 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
       await module._lifearchive_browser_v1_handle_free(this.handle)
       this.handle = 0
     }
+    await this.ownership.release()
     this.module = null
+    this.runtime = null
   }
 
   private requiredModule(): EmscriptenRuntimeModule {
     if (!this.module) throw new Error('runtime-not-started')
     return this.module
+  }
+
+  private requiredRuntime(): RuntimeWorkerStartup {
+    if (!this.runtime) throw new Error('runtime-not-started')
+    return this.runtime
   }
 
   private async callInvocation(

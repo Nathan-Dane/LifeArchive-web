@@ -68,6 +68,24 @@ describe('numbers', () => {
   })
 })
 
+describe('byte counts', () => {
+  it('scales to a readable unit without rounding small counts away', () => {
+    const format = createFormatters('en-GB')
+    expect(format.byteSize(0)).toBe('0 byte')
+    expect(format.byteSize(999)).toBe('999 byte')
+    expect(format.byteSize(1500)).toBe('1.5 kB')
+    expect(format.byteSize(5_000_000_000)).toBe('5 GB')
+  })
+
+  it('stops at the largest unit rather than inventing one', () => {
+    expect(createFormatters('en-GB').byteSize(9e15)).toBe('9,000 TB')
+  })
+
+  it('takes its unit word and decimal mark from the locale', () => {
+    expect(createFormatters('da-DK').byteSize(1500)).toBe('1,5 kB')
+  })
+})
+
 describe('the formatting locale', () => {
   it('resolves to something Intl accepts', () => {
     expect(

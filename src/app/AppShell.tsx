@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { DevelopmentModeNotice } from '../core/bootstrap'
+import { FirstRunPage } from '../features/archive/firstRun'
 import { useTranslate } from '../i18n'
 import { AppRoutes, MainNavigation } from './AppRoutes'
 import { useAppState } from './providers'
@@ -53,13 +54,16 @@ export function AppShell() {
           />
         </Frame>
       )
+    /*
+     * No archive is the first run. It is the one unavailable-looking state
+     * that has something to offer, so it gets the feature rather than a status
+     * screen — but still no navigation, because there is nothing to navigate
+     * to until the runtime confirms an archive.
+     */
     case 'no-archive':
       return (
         <Frame developmentMock={state.developmentMock}>
-          <StatusScreen
-            title={t('app.status.noArchive.title')}
-            detail={t('app.status.noArchive.detail')}
-          />
+          <FirstRunPage client={state.client} />
         </Frame>
       )
     case 'opening':

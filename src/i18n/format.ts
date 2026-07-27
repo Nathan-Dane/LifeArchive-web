@@ -35,7 +35,24 @@ export interface Formatters {
   ) => string
   /** A number, with the locale's own grouping and decimal marks. */
   readonly number: (value: number, options?: Intl.NumberFormatOptions) => string
+  /**
+   * A count of bytes, scaled to a readable unit. The unit word comes from
+   * `Intl`, never from a catalog, for the same reason month names do.
+   */
+  readonly byteSize: (bytes: number) => string
 }
+
+/**
+ * The decimal units browsers themselves quote storage in. Binary units would
+ * disagree with what the browser's own storage settings show a reader.
+ */
+const BYTE_UNITS = [
+  'byte',
+  'kilobyte',
+  'megabyte',
+  'gigabyte',
+  'terabyte',
+] as const
 
 const DATE_OPTIONS: Readonly<Record<DateStyle, Intl.DateTimeFormatOptions>> = {
   long: { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' },
@@ -97,6 +114,16 @@ export function createFormatters(locale: string): Formatters {
         civilDateAsUtcInstant(end),
       ),
     number: (value, options) => numberFormat(options).format(value),
+    byteSize: (bytes) => {
+      const magnitude = bytes >= 1000 ? Math.floor(Math.log10(bytes) / 3) : 0
+      const step = Math.min(magnitude, BYTE_UNITS.length - 1)
+      return numberFormat({
+        style: 'unit',
+        unit: BYTE_UNITS[step],
+        unitDisplay: 'short',
+        maximumFractionDigits: step === 0 ? 0 : 1,
+      }).format(bytes / 1000 ** step)
+    },
   }
   return Object.freeze(formatters)
 }

@@ -41,6 +41,24 @@ redirects, verifies the whole-archive checksum, archive allowlist, manifest
 identity, and payload checksums, then installs into ignored
 `runtime/installed/`. Any mismatch leaves no newly installed runtime.
 
+For a private/public sibling development workspace, a developer may install an
+already packaged runtime without pretending it is a production pin:
+
+```bash
+pnpm runtime:install-local \
+  ../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-0.1.0.tar.gz \
+  ../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-0.1.0.tar.gz.sha256
+pnpm run dev
+```
+
+The installer requires the exact checksum sidecar, then runs the same archive
+allowlist, manifest identity, whole-bundle checksum, and per-file verification
+as `runtime:fetch`. It writes only ignored files under `runtime/installed/`.
+Development may consume the resulting verification receipt while the tracked
+lock is still `not-integrated`; production builds never do. This is a real
+runtime path, not mock selection and not a substitute for the reviewed Step 18
+publication and pin.
+
 ## Public UI builds must work without the runtime
 
 A checkout of this repository alone, with no access to anything private, must
