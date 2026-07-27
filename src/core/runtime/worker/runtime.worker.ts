@@ -5,6 +5,7 @@ import {
   type WorkerResponseError,
   type WorkerToMainMessage,
 } from './protocol'
+import { mayMutateDurableState } from './durableOperations'
 import { RootOwnership } from './RootOwnership'
 import {
   stageArchiveTransport,
@@ -147,7 +148,7 @@ export function installRuntimeWorker(
           generation: message.generation,
           requestId: message.requestId,
           ok: false,
-          error: responseError(error),
+          error: responseError(error, message.operation),
         })
       })
       .finally(() => {
@@ -156,11 +157,80 @@ export function installRuntimeWorker(
   })
 }
 
-function responseError(error: unknown): WorkerResponseError {
-  if (error instanceof Error) {
-    return { code: error.name, diagnostic: error.message }
+interface InvocationEvidence {
+  crossedMutationBoundary: boolean
+  completionEvidence: boolean
+}
+
+class RuntimeExecutionError extends Error {
+  readonly code: string
+  readonly durableOutcome: NonNullable<WorkerResponseError['durableOutcome']>
+
+  constructor(
+    code: string,
+    diagnostic: string,
+    durableOutcome: NonNullable<WorkerResponseError['durableOutcome']>,
+  ) {
+    super(diagnostic)
+    this.name = 'RuntimeExecutionError'
+    this.code = code
+    this.durableOutcome = durableOutcome
   }
-  return { code: 'worker-failure' }
+}
+
+function runtimeExecutionError(
+  operation: string,
+  evidence: InvocationEvidence,
+  error: unknown,
+): RuntimeExecutionError {
+  if (error instanceof RuntimeExecutionError) return error
+  const code = error instanceof Error ? error.name : 'worker-failure'
+  const diagnostic =
+    error instanceof Error ? error.message : 'The runtime executor failed'
+  const durableOutcome = !mayMutateDurableState(operation)
+    ? 'known'
+    : evidence.completionEvidence
+      ? 'known'
+      : evidence.crossedMutationBoundary
+        ? 'unknown'
+        : 'not-started'
+  return new RuntimeExecutionError(code, diagnostic, durableOutcome)
+}
+
+function responseError(
+  error: unknown,
+  operation?: string,
+): WorkerResponseError {
+  if (error instanceof RuntimeExecutionError) {
+    return {
+      code: error.code,
+      diagnostic: error.message,
+      durableOutcome: error.durableOutcome,
+    }
+  }
+  if (error instanceof Error) {
+    return {
+      code: error.name,
+      diagnostic: error.message,
+      ...(operation
+        ? {
+            durableOutcome: mayMutateDurableState(operation)
+              ? ('unknown' as const)
+              : ('known' as const),
+          }
+        : {}),
+    }
+  }
+  return {
+    code: 'worker-failure',
+    ...(operation
+      ? {
+          durableOutcome: mayMutateDurableState(operation)
+            ? ('unknown' as const)
+            : ('known' as const),
+        }
+      : {}),
+  }
 }
 
 const scope = self as unknown as RuntimeWorkerScope
@@ -255,6 +325,28 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
     payload: unknown,
     signal: AbortSignal,
   ): Promise<RuntimeWorkerResult> {
+    const evidence: InvocationEvidence = {
+      crossedMutationBoundary: false,
+      completionEvidence: false,
+    }
+    try {
+      return await this.executeWithEvidence(
+        operation,
+        payload,
+        signal,
+        evidence,
+      )
+    } catch (error) {
+      throw runtimeExecutionError(operation, evidence, error)
+    }
+  }
+
+  private async executeWithEvidence(
+    operation: string,
+    payload: unknown,
+    signal: AbortSignal,
+    evidence: InvocationEvidence,
+  ): Promise<RuntimeWorkerResult> {
     const module = this.requiredModule()
     const runtime = this.requiredRuntime()
     const requestId = crypto.randomUUID()
@@ -320,6 +412,7 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
           (input) => module._lifearchive_browser_v1_describe(input),
           envelope,
           prepared.transfers,
+          evidence,
         )
       }
       if (operation === 'store.open') {
@@ -366,6 +459,7 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
             },
             envelope,
             prepared.transfers,
+            evidence,
           )
           if (!this.handle) await this.ownership.release()
           return result
@@ -381,10 +475,28 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
           (input) => module._lifearchive_browser_v1_close(this.handle, input),
           envelope,
           prepared.transfers,
+          evidence,
+          true,
         )
-        await module._lifearchive_browser_v1_handle_free(this.handle)
+        if (!isSuccessfulInvocation(result, operation, evidence)) {
+          return result
+        }
+        const closedHandle = this.handle
         this.handle = 0
-        await this.ownership.release()
+        try {
+          await module._lifearchive_browser_v1_handle_free(closedHandle)
+        } catch {
+          // The product supplied definitive close completion. The worker is
+          // about to terminate, so dropping the logical handle prevents any
+          // later request from observing it as open even if native cleanup
+          // reports a fault.
+        }
+        try {
+          await this.ownership.release()
+        } catch {
+          // RootOwnership requests release before awaiting the lock callback;
+          // a callback rejection cannot make the root logically owned again.
+        }
         return result
       }
       if (operation === 'operation.cancel') {
@@ -392,6 +504,8 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
           module,
           (input) => module._lifearchive_browser_v1_cancel(this.handle, input),
           envelope,
+          [],
+          evidence,
         )
       }
       // Awaited, not returned: the `finally` below releases the runtime-owned
@@ -416,6 +530,7 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
               ),
         envelope,
         prepared.transfers,
+        evidence,
       )
     } finally {
       signal.removeEventListener('abort', cancel)
@@ -520,6 +635,11 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
     ) => number | Promise<number>,
     envelope: object,
     transfers: readonly ArrayBuffer[] = [],
+    evidence: InvocationEvidence = {
+      crossedMutationBoundary: false,
+      completionEvidence: false,
+    },
+    preserveCompletionOnCleanupFault = false,
   ): Promise<RuntimeWorkerResult> {
     const stack = module.stackSave()
     try {
@@ -537,6 +657,7 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
         module.HEAPU32[(transferPointers >>> 2) + index] = pointer
         module.HEAPU32[(transferLengths >>> 2) + index] = bytes.byteLength
       }
+      evidence.crossedMutationBoundary = true
       const invocation = await call(
         input,
         transferPointers,
@@ -544,6 +665,8 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
         transfers.length,
       )
       if (!invocation) throw new Error('runtime-null-invocation')
+      let completedResult: RuntimeWorkerResult | null = null
+      let invocationFailure: { readonly error: unknown } | null = null
       try {
         const json = module.UTF8ToString(
           module._lifearchive_browser_v1_invocation_json(invocation),
@@ -565,17 +688,47 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
             )
           transfer.push(module.HEAPU8.slice(pointer, pointer + length).buffer)
         }
-        return {
+        evidence.completionEvidence = hasCompletionEvidence(payload, envelope)
+        completedResult = {
           payload: { envelope: payload, transfers: transfer },
           transfer,
         }
-      } finally {
-        module._lifearchive_browser_v1_invocation_free(invocation)
+      } catch (error) {
+        invocationFailure = { error }
       }
+      let cleanupFailure: { readonly error: unknown } | null = null
+      try {
+        module._lifearchive_browser_v1_invocation_free(invocation)
+      } catch (error) {
+        cleanupFailure = { error }
+      }
+      if (invocationFailure) throw invocationFailure.error
+      if (
+        cleanupFailure &&
+        (!preserveCompletionOnCleanupFault || !completedResult)
+      ) {
+        throw cleanupFailure.error
+      }
+      if (!completedResult) throw new Error('runtime-completion-missing')
+      return completedResult
     } finally {
       module.stackRestore(stack)
     }
   }
+}
+
+function isSuccessfulInvocation(
+  result: RuntimeWorkerResult,
+  operation: string,
+  evidence: InvocationEvidence,
+): boolean {
+  return (
+    evidence.completionEvidence &&
+    isRecord(result.payload) &&
+    isRecord(result.payload.envelope) &&
+    result.payload.envelope.outcome === 'success' &&
+    result.payload.envelope.operation === operation
+  )
 }
 
 async function prepareWorkerRequest(
@@ -631,6 +784,20 @@ function withArchiveSource(
     throw new TypeError('Archive request is malformed')
   }
   return { ...request, archiveTransportSource: source }
+}
+
+function hasCompletionEvidence(payload: unknown, request: object): boolean {
+  if (!isRecord(payload) || !isRecord(request)) return false
+  const hasOutcome =
+    (payload.outcome === 'success' && 'result' in payload) ||
+    (payload.outcome === 'failure' && isRecord(payload.failure))
+  return (
+    hasOutcome &&
+    typeof request.requestId === 'string' &&
+    payload.requestId === request.requestId &&
+    typeof request.operation === 'string' &&
+    payload.operation === request.operation
+  )
 }
 
 function parseArchiveSourceDescriptor(

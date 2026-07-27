@@ -185,8 +185,46 @@ describe('WorkerTransport', () => {
     ])
     expect(settled).toBe(false)
 
-    worker.failResponse(generation, 'active', 'cancelled')
+    worker.failResponseWithOutcome(generation, 'active', 'cancelled', 'known')
     await expectTransportError(active, 'cancelled', 'known')
+    await transport.close()
+  })
+
+  it('uses executor evidence for durable outcomes and defaults conservatively', async () => {
+    const { worker, transport } = setup()
+    await transport.start()
+
+    const beforeMutation = transport.request({
+      requestId: 'before-mutation',
+      operation: 'record.saveDraft',
+      payload: null,
+    })
+    await Promise.resolve()
+    worker.failResponseWithOutcome(
+      generation,
+      'before-mutation',
+      'executor-failed',
+      'not-started',
+    )
+    await expectTransportError(beforeMutation, 'executor-failed', 'not-started')
+
+    const unprovenMutation = transport.request({
+      requestId: 'unproven-mutation',
+      operation: 'record.saveDraft',
+      payload: null,
+    })
+    await Promise.resolve()
+    worker.failResponse(generation, 'unproven-mutation', 'executor-failed')
+    await expectTransportError(unprovenMutation, 'executor-failed', 'unknown')
+
+    const read = transport.request({
+      requestId: 'read',
+      operation: 'record.loadSpan',
+      payload: null,
+    })
+    await Promise.resolve()
+    worker.failResponse(generation, 'read', 'executor-failed')
+    await expectTransportError(read, 'executor-failed', 'known')
     await transport.close()
   })
 
@@ -240,6 +278,28 @@ describe('WorkerTransport', () => {
       expect(worker.listenerBalance).toBe(0)
     },
   )
+
+  it('surfaces idle worker loss immediately and refuses reuse of the dead generation', async () => {
+    const { worker, transport } = setup()
+    await transport.start()
+    const failures: WorkerTransportError[] = []
+    transport.observeFatal((error) => failures.push(error))
+
+    worker.crash()
+
+    expect(failures).toMatchObject([
+      { code: 'worker-lost', durableOutcome: 'unknown' },
+    ])
+    await expectTransportError(
+      transport.request({
+        operation: 'fixed.retry',
+        payload: null,
+      }),
+      'worker-lost',
+      'unknown',
+    )
+    expect(worker.requests()).toEqual([])
+  })
 
   it('cleans up listeners and tolerates StrictMode-style double lifecycle', async () => {
     for (let mount = 0; mount < 2; mount += 1) {

@@ -25,12 +25,21 @@ class FixedLocks {
 
 class ContendedLocks {
   private owner: symbol | null = null
+  private rejectNext = false
+
+  rejectNextRequest(): void {
+    this.rejectNext = true
+  }
 
   async request<T>(
     _name: string,
     _options: { readonly mode: 'exclusive'; readonly ifAvailable: true },
     callback: (lock: { readonly name: string } | null) => Promise<T>,
   ): Promise<T> {
+    if (this.rejectNext) {
+      this.rejectNext = false
+      throw new Error('lock-request-failed')
+    }
     if (this.owner) return callback(null)
     const owner = Symbol('lock-owner')
     this.owner = owner
@@ -39,6 +48,24 @@ class ContendedLocks {
     } finally {
       if (this.owner === owner) this.owner = null
     }
+  }
+}
+
+class DelayedLocks {
+  requests = 0
+  private readonly available: Promise<boolean>
+
+  constructor(available: Promise<boolean>) {
+    this.available = available
+  }
+
+  async request<T>(
+    name: string,
+    _options: { readonly mode: 'exclusive'; readonly ifAvailable: true },
+    callback: (lock: { readonly name: string } | null) => Promise<T>,
+  ): Promise<T> {
+    this.requests += 1
+    return callback((await this.available) ? { name } : null)
   }
 }
 
@@ -76,5 +103,40 @@ describe('RootOwnership', () => {
     await firstTab.release()
     await expect(secondTab.acquire()).resolves.toBe(true)
     await secondTab.release()
+  })
+
+  it('shares an in-flight unavailable result instead of claiming ownership early', async () => {
+    let reportAvailability: (available: boolean) => void = () => undefined
+    const available = new Promise<boolean>((resolve) => {
+      reportAvailability = resolve
+    })
+    const locks = new DelayedLocks(available)
+    const ownership = new RootOwnership(locks)
+
+    const first = ownership.acquire()
+    const simultaneous = ownership.acquire()
+    await Promise.resolve()
+    expect(locks.requests).toBe(1)
+
+    reportAvailability(false)
+    await expect(Promise.all([first, simultaneous])).resolves.toEqual([
+      false,
+      false,
+    ])
+  })
+
+  it('retries a rejected request without claiming a root held by another tab', async () => {
+    const locks = new ContendedLocks()
+    const retryingTab = new RootOwnership(locks)
+    const otherTab = new RootOwnership(locks)
+    locks.rejectNextRequest()
+
+    await expect(retryingTab.acquire()).rejects.toThrow('lock-request-failed')
+    await expect(otherTab.acquire()).resolves.toBe(true)
+    await expect(retryingTab.acquire()).resolves.toBe(false)
+
+    await otherTab.release()
+    await expect(retryingTab.acquire()).resolves.toBe(true)
+    await retryingTab.release()
   })
 })

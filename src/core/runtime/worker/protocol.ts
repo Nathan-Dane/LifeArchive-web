@@ -74,6 +74,7 @@ export type WorkerToMainMessage =
 export interface WorkerResponseError {
   readonly code: string
   readonly diagnostic?: string
+  readonly durableOutcome?: 'known' | 'not-started' | 'unknown'
 }
 
 export function isWorkerToMainMessage(
@@ -153,7 +154,11 @@ function isWorkerResponseError(value: unknown): value is WorkerResponseError {
   return (
     isRecord(value) &&
     typeof value.code === 'string' &&
-    (value.diagnostic === undefined || typeof value.diagnostic === 'string')
+    (value.diagnostic === undefined || typeof value.diagnostic === 'string') &&
+    (value.durableOutcome === undefined ||
+      value.durableOutcome === 'known' ||
+      value.durableOutcome === 'not-started' ||
+      value.durableOutcome === 'unknown')
   )
 }
 

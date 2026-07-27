@@ -85,6 +85,22 @@ export class FixedWorker extends EventTarget {
     })
   }
 
+  failResponseWithOutcome(
+    generation: string,
+    requestId: string,
+    code: string,
+    durableOutcome: 'known' | 'not-started' | 'unknown',
+  ): void {
+    this.emit({
+      type: 'response',
+      protocolVersion: WORKER_PROTOCOL_VERSION,
+      generation,
+      requestId,
+      ok: false,
+      error: { code, durableOutcome },
+    })
+  }
+
   crash(type: 'error' | 'messageerror' = 'error'): void {
     this.dispatchEvent(new Event(type))
   }

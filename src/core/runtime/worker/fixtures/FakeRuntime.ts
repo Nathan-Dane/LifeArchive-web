@@ -13,6 +13,18 @@ export interface RuntimeScript {
   readonly suspendDuringApply?: boolean
   /** Makes apply answer with this product failure code. */
   readonly applyFailureCode?: string
+  /** Throws after apply crosses the runtime mutation boundary. */
+  readonly throwDuringApply?: boolean
+  /** Throws while releasing an apply reply after its envelope was decoded. */
+  readonly throwWhenFreeingApplyInvocation?: boolean
+  /** Throws while releasing a definitive close reply after it was decoded. */
+  readonly throwWhenFreeingCloseInvocation?: boolean
+  /** Makes this many close invocations return a product failure. */
+  readonly closeFailureCount?: number
+  /** Throws while freeing a handle after definitive product close success. */
+  readonly throwWhenFreeingHandle?: boolean
+  /** Returns an apply reply whose request correlation does not match. */
+  readonly malformedApplyReply?: boolean
 }
 
 interface StagedSource {
@@ -37,6 +49,7 @@ export class FakeRuntimeModule {
   readAfterRelease = false
   suspended = false
   closed = false
+  handleFreeCalls = 0
 
   private readonly script: RuntimeScript
   private readonly sources = new Map<number, StagedSource>()
@@ -46,9 +59,11 @@ export class FakeRuntimeModule {
   private nextPointer = 1
   private nextHeapText = STACK_BASE + STACK_BYTES
   private resumeApply: (() => void) | null = null
+  private remainingCloseFailures: number
 
   constructor(script: RuntimeScript = {}) {
     this.script = script
+    this.remainingCloseFailures = script.closeFailureCount ?? 0
   }
 
   /** True once every source created in this run has been released. */
@@ -161,7 +176,10 @@ export class FakeRuntimeModule {
     )
   }
 
-  _lifearchive_browser_v1_execute(input: number): Promise<number> {
+  _lifearchive_browser_v1_execute(
+    _handle: number,
+    input: number,
+  ): Promise<number> {
     const request = this.request(input)
     return Promise.resolve(
       this.reply({
@@ -186,6 +204,9 @@ export class FakeRuntimeModule {
       throw new Error('runtime received an unfinished archive source')
     }
     this.appliedSources.push(source)
+    if (this.script.throwDuringApply) {
+      throw new Error('executor failed after apply began')
+    }
 
     if (this.script.suspendDuringApply) {
       this.suspended = true
@@ -216,6 +237,14 @@ export class FakeRuntimeModule {
           details: { area: 'archive', phase: 'validation', retryable: false },
         },
         transfers: [],
+      })
+    }
+    if (this.script.malformedApplyReply) {
+      return this.reply({
+        outcome: 'success',
+        requestId: 'wrong-request-id',
+        operation: 'archive.apply',
+        result: {},
       })
     }
     return this.reply({
@@ -262,6 +291,28 @@ export class FakeRuntimeModule {
     input: number,
   ): Promise<number> {
     const request = this.request(input)
+    if (this.remainingCloseFailures > 0) {
+      this.remainingCloseFailures -= 1
+      return Promise.resolve(
+        this.reply({
+          outcome: 'failure',
+          abiVersion: '1',
+          requestId: request.requestId,
+          operation: 'store.close',
+          failure: {
+            category: 'storage',
+            code: 'ioFailure',
+            details: {
+              area: 'storage',
+              phase: 'close',
+              retryable: true,
+              durableOutcome: 'known',
+            },
+          },
+          transfers: [],
+        }),
+      )
+    }
     this.closed = true
     return Promise.resolve(
       this.reply({
@@ -292,10 +343,27 @@ export class FakeRuntimeModule {
   }
 
   _lifearchive_browser_v1_invocation_free(invocation: number): void {
+    const envelope = this.invocations.get(invocation)
     this.invocations.delete(invocation)
+    if (
+      this.script.throwWhenFreeingApplyInvocation &&
+      envelope?.includes('"operation":"archive.apply"')
+    ) {
+      throw new Error('executor cleanup failed after apply reply')
+    }
+    if (
+      this.script.throwWhenFreeingCloseInvocation &&
+      envelope?.includes('"operation":"store.close"')
+    ) {
+      throw new Error('executor cleanup failed after close reply')
+    }
   }
 
   _lifearchive_browser_v1_handle_free(): Promise<void> {
+    this.handleFreeCalls += 1
+    if (this.script.throwWhenFreeingHandle) {
+      return Promise.reject(new Error('runtime handle cleanup failed'))
+    }
     return Promise.resolve()
   }
 

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { operationId, revision, stableId } from '../client'
+import { clientFailure, operationId, revision, stableId } from '../client'
 import { RuntimeLifeArchiveClient } from './RuntimeLifeArchiveClient'
-import { WorkerTransportError } from './worker/WorkerTransport'
+import { WorkerTransport, WorkerTransportError } from './worker/WorkerTransport'
+import { FixedWorker } from './worker/fixtures/FixedWorker'
 
 const runtime = {
   mode: 'runtime',
@@ -12,6 +13,44 @@ const runtime = {
   backend: 'opfs-sqlite',
   durability: 'durable',
 } as const
+
+function deferred<Value>() {
+  let resolve!: (value: Value) => void
+  const promise = new Promise<Value>((settle) => {
+    resolve = settle
+  })
+  return { promise, resolve }
+}
+
+async function openClientWithWorker(generation: string) {
+  const worker = new FixedWorker()
+  const transport = new WorkerTransport({
+    createWorker: () => worker.asWorker(),
+    generation,
+  })
+  const client = new RuntimeLifeArchiveClient({ runtime, transport })
+  const opening = client.archive.open()
+  await vi.waitFor(() => expect(worker.requests()).toHaveLength(1))
+  const request = worker.requests()[0]
+  worker.respond(generation, request.requestId, {
+    envelope: {
+      outcome: 'success',
+      result: {
+        storeId: stableId('A1000000-0000-4000-8000-000000000099'),
+        productContract: '5',
+        storeSchemaVersion: '7',
+        rootLayoutVersion: '1',
+        invalidation: {
+          storeInstanceId: 'worker-loss-test',
+          revision: revision('1'),
+        },
+      },
+    },
+    transfers: [],
+  })
+  await opening
+  return { client, worker }
+}
 
 describe('RuntimeLifeArchiveClient', () => {
   it('maps the runtime archive overview vocabulary into ergonomic facts', async () => {
@@ -296,6 +335,176 @@ describe('RuntimeLifeArchiveClient', () => {
     expect(closeTransport).toHaveBeenCalledOnce()
   })
 
+  it('rejects a simultaneous close without overwriting an active open', async () => {
+    const pendingOpen = deferred<unknown>()
+    const request = vi.fn((request: { readonly operation: string }) => {
+      void request.operation
+      return pendingOpen.promise
+    })
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request,
+        close: () => Promise.resolve(),
+      },
+    })
+
+    const opening = client.archive.open()
+    await vi.waitFor(() => expect(request).toHaveBeenCalledOnce())
+    expect(await client.archive.close()).toEqual({
+      status: 'failed',
+      failure: clientFailure({
+        area: 'concurrency',
+        code: 'busyRetryable',
+        phase: 'lock',
+        retryable: true,
+        durableOutcome: 'not-started',
+      }),
+    })
+    expect(client.archive.session()).toEqual({ state: 'opening' })
+    expect(request.mock.calls.map(([call]) => call.operation)).toEqual([
+      'store.open',
+    ])
+
+    const archive = {
+      storeId: stableId('A1000000-0000-4000-8000-000000000021'),
+      productContract: '5',
+      storeSchemaVersion: '1',
+      rootLayoutVersion: '1',
+      invalidation: {
+        storeInstanceId: 'simultaneous-open',
+        revision: revision('1'),
+      },
+    }
+    pendingOpen.resolve({ outcome: 'success', result: archive })
+    expect(await opening).toEqual({ status: 'ok', value: archive })
+    expect(client.archive.session()).toEqual({ state: 'open', archive })
+  })
+
+  it('admits only one archive operation and never queues stale cross-operation work', async () => {
+    const pendingVerify = deferred<unknown>()
+    const operations: string[] = []
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: (request) => {
+          operations.push(request.operation)
+          if (request.operation === 'archive.verify') {
+            return pendingVerify.promise
+          }
+          return Promise.resolve({
+            outcome: 'success',
+            result: {
+              outcome: 'erased',
+              invalidation: {
+                storeInstanceId: 'after-exclusive-erase',
+                revision: revision('2'),
+              },
+            },
+          })
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+    const archive = new File([Uint8Array.from([1])], 'Selected.lifearchive.tar')
+    const verifying = client.archive.verify({ archive })
+    await vi.waitFor(() => expect(operations).toEqual(['archive.verify']))
+
+    const rejected = await Promise.all([
+      client.archive.import({
+        operationId: operationId('A1000000-0000-4000-8000-000000000022'),
+        archive,
+      }),
+      client.archive.export({
+        operationId: operationId('A1000000-0000-4000-8000-000000000023'),
+        archiveId: stableId('A1000000-0000-4000-8000-000000000024'),
+        createdAtMs: 1_785_153_600_000,
+        application: { name: 'LifeArchive Web', version: '0.1.0' },
+      }),
+      client.archive.erase({ confirmation: 'erase-this-archive' }),
+      client.archive.open(),
+    ])
+
+    for (const result of rejected) {
+      expect(result).toMatchObject({
+        status: 'failed',
+        failure: {
+          area: 'concurrency',
+          code: 'busyRetryable',
+          phase: 'lock',
+          retryable: true,
+          durableOutcome: 'not-started',
+        },
+      })
+    }
+    expect(operations).toEqual(['archive.verify'])
+
+    pendingVerify.resolve({
+      outcome: 'success',
+      result: { outcome: 'verified' },
+    })
+    expect((await verifying).status).toBe('ok')
+    await Promise.resolve()
+    expect(operations).toEqual(['archive.verify'])
+
+    expect(
+      await client.archive.erase({ confirmation: 'erase-this-archive' }),
+    ).toMatchObject({ status: 'ok', value: { outcome: 'erased' } })
+    expect(operations).toEqual(['archive.verify', 'archive.erase'])
+  })
+
+  it('keeps a confirmed product close definitive if transport teardown fails', async () => {
+    const teardownLoss = new WorkerTransportError('worker-lost', 'known')
+    let reportFatal: ((error: WorkerTransportError) => void) | undefined
+    const closeTransport = vi.fn(() => {
+      reportFatal?.(teardownLoss)
+      return Promise.reject(teardownLoss)
+    })
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: (request) =>
+          Promise.resolve(
+            request.operation === 'store.open'
+              ? {
+                  outcome: 'success',
+                  result: {
+                    storeId: stableId('A1000000-0000-4000-8000-000000000025'),
+                    productContract: '5',
+                    storeSchemaVersion: '1',
+                    rootLayoutVersion: '1',
+                    invalidation: {
+                      storeInstanceId: 'close-teardown',
+                      revision: revision('1'),
+                    },
+                  },
+                }
+              : {
+                  outcome: 'success',
+                  result: { outcome: 'closed' },
+                },
+          ),
+        close: closeTransport,
+        observeFatal: (listener) => {
+          reportFatal = listener
+          return () => undefined
+        },
+      },
+    })
+
+    await client.archive.open()
+    expect(await client.archive.close()).toEqual({
+      status: 'ok',
+      value: { outcome: 'closed' },
+    })
+    expect(client.archive.session()).toEqual({ state: 'closed' })
+    expect(client.runtime.status()).toEqual({
+      state: 'available',
+      runtime,
+    })
+    expect(closeTransport).toHaveBeenCalledOnce()
+  })
+
   it('cancels one active import out of band and publishes its invalidation', async () => {
     const importOperationId = operationId(
       'A1000000-0000-4000-8000-000000000010',
@@ -575,6 +784,93 @@ describe('RuntimeLifeArchiveClient', () => {
     expect(changes).toHaveLength(1)
   })
 
+  it('publishes all observable mutation invalidations at the shared boundary, but not reads or no-ops', async () => {
+    const storeId = stableId('A1000000-0000-4000-8000-000000000026')
+    const afterDelete = {
+      storeInstanceId: 'shared-invalidation',
+      revision: revision('2'),
+    }
+    const afterIdentity = {
+      storeInstanceId: 'shared-invalidation',
+      revision: revision('3'),
+    }
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: ({ operation }) => {
+          switch (operation) {
+            case 'store.open':
+              return Promise.resolve({
+                outcome: 'success',
+                result: {
+                  storeId,
+                  productContract: '5',
+                  storeSchemaVersion: '1',
+                  rootLayoutVersion: '1',
+                  invalidation: {
+                    storeInstanceId: 'shared-invalidation',
+                    revision: revision('1'),
+                  },
+                },
+              })
+            case 'record.deleteEntry':
+              return Promise.resolve({
+                outcome: 'success',
+                result: {
+                  outcome: 'deleted',
+                  deletedEntryId: stableId(
+                    'A1000000-0000-4000-8000-000000000027',
+                  ),
+                  deletedRevision: revision('1'),
+                  invalidation: afterDelete,
+                },
+              })
+            case 'archive.identity.save':
+              return Promise.resolve({
+                outcome: 'success',
+                result: {
+                  outcome: 'updated',
+                  identity: {},
+                  invalidation: afterIdentity,
+                },
+              })
+            case 'record.saveDraft':
+              return Promise.resolve({
+                outcome: 'success',
+                result: {
+                  outcome: 'unchanged',
+                  entry: {},
+                  invalidation: afterIdentity,
+                },
+              })
+            default:
+              return Promise.resolve({
+                outcome: 'success',
+                result: {
+                  presence: 'absent',
+                  invalidation: afterIdentity,
+                },
+              })
+          }
+        },
+        close: () => Promise.resolve(),
+      },
+    })
+    await client.archive.open()
+    const changes: unknown[] = []
+    client.operations.observeChanges((change) => changes.push(change))
+
+    await client.record.delete({} as never)
+    await client.identity.save({} as never)
+    await client.record.save({} as never)
+    await client.record.load({} as never)
+
+    expect(changes).toEqual([
+      { storeId, invalidation: afterDelete },
+      { storeId, invalidation: afterIdentity },
+    ])
+  })
+
   it('maps one fixed runtime result without changing exact values or order', async () => {
     const exactRevision = revision('18446744073709551615')
     const exactId = stableId('A1000000-0000-4000-8000-000000000002')
@@ -716,6 +1012,68 @@ describe('RuntimeLifeArchiveClient', () => {
     expect(client.runtime.status()).toEqual({
       state: 'unavailable',
       reason: 'worker-lost',
+    })
+    expect(client.archive.session()).toEqual({
+      state: 'lost',
+      durableOutcome: 'unknown',
+    })
+  })
+
+  it('treats a malformed mutation reply without completion evidence as unknown', async () => {
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: () => Promise.resolve({ outcome: 'malformed' }),
+        close: () => Promise.resolve(),
+      },
+    })
+
+    await expect(
+      client.archive.erase({ confirmation: 'erase-this-archive' }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      failure: {
+        code: 'invalidRuntimeResponse',
+        durableOutcome: 'unknown',
+      },
+    })
+  })
+
+  it('surfaces idle worker loss without waiting for another client request', async () => {
+    const { client, worker } = await openClientWithWorker(
+      'idle-loss-generation',
+    )
+
+    worker.crash()
+
+    expect(client.runtime.status()).toEqual({
+      state: 'unavailable',
+      reason: 'worker-lost',
+    })
+    expect(client.archive.session()).toEqual({
+      state: 'lost',
+      durableOutcome: 'unknown',
+    })
+  })
+
+  it('preserves active unknown outcome when queued work never started', async () => {
+    const { client, worker } = await openClientWithWorker(
+      'active-loss-generation',
+    )
+    const active = client.archive.erase({
+      confirmation: 'erase-this-archive',
+    })
+    const queued = client.archive.overview()
+    await vi.waitFor(() => expect(worker.requests()).toHaveLength(2))
+
+    worker.crash()
+    await expect(active).resolves.toMatchObject({
+      status: 'failed',
+      failure: { durableOutcome: 'unknown' },
+    })
+    await expect(queued).resolves.toMatchObject({
+      status: 'failed',
+      failure: { durableOutcome: 'not-started' },
     })
     expect(client.archive.session()).toEqual({
       state: 'lost',
