@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { describe, expect, it, vi } from 'vitest'
 import {
   ARCHIVE_IMPORT_CHUNK_BYTES,
@@ -107,7 +108,7 @@ describe('runtime-owned archive transport staging', () => {
     expect(Math.max(...writer.writes)).toBeLessThanOrEqual(
       ARCHIVE_IMPORT_CHUNK_BYTES,
     )
-    expect(stagedBytes).toEqual(bytes)
+    expect(Buffer.from(stagedBytes).equals(Buffer.from(bytes))).toBe(true)
     expect(writer.disposed).toBe(false)
   }, 15_000)
 
