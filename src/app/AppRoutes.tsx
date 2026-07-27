@@ -1,6 +1,7 @@
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { RecordPage } from '../features/record/RecordPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
+import { ArchiveManagementPage } from '../features/settings/archive'
 import { TimelinePage } from '../features/timeline/TimelinePage'
 import type { LifeArchiveClient } from '../core/client'
 import { useTranslate } from '../i18n'
@@ -74,6 +75,10 @@ export function AppRoutes({ client }: { readonly client: LifeArchiveClient }) {
         <Route
           path="/settings"
           element={routeElement(<SettingsPage client={client} />)}
+        />
+        <Route
+          path="/settings/archive"
+          element={routeElement(<ArchiveManagementPage client={client} />)}
         />
         <Route path="*" element={<Navigate to="/record" replace />} />
       </Routes>

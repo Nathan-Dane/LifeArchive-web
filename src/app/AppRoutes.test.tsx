@@ -28,6 +28,7 @@ const ROUTES = [
   { path: '/record', heading: 'Record' },
   { path: '/timeline', heading: 'Timeline' },
   { path: '/settings', heading: 'Settings' },
+  { path: '/settings/archive', heading: 'Manage Archive' },
   { path: '/not-a-route', heading: 'Record' },
 ] as const
 
