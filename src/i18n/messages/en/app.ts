@@ -45,6 +45,14 @@ export const appMessages = {
   'app.status.browserUnsupported.title': 'Browser not supported',
   'app.status.browserUnsupported.detail':
     'This browser cannot provide the secure worker support LifeArchive requires. No archive has been opened.',
+  'app.status.browserUnsupported.engine':
+    'This browser engine has not passed LifeArchive’s local archive safety checks. No archive has been opened.',
+  'app.status.browserUnsupported.version':
+    'This browser version is outside the versions qualified for LifeArchive’s local archive safety checks. No archive has been opened.',
+  'app.status.browserUnsupported.device':
+    'This browser’s device mode has not been qualified for LifeArchive’s local archive storage. No archive has been opened.',
+  'app.status.browserUnsupported.storage':
+    'Private or incognito browser storage is not supported. Open LifeArchive in a regular browser window. No archive has been opened.',
 
   'app.status.incompatible.title': 'LifeArchive is incompatible',
   'app.status.incompatible.detail':

@@ -74,6 +74,11 @@ export interface FirstRunOptions {
   /** Called once the runtime has confirmed the new archive. */
   readonly onCreated: () => void
   readonly persistence?: StoragePersistence
+  /**
+   * The composed app injects an intent-preserving create operation. Isolated
+   * feature renders use the client operation directly.
+   */
+  readonly createArchive?: LifeArchiveClient['archive']['create']
 }
 
 /**
@@ -90,6 +95,7 @@ export function useFirstRun({
   client,
   onCreated,
   persistence = browserStoragePersistence,
+  createArchive = client.archive.create,
 }: FirstRunOptions): FirstRunController {
   const [phase, setPhase] = useState<FirstRunPhase>('offering')
   const [grant, setGrant] = useState<PersistenceGrant | null>(null)
@@ -122,7 +128,7 @@ export function useFirstRun({
 
   const create = useCallback(async (): Promise<void> => {
     setPhase('creating')
-    const result = await client.archive.create()
+    const result = await createArchive()
     if (result.status === 'ok') {
       setFailure(null)
       setPhase('created')
@@ -136,7 +142,7 @@ export function useFirstRun({
         ? 'locked'
         : 'failed',
     )
-  }, [client])
+  }, [client, createArchive])
 
   const run = useCallback((attempt: () => Promise<void>) => {
     if (running.current) return

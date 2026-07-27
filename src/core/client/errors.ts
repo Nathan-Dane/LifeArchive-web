@@ -87,6 +87,7 @@ export const KNOWN_FAILURE_CODES = [
   'recoveryIncomplete',
   'revisionConflict',
   'revisionExhausted',
+  'staleArchiveGeneration',
   'storeAlreadyOpen',
   'unsupportedCapability',
   'unsupportedContractVersion',

@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { LiveStatus } from '../../../accessibility'
+import { useLayoutEffect, useRef } from 'react'
+import { LiveStatus, useFocusTrap } from '../../../accessibility'
 import type {
   ArchiveIdentityState,
   ArchiveOverview,
@@ -28,10 +28,29 @@ export function ArchiveErasePanel({
     confirm,
     retryRefresh,
   } = useArchiveErase(client)
-  const cancelButton = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    if (state.phase === 'confirming') cancelButton.current?.focus()
+  const requestButton = useRef<HTMLButtonElement>(null)
+  const confirmation = useRef<HTMLDialogElement>(null)
+  useFocusTrap(confirmation, {
+    active: state.phase === 'confirming',
+    onEscape: cancelConfirmation,
+    returnFocusRef: requestButton,
+  })
+  useLayoutEffect(() => {
+    if (state.phase !== 'confirming') return
+    const dialog = confirmation.current
+    if (!dialog) return
+    if (typeof dialog.showModal === 'function') {
+      if (!dialog.open) dialog.showModal()
+    } else {
+      dialog.setAttribute('open', '')
+    }
+    return () => {
+      if (typeof dialog.close === 'function' && dialog.open) {
+        dialog.close()
+      } else {
+        dialog.removeAttribute('open')
+      }
+    }
   }, [state.phase])
 
   const recoveryRequired =
@@ -58,26 +77,32 @@ export function ArchiveErasePanel({
         <p className="archive-operation__detail">{t('archive.erase.detail')}</p>
       </div>
 
-      {state.phase === 'ready' ? (
-        <Actions>
-          <button
-            type="button"
-            className="button button--destructive"
-            onClick={requestConfirmation}
-          >
-            {t('archive.erase.action.request')}
-          </button>
-        </Actions>
-      ) : null}
+      <div
+        className="archive-operation__actions"
+        hidden={state.phase !== 'ready'}
+      >
+        <button
+          ref={requestButton}
+          type="button"
+          className="button button--destructive"
+          onClick={requestConfirmation}
+        >
+          {t('archive.erase.action.request')}
+        </button>
+      </div>
 
       {state.phase === 'confirming' ? (
-        <div
+        <dialog
+          ref={confirmation}
           className="archive-erase__confirmation"
           role="alertdialog"
+          aria-modal="true"
           aria-labelledby="archive-erase-confirm-title"
-          aria-describedby="archive-erase-confirm-detail"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') cancelConfirmation()
+          aria-describedby="archive-erase-confirm-detail archive-erase-confirm-exports"
+          tabIndex={-1}
+          onCancel={(event) => {
+            event.preventDefault()
+            cancelConfirmation()
           }}
         >
           <h3 id="archive-erase-confirm-title" className="title">
@@ -86,10 +111,11 @@ export function ArchiveErasePanel({
           <p id="archive-erase-confirm-detail">
             {t('archive.erase.confirm.detail')}
           </p>
-          <p>{t('archive.erase.exportsPreserved')}</p>
+          <p id="archive-erase-confirm-exports">
+            {t('archive.erase.exportsPreserved')}
+          </p>
           <Actions>
             <button
-              ref={cancelButton}
               type="button"
               className="button"
               onClick={cancelConfirmation}
@@ -104,7 +130,7 @@ export function ArchiveErasePanel({
               {t('archive.erase.action.confirm')}
             </button>
           </Actions>
-        </div>
+        </dialog>
       ) : null}
 
       {state.phase === 'erasing' || state.phase === 'refreshing' ? (

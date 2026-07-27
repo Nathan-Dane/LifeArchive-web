@@ -126,6 +126,7 @@ describe('Archive erase presentation', () => {
     renderPanel(client)
 
     const confirmation = await openConfirmation(user)
+    expect(confirmation.tagName).toBe('DIALOG')
     expect(
       within(confirmation).getByText(/previously downloaded exports/i),
     ).toBeInTheDocument()
@@ -135,9 +136,49 @@ describe('Archive erase presentation', () => {
 
     expect(erase).not.toHaveBeenCalled()
     expect(overview).not.toHaveBeenCalled()
-    expect(
-      screen.getByRole('button', { name: 'Erase archive…' }),
-    ).toBeInTheDocument()
+    const request = screen.getByRole('button', { name: 'Erase archive…' })
+    expect(request).toBeInTheDocument()
+    await waitFor(() => expect(request).toHaveFocus())
+  })
+
+  it('contains keyboard focus, closes with Escape, and restores the erase trigger', async () => {
+    const { client, erase } = clientFor()
+    const user = userEvent.setup()
+    renderPanel(client)
+    const request = screen.getByRole('button', { name: 'Erase archive…' })
+
+    const confirmation = await openConfirmation(user)
+    expect(confirmation).toHaveAttribute('aria-modal', 'true')
+    expect(confirmation).toHaveAccessibleName('Erase this archive permanently?')
+    expect(confirmation).toHaveAccessibleDescription(
+      'This removes all writing, structured records, media, and identity stored in this browser. This action cannot be undone. Previously downloaded exports are separate files and will not be deleted.',
+    )
+
+    const cancel = within(confirmation).getByRole('button', { name: 'Cancel' })
+    const confirm = within(confirmation).getByRole('button', {
+      name: 'Erase this archive',
+    })
+    expect(cancel).toHaveFocus()
+
+    const outsideHeading = screen.getByRole('heading', {
+      name: 'Erase this archive',
+      level: 2,
+    })
+    outsideHeading.tabIndex = -1
+    outsideHeading.focus()
+    expect(cancel).toHaveFocus()
+
+    await user.tab()
+    expect(confirm).toHaveFocus()
+    await user.tab()
+    expect(cancel).toHaveFocus()
+    await user.tab({ shift: true })
+    expect(confirm).toHaveFocus()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(request).toHaveFocus())
+    expect(erase).not.toHaveBeenCalled()
   })
 
   it('calls one coordinated erase and shows only the freshly read identity and empty state after success', async () => {

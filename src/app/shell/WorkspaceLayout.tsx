@@ -11,6 +11,8 @@ const REGION_LABELS = {
 
 export interface WorkspaceLayoutProps {
   readonly children: ReactNode
+  /** Keeps the mounted route visible but non-interactive during recovery. */
+  readonly inert?: boolean
   /** Time and object navigation, on the leading edge of the wide layout. */
   readonly navigation?: ReactNode
   /** Details of the selected object, on the trailing edge. */
@@ -29,6 +31,7 @@ export interface WorkspaceLayoutProps {
  */
 export function WorkspaceLayout({
   children,
+  inert,
   navigation,
   details,
 }: WorkspaceLayoutProps) {
@@ -61,6 +64,8 @@ export function WorkspaceLayout({
       data-navigation={hasNavigation ? 'available' : 'none'}
       data-details={hasDetails ? 'available' : 'none'}
       data-open={open ?? 'none'}
+      inert={inert || undefined}
+      aria-disabled={inert || undefined}
     >
       {hasNavigation ? (
         <WorkspaceRegion

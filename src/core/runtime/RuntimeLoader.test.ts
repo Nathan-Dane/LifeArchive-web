@@ -7,6 +7,7 @@ import { RuntimeLoader } from './RuntimeLoader'
 import { WEB_V0_1_CAPABILITIES } from './runtimeManifest'
 import { FixedWorker } from './worker/fixtures/FixedWorker'
 import type { MainToWorkerMessage } from './worker/protocol'
+import type { BrowserAdmissionEnvironment } from '../../platform/browser'
 
 const payloadNames = [
   'LICENSE-RUNTIME.txt',
@@ -15,6 +16,13 @@ const payloadNames = [
   'lifearchive_runtime.js',
   'lifearchive_runtime_bg.wasm',
 ] as const
+
+const ACCEPTED_BROWSER: BrowserAdmissionEnvironment = {
+  engine: 'chromium',
+  majorVersion: 151,
+  deviceClass: 'desktop',
+  storageMode: 'regular',
+}
 
 beforeAll(() => {
   vi.stubGlobal('DecompressionStream', NodeDecompressionStream)
@@ -309,6 +317,7 @@ async function loaderFor(
         change.createWorker === undefined
           ? () => worker.asWorker()
           : change.createWorker,
+      browserEnvironment: ACCEPTED_BROWSER,
     }),
   }
 }
@@ -355,6 +364,7 @@ describe('RuntimeLoader', () => {
       allowDevelopmentRuntime: true,
       isSecureContext: true,
       createWorker: () => worker.asWorker(),
+      browserEnvironment: ACCEPTED_BROWSER,
       createObjectUrl: () => {
         const url = `blob:https://app.example/verified-${objectUrls.length + 1}`
         objectUrls.push(url)
@@ -388,6 +398,7 @@ describe('RuntimeLoader', () => {
     const unsupported = await new RuntimeLoader({
       lock,
       isSecureContext: true,
+      browserEnvironment: ACCEPTED_BROWSER,
     }).load()
     expect(unsupported).toEqual({
       state: 'unavailable',
@@ -400,11 +411,77 @@ describe('RuntimeLoader', () => {
       createWorker: () => {
         throw new Error('must not instantiate')
       },
+      browserEnvironment: ACCEPTED_BROWSER,
     }).load()
     expect(insecure).toEqual({
       state: 'unavailable',
       reason: 'insecure-context',
     })
+  })
+
+  it.each([
+    [
+      { ...ACCEPTED_BROWSER, engine: 'webkit', majorVersion: 26 },
+      'browser-engine-unsupported',
+    ],
+    [
+      { ...ACCEPTED_BROWSER, engine: 'firefox', majorVersion: 152 },
+      'browser-version-unsupported',
+    ],
+    [
+      { ...ACCEPTED_BROWSER, deviceClass: 'mobile' },
+      'browser-device-unsupported',
+    ],
+    [
+      { ...ACCEPTED_BROWSER, storageMode: 'private' },
+      'browser-storage-unsupported',
+    ],
+  ] as const)(
+    'rejects a disallowed browser before runtime acquisition',
+    async (browserEnvironment, reason) => {
+      const fixed = await fixture()
+      const fetchImpl = vi.fn<typeof fetch>()
+      const createWorker = vi.fn<() => Worker>()
+      const state = await new RuntimeLoader({
+        lock: fixed.lock,
+        fetch: fetchImpl,
+        isSecureContext: true,
+        createWorker,
+        browserEnvironment,
+      }).load()
+
+      expect(state).toEqual({ state: 'incompatible', reason })
+      expect(fetchImpl).not.toHaveBeenCalled()
+      expect(createWorker).not.toHaveBeenCalled()
+    },
+  )
+
+  it('does not reject a normal browser merely because private mode cannot be classified', async () => {
+    const fixed = await fixture()
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 404 }))
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/151.0.0.0 Safari/537.36',
+    })
+    try {
+      await expect(
+        new RuntimeLoader({
+          lock: fixed.lock,
+          fetch: fetchImpl,
+          isSecureContext: true,
+          createWorker: vi.fn<() => Worker>(),
+        }).load(),
+      ).resolves.toEqual({
+        state: 'unavailable',
+        reason: 'missing',
+      })
+      expect(fetchImpl).toHaveBeenCalledOnce()
+    } finally {
+      vi.unstubAllGlobals()
+      vi.stubGlobal('DecompressionStream', NodeDecompressionStream)
+    }
   })
 
   it.each([

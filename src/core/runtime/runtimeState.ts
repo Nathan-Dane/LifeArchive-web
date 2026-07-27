@@ -20,6 +20,10 @@ export type RuntimeLoadState =
         | 'contract-mismatch'
         | 'abi-mismatch'
         | 'capability-inventory-mismatch'
+        | 'browser-engine-unsupported'
+        | 'browser-version-unsupported'
+        | 'browser-device-unsupported'
+        | 'browser-storage-unsupported'
         | 'environment-unsupported'
     }
   | {

@@ -541,7 +541,7 @@
 }
 
 .archive-health-card__facts dt {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: var(--text-ui);
   font-weight: var(--weight-medium);
 }
@@ -616,7 +616,7 @@
 
 .settings-group__footer {
   border-top: var(--border-hairline) solid var(--border-muted);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: var(--text-ui);
 }
 
@@ -769,6 +769,11 @@
     var(--color-destructive) 7%,
     var(--color-surface)
   );
+  color: var(--color-text-primary);
+}
+
+.archive-erase__confirmation::backdrop {
+  background: color-mix(in srgb, var(--color-page) 72%, transparent);
 }
 
 .archive-erase__confirmation > :is(h3, p) {
@@ -821,6 +826,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-compact);
+}
+
+.archive-operation__actions[hidden] {
+  display: none;
 }
 
 .archive-import__counts,

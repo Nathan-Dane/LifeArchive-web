@@ -65,9 +65,15 @@ function routeElement(element: React.ReactNode) {
  * then the primary surface is the whole workspace and the shell offers no
  * drawer to open.
  */
-export function AppRoutes({ client }: { readonly client: LifeArchiveClient }) {
+export function AppRoutes({
+  client,
+  inert = false,
+}: {
+  readonly client: LifeArchiveClient
+  readonly inert?: boolean
+}) {
   return (
-    <WorkspaceLayout>
+    <WorkspaceLayout inert={inert}>
       <Routes>
         <Route path="/" element={<Navigate to="/record" replace />} />
         <Route path="/record" element={routeElement(<RecordPage />)} />

@@ -1,4 +1,10 @@
 import runtimeLockInput from '../../../runtime/runtime.lock.json'
+import {
+  admitBrowser,
+  classifyBrowser,
+  type BrowserAdmissionEnvironment,
+  type BrowserAdmissionFailureReason,
+} from '../../platform/browser'
 import type { RuntimeFacts } from '../client'
 import { RuntimeLifeArchiveClient } from './RuntimeLifeArchiveClient'
 import {
@@ -25,6 +31,12 @@ export interface RuntimeLoaderOptions {
   readonly allowDevelopmentRuntime?: boolean
   readonly createObjectUrl?: (blob: Blob) => string
   readonly revokeObjectUrl?: (url: string) => void
+  /**
+   * Explicit browser facts for a qualified embedding or a deterministic test.
+   * Production does not infer private/incognito state from unreliable quota
+   * heuristics; an unclassified mode is not treated as evidence of privacy.
+   */
+  readonly browserEnvironment?: BrowserAdmissionEnvironment
 }
 
 export class RuntimeLoader {
@@ -76,6 +88,18 @@ export class RuntimeLoader {
     const lock = parseRuntimeLock(lockInput)
     if (lock.status === 'not-integrated') {
       return this.finish({ state: 'unavailable', reason: 'not-integrated' })
+    }
+    const admission = admitBrowser(
+      this.options.browserEnvironment ??
+        classifyBrowser(
+          typeof navigator === 'undefined' ? undefined : navigator,
+        ),
+    )
+    if (!admission.admitted) {
+      return this.finish({
+        state: 'incompatible',
+        reason: browserAdmissionReason(admission.reason),
+      })
     }
     if (typeof Worker === 'undefined' && !this.options.createWorker) {
       return this.finish({
@@ -417,6 +441,26 @@ function compatibilityReason(
   if (/contract/i.test(message)) return 'contract-mismatch'
   if (/abi/i.test(message)) return 'abi-mismatch'
   return 'manifest-mismatch'
+}
+
+function browserAdmissionReason(
+  reason: BrowserAdmissionFailureReason,
+):
+  | 'browser-engine-unsupported'
+  | 'browser-version-unsupported'
+  | 'browser-device-unsupported'
+  | 'browser-storage-unsupported' {
+  switch (reason) {
+    case 'engine-unsupported':
+      return 'browser-engine-unsupported'
+    case 'version-unavailable':
+    case 'version-too-old':
+      return 'browser-version-unsupported'
+    case 'device-unsupported':
+      return 'browser-device-unsupported'
+    case 'storage-private':
+      return 'browser-storage-unsupported'
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
