@@ -10,13 +10,14 @@ domain, time, persistence, media, and archive behaviour belongs to the core.
 
 ## Status
 
-**Scaffold.** There is no product functionality yet.
+**Pre-release frontend.** Product surfaces and browser/runtime boundaries are
+under active implementation and are not ready for real archive use.
 
-- The application shell defines routes for `/record`, `/timeline`, and
-  `/settings`, and redirects `/` to `/record`. Route contents are temporary
-  headings.
-- **Production archive persistence is not integrated.** No runtime, no store,
-  no import or export, no media.
+- **Production archive persistence is not integrated.**
+  `runtime/runtime.lock.json` records `"status": "not-integrated"`, so no
+  production runtime or durable store is available.
+- Browser adapter tests use simulated opaque runtime payloads. They do not prove
+  Rust archive behaviour, persistence, or production runtime acceptance.
 - **The current UI must not be trusted for real archive storage.** Nothing you
   type into it is saved anywhere durable. Do not use this build for a real
   archive.
@@ -79,22 +80,32 @@ pnpm install
 | `pnpm format`       | Prettier, write                                |
 | `pnpm format:check` | Prettier, verify only                          |
 | `pnpm safety`       | Repository boundary tripwire (see below)       |
+| `pnpm safety:production` | Inspect a completed production artifact   |
+| `pnpm test:policy`  | Runtime, CI, and packaging policy tests         |
 | `pnpm test`         | Vitest, watch mode                             |
 | `pnpm test:run`     | Vitest, single run                             |
-| `pnpm test:e2e`     | Playwright, Chromium + Firefox + WebKit        |
+| `pnpm test:e2e`     | Playwright, Chromium 151 + Firefox 153         |
 | `pnpm check`        | format + lint + typecheck + safety + tests + build |
 
-Playwright needs its browsers once: `pnpm exec playwright install`.
+Playwright needs the supported browsers once:
+`pnpm exec playwright install chromium firefox`. WebKit is not supported.
 
 ## Repository safety check
 
 `scripts/check-repo-safety.mjs` fails the build when material that belongs in
 the private repository is committed here: compiled Wasm, Rust source under
 `src/` or `runtime/`, private keys, environment-secret files, archive
-databases, `.lifearchive` archives, or a nested copy of the private repository.
+databases, `.lifearchive` archives, `.lifearchive.tar` transports, or a nested
+copy of the private repository.
 
 It is a tripwire for obvious mistakes, not a security scanner. It inspects the
 files Git tracks and cannot tell you a repository is clean.
+
+After `pnpm build`, `pnpm safety:production` inspects `dist/`. It rejects
+development mocks, test fixtures, source maps, unversioned executable assets,
+runtime payloads and metadata, archive/store material, and inconsistent
+app/runtime version metadata. `pnpm check` is the authoritative local and CI
+gate and runs both safety checks in the required order.
 
 ## Visual reference
 

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { KNOWN_FAILURE_CODES } from '../core/client'
-import { DEVELOPMENT_MOCK_NOTICE } from '../core/mock/DevelopmentMockBanner'
 import {
   FORBIDDEN_AVAILABILITY_CLAIMS,
   FORBIDDEN_PERSISTENCE_CLAIMS,
@@ -71,9 +70,5 @@ describe('the English catalog', () => {
       expect(Object.hasOwn(enMessages, `failure.${code}`), code).toBe(true)
     }
     expect(Object.hasOwn(enMessages, 'failure.generic')).toBe(true)
-  })
-
-  it('says the same thing as the mock s own banner default', () => {
-    expect(enMessages['development.mock.notice']).toBe(DEVELOPMENT_MOCK_NOTICE)
   })
 })

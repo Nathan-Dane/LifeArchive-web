@@ -14,9 +14,21 @@ import { WorkspaceLayout } from './shell'
  * a URL segment is how a navigation item ends up untranslatable.
  */
 const MAIN_ROUTES = [
-  { path: '/record', label: 'app.navigation.record' },
-  { path: '/timeline', label: 'app.navigation.timeline' },
-  { path: '/settings', label: 'app.navigation.settings' },
+  {
+    path: '/record',
+    label: 'app.navigation.record',
+    element: () => <RecordPage />,
+  },
+  {
+    path: '/timeline',
+    label: 'app.navigation.timeline',
+    element: () => <TimelinePage />,
+  },
+  {
+    path: '/settings',
+    label: 'app.navigation.settings',
+    element: (client: LifeArchiveClient) => <SettingsPage client={client} />,
+  },
 ] as const
 
 /**
@@ -60,10 +72,8 @@ function routeElement(element: React.ReactNode) {
 /**
  * The feature routes, inside the workspace.
  *
- * The workspace is given no flanking regions yet: time navigation and object
- * details belong to Record, which supplies them when those panels exist. Until
- * then the primary surface is the whole workspace and the shell offers no
- * drawer to open.
+ * Time navigation and object details belong to Record rather than the route
+ * composition.
  */
 export function AppRoutes({
   client,
@@ -76,12 +86,13 @@ export function AppRoutes({
     <WorkspaceLayout inert={inert}>
       <Routes>
         <Route path="/" element={<Navigate to="/record" replace />} />
-        <Route path="/record" element={routeElement(<RecordPage />)} />
-        <Route path="/timeline" element={routeElement(<TimelinePage />)} />
-        <Route
-          path="/settings"
-          element={routeElement(<SettingsPage client={client} />)}
-        />
+        {MAIN_ROUTES.map((route) => (
+          <Route
+            key={route.path}
+            path={route.path}
+            element={routeElement(route.element(client))}
+          />
+        ))}
         <Route
           path="/settings/archive"
           element={routeElement(<ArchiveManagementPage client={client} />)}

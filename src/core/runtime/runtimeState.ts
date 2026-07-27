@@ -1,4 +1,4 @@
-import type { LifeArchiveClient, RuntimeStatus } from '../client'
+import type { LifeArchiveClient } from '../client'
 
 export type RuntimeLoadState =
   | { readonly state: 'checking' }
@@ -30,28 +30,3 @@ export type RuntimeLoadState =
       readonly state: 'open'
       readonly client: LifeArchiveClient
     }
-
-export function clientRuntimeStatus(state: RuntimeLoadState): RuntimeStatus {
-  switch (state.state) {
-    case 'checking':
-      return { state: 'checking' }
-    case 'open':
-      return state.client.runtime.status()
-    case 'incompatible':
-      return { state: 'incompatible', reason: state.reason }
-    case 'unavailable':
-      if (state.reason === 'not-integrated') {
-        return { state: 'unavailable', reason: 'not-integrated' }
-      }
-      if (state.reason === 'worker-unsupported') {
-        return { state: 'unavailable', reason: 'worker-unsupported' }
-      }
-      if (state.reason === 'insecure-context') {
-        return { state: 'unavailable', reason: 'insecure-context' }
-      }
-      if (state.reason === 'worker-instantiate-failed') {
-        return { state: 'unavailable', reason: 'load-failed' }
-      }
-      return { state: 'unavailable', reason: 'download-failed' }
-  }
-}

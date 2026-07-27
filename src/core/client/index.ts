@@ -53,7 +53,6 @@ export {
 export type {
   ClientSurfaceArea,
   ClientSurfaceMethod,
-  ClientSurfaceState,
   ExcludedSurfaceArea,
 } from './capabilities'
 

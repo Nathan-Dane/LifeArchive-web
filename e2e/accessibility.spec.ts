@@ -1,17 +1,10 @@
 import { expect, horizontalOverflow, test } from './client-fixtures'
 
 test.describe('client accessibility foundations', () => {
-  test('reaches main content before shell controls', async ({
-    page,
-    browserName,
-  }) => {
+  test('reaches main content before shell controls', async ({ page }) => {
     await page.goto('/record')
 
-    /*
-     * Safari follows macOS Full Keyboard Access: Option+Tab includes links
-     * when the system's plain Tab setting includes controls only.
-     */
-    await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab')
+    await page.keyboard.press('Tab')
     const skip = page.getByRole('link', { name: 'Skip to main content' })
     await expect(skip).toBeFocused()
     await skip.press('Enter')

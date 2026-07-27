@@ -4,14 +4,14 @@ import {
   FORBIDDEN_AVAILABILITY_CLAIMS,
   FORBIDDEN_PERSISTENCE_CLAIMS,
 } from '../../test/claims'
-import {
-  DEVELOPMENT_MOCK_NOTICE,
-  DevelopmentMockBanner,
-} from './DevelopmentMockBanner'
+import { enMessages } from '../../i18n/messages/en'
+import { DevelopmentMockBanner } from './DevelopmentMockBanner'
+
+const NOTICE = enMessages['development.mock.notice']
 
 describe('the development mock banner', () => {
   it('is visible and announced', () => {
-    render(<DevelopmentMockBanner />)
+    render(<DevelopmentMockBanner notice={NOTICE} />)
     const banner = screen.getByRole('status')
     expect(banner).toBeVisible()
     expect(banner).toHaveTextContent(/development mock/i)
@@ -19,7 +19,7 @@ describe('the development mock banner', () => {
   })
 
   it('offers no way to dismiss itself', () => {
-    render(<DevelopmentMockBanner />)
+    render(<DevelopmentMockBanner notice={NOTICE} />)
     expect(screen.queryAllByRole('button')).toEqual([])
     expect(screen.queryAllByRole('link')).toEqual([])
   })
@@ -29,7 +29,7 @@ describe('the development mock banner', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Udviklingsattrap — ikke holdbar.',
     )
-    expect(screen.queryByText(DEVELOPMENT_MOCK_NOTICE)).toBeNull()
+    expect(screen.queryByText(NOTICE)).toBeNull()
   })
 
   it('claims nothing about durability or availability', () => {
@@ -37,10 +37,9 @@ describe('the development mock banner', () => {
       ...FORBIDDEN_PERSISTENCE_CLAIMS,
       ...FORBIDDEN_AVAILABILITY_CLAIMS,
     ]) {
-      expect(
-        pattern.test(DEVELOPMENT_MOCK_NOTICE),
-        `notice matches ${String(pattern)}`,
-      ).toBe(false)
+      expect(pattern.test(NOTICE), `notice matches ${String(pattern)}`).toBe(
+        false,
+      )
     }
   })
 })

@@ -1,4 +1,5 @@
-import { test as base, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { test as qualifiedBrowserTest } from './qualified-browser-fixtures'
 
 export const CLIENT_VIEWPORTS = {
   desktop: { width: 1280, height: 800 },
@@ -16,7 +17,7 @@ interface ClientFixtures {
  * Shared real-client fixtures. Tests name an interaction class instead of
  * repeating width literals, keeping breakpoints consistent across engines.
  */
-export const test = base.extend<ClientFixtures>({
+export const test = qualifiedBrowserTest.extend<ClientFixtures>({
   useClientViewport: async ({ page }, provide) => {
     await provide(async (viewport) => {
       await page.setViewportSize(CLIENT_VIEWPORTS[viewport])

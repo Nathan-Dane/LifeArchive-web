@@ -42,23 +42,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Repository safety check
-        run: pnpm safety
-
-      - name: Format check
-        run: pnpm format:check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Unit tests
-        run: pnpm test:run
-
-      - name: Build
-        run: pnpm build
+      - name: Run the authoritative repository check
+        run: pnpm check
 
   pinned-runtime:
     name: Verify pinned runtime
@@ -86,7 +71,7 @@ jobs:
 
       - name: Run runtime integration checks
         if: steps.runtime.outputs.available == 'true'
-        run: pnpm test:run && pnpm build
+        run: pnpm check
 
   browser:
     name: Browser smoke tests
@@ -109,7 +94,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps
+        run: pnpm exec playwright install --with-deps chromium firefox
 
       - name: Playwright smoke tests
         run: pnpm test:e2e

@@ -101,9 +101,10 @@ loss is a value failure, marks started durable work as having an unknown
 outcome, and requires recovery when reopening the same root. It never selects
 an empty replacement archive.
 
-`src/core/runtime/workerProtocol.ts` is an executable public state model for
-these transport rules. It is design evidence, not a runtime integration or a
-second implementation of product behaviour.
+`src/core/runtime/worker/WorkerTransport.ts` implements these transport rules.
+Its tests exercise the production transport directly, so this repository does
+not keep a separate test-only protocol implementation that can drift from the
+runtime boundary.
 
 ### Mocks
 
