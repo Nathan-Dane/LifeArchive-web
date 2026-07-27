@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import type { LifeArchiveClient } from '../../../core/client'
 import { useTranslate } from '../../../i18n'
+import { ArchiveExportPanel } from '../../archive/export'
 import { ArchiveImportPanel } from '../../archive/import'
+import { ArchiveVerifyPanel } from '../../archive/verify'
 
 export function ArchiveManagementPage({
   client,
@@ -19,6 +21,8 @@ export function ArchiveManagementPage({
         <h1 className="display-large">{t('settings.archive.manage.title')}</h1>
         <p>{t('settings.archive.manage.intro')}</p>
       </div>
+      <ArchiveExportPanel client={client} />
+      <ArchiveVerifyPanel client={client} />
       <ArchiveImportPanel client={client} />
     </div>
   )

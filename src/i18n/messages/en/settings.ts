@@ -70,7 +70,7 @@ export const settingsMessages = {
     'The runtime did not confirm browser-local archive access for this session. Archive management remains available.',
   'settings.archive.manage.title': 'Manage Archive',
   'settings.archive.manage.detail':
-    'Open archive actions and import a LifeArchive package.',
+    'Export, verify, or import a LifeArchive package.',
   'settings.archive.manage.intro':
     'Manage this browser-local archive without changing its identity or replacing it automatically.',
   'settings.archive.manage.back': 'Back to Settings',

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   ARCHIVE_TRANSPORT_EXTENSION,
   ARCHIVE_TRANSPORT_MIME_TYPE,
+  deliverArchiveDownload,
   prepareArchiveDownload,
   selectArchiveTransport,
 } from './archiveTransfer'
@@ -107,5 +108,65 @@ describe('archive transport file handoff', () => {
     expect(objectUrls.revokeObjectURL).toHaveBeenCalledWith(
       'blob:synthetic-archive',
     )
+  })
+
+  it('hands the download to the browser without choosing a destination and cleans up', () => {
+    const file = syntheticFile()
+    const anchor = document.createElement('a')
+    const click = vi.spyOn(anchor, 'click').mockImplementation(() => undefined)
+    const remove = vi.spyOn(anchor, 'remove')
+    const objectUrls = {
+      createObjectURL: vi.fn(() => 'blob:synthetic-archive'),
+      revokeObjectURL: vi.fn(),
+    }
+    const releases: Array<() => void> = []
+
+    expect(
+      deliverArchiveDownload(file, {
+        document: {
+          body: document.body,
+          createElement: () => anchor,
+        },
+        objectUrls,
+        releaseLater: (release) => releases.push(release),
+      }),
+    ).toEqual({ outcome: 'handed-off', filename: file.name })
+    expect(anchor.download).toBe(file.name)
+    expect(anchor.href).toBe('blob:synthetic-archive')
+    expect(click).toHaveBeenCalledOnce()
+    expect(remove).toHaveBeenCalledOnce()
+    expect(objectUrls.revokeObjectURL).not.toHaveBeenCalled()
+
+    releases[0]?.()
+    expect(objectUrls.revokeObjectURL).toHaveBeenCalledOnce()
+  })
+
+  it('does not claim a handoff and still revokes the URL when browser delivery fails', () => {
+    const file = syntheticFile()
+    const anchor = document.createElement('a')
+    vi.spyOn(anchor, 'click').mockImplementation(() => {
+      throw new Error('download blocked')
+    })
+    const objectUrls = {
+      createObjectURL: vi.fn(() => 'blob:blocked-archive'),
+      revokeObjectURL: vi.fn(),
+    }
+
+    expect(
+      deliverArchiveDownload(file, {
+        document: {
+          body: document.body,
+          createElement: () => anchor,
+        },
+        objectUrls,
+      }),
+    ).toEqual({
+      outcome: 'failed',
+      failure: 'download-handoff-failed',
+    })
+    expect(objectUrls.revokeObjectURL).toHaveBeenCalledWith(
+      'blob:blocked-archive',
+    )
+    expect(document.body).not.toContainElement(anchor)
   })
 })
