@@ -24,6 +24,16 @@ const ACCEPTED_BROWSER: BrowserAdmissionEnvironment = {
   storageMode: 'regular',
 }
 
+const NOT_INTEGRATED_LOCK = {
+  manifestVersion: 1,
+  runtimeVersion: null,
+  artifactUrl: null,
+  sha256: null,
+  productContract: null,
+  bindingsAbi: null,
+  status: 'not-integrated',
+} as const
+
 beforeAll(() => {
   vi.stubGlobal('DecompressionStream', NodeDecompressionStream)
 })
@@ -323,9 +333,10 @@ async function loaderFor(
 }
 
 describe('RuntimeLoader', () => {
-  it('keeps the checked-in no-runtime build calm and network-free', async () => {
+  it('keeps an explicitly unintegrated runtime calm and network-free', async () => {
     let fetched = false
     const state = await new RuntimeLoader({
+      lock: NOT_INTEGRATED_LOCK,
       fetch: () => {
         fetched = true
         return Promise.reject(new Error('must not fetch'))
@@ -359,6 +370,7 @@ describe('RuntimeLoader', () => {
     const objectUrls: string[] = []
     const revoked: string[] = []
     const state = await new RuntimeLoader({
+      lock: NOT_INTEGRATED_LOCK,
       fetch: fetchImpl,
       installedBaseUrl: baseUrl,
       allowDevelopmentRuntime: true,

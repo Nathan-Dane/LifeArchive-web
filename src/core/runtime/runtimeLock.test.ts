@@ -8,11 +8,7 @@ import {
 } from './runtimeCompatibility'
 import { runtimeBoundary } from './runtimeBoundary'
 
-/**
- * The lock file is the single source of truth for which runtime this checkout
- * expects. Until a real release is pinned it must say so explicitly, so that
- * nothing in the public repository can present an available runtime.
- */
+/** The lock file is the single source of truth for this checkout's runtime. */
 const payloads = [
   ['LICENSE-RUNTIME.txt', 'a'.repeat(64)],
   ['NOTICES.md', 'b'.repeat(64)],
@@ -82,14 +78,24 @@ describe('runtime state', () => {
     expect(() => parseRuntimeLock(runtimeLock)).not.toThrow()
   })
 
-  it('reports the runtime as not integrated', () => {
-    expect(runtimeLock.status).toBe('not-integrated')
+  it('pins the reviewed Runtime 0.1.0 release', () => {
+    expect(runtimeLock.status).toBe('pinned')
+    expect(runtimeLock.runtimeVersion).toBe('0.1.0')
+    expect(runtimeLock.artifactUrl).toBe(
+      'https://lifearchive-runtime.pages.dev/releases/0.1.0/lifearchive-runtime-web-0.1.0.tar.gz',
+    )
+    expect(runtimeLock.sha256).toBe(
+      'b7880b44395d48aecdfeb5b6e93bda0252aa2ecd06ce97f12d44c9875b52d613',
+    )
+    expect(runtimeLock.productContract).toBe('5')
+    expect(runtimeLock.bindingsAbi).toBe('1')
   })
 
-  it('pins no runtime artifact', () => {
-    expect(runtimeLock.runtimeVersion).toBeNull()
-    expect(runtimeLock.artifactUrl).toBeNull()
-    expect(runtimeLock.sha256).toBeNull()
+  it('uses an exact immutable artifact URL', () => {
+    expect(runtimeLock.artifactUrl).not.toMatch(/(?:latest|redirect)/)
+    expect(new URL(runtimeLock.artifactUrl).pathname).toBe(
+      '/releases/0.1.0/lifearchive-runtime-web-0.1.0.tar.gz',
+    )
   })
 
   it('exposes no loaded runtime to the bootstrap shell', () => {

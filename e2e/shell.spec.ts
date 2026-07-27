@@ -127,15 +127,20 @@ test.describe('the application shell', () => {
   test('serves its styles relative to wherever it is hosted', async ({
     page,
   }) => {
-    const requests: string[] = []
-    page.on('request', (request) => requests.push(request.url()))
+    const styleRequests: string[] = []
+    page.on('request', (request) => {
+      if (request.resourceType() === 'stylesheet') {
+        styleRequests.push(request.url())
+      }
+    })
     await page.goto('/record')
     await expect(
       page.getByRole('heading', { name: 'LifeArchive cannot start' }),
     ).toBeVisible()
 
     const origin = new URL(page.url()).origin
-    for (const url of requests) {
+    expect(styleRequests.length).toBeGreaterThan(0)
+    for (const url of styleRequests) {
       expect(url.startsWith(origin), url).toBe(true)
     }
   })

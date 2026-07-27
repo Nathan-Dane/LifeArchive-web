@@ -7,16 +7,17 @@ runtime remains unpinned.
 ## Release record
 
 Complete this table for one immutable candidate before testing. The values are
-release-time placeholders while runtime integration and deployment are blocked.
+filled as each release gate is completed; frontend deployment and acceptance
+remain blocked until the exact public commit is approved.
 
 | Field | Candidate value |
 |---|---|
 | Stable HTTPS URL | `BLOCKED — release-time value required` |
 | Public commit SHA | `BLOCKED — release-time value required` |
-| App version | `BLOCKED — release-time value required` |
-| Runtime version | `BLOCKED — exact reviewed pin required` |
-| Runtime artifact SHA-256 | `BLOCKED — exact reviewed pin required` |
-| Runtime licence and notices | `BLOCKED — publication permission required` |
+| App version | `0.1.0` |
+| Runtime version | `0.1.0` |
+| Runtime artifact SHA-256 | `b7880b44395d48aecdfeb5b6e93bda0252aa2ecd06ce97f12d44c9875b52d613` |
+| Runtime licence and notices | `LICENSE-RUNTIME.txt` and `NOTICES.md` are included in the immutable artifact; public distribution was authorized by the LifeArchive copyright holder on 2026-07-27 |
 | Acceptance date and operator | `BLOCKED — record at execution` |
 
 Do not substitute a local development runtime, mutable URL, branch name, or
