@@ -1,0 +1,6 @@
+# Cloudflare Pages serves these BrowserRouter entry points through the app shell.
+# Keep real static assets out of a catch-all proxy rule.
+/record / 200
+/timeline / 200
+/settings / 200
+/settings/archive / 200

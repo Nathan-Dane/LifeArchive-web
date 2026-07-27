@@ -1,0 +1,923 @@
+/*
+ * The application shell: one top bar over one body region, and inside the body
+ * a workspace of up to three regions.
+ *
+ * The wide layout is time and object navigation on the leading edge, the
+ * primary surface in the middle, and object details on the trailing edge. The
+ * two side regions leave in stages as the viewport narrows — details first,
+ * because losing it costs the least, then navigation — so a narrowing window
+ * never drops both at once.
+ *
+ * Breakpoints repeat the widths recorded in `tokens.css`; a media query cannot
+ * read a custom property, so each one names the token it honours.
+ */
+
+.shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100dvh;
+  min-height: 0;
+}
+
+/* Top bar */
+
+.shell-header {
+  position: relative;
+  z-index: 40;
+  display: flex;
+  gap: var(--space-content);
+  align-items: center;
+  min-height: var(--layout-topbar-height);
+  min-width: 0;
+  padding: 0 var(--space-content);
+  background: var(--color-page-warm);
+  border-bottom: var(--border-hairline) solid var(--border-strong);
+}
+
+.shell-brand {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.shell-brand__name {
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-display);
+  color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.shell-nav__list {
+  display: flex;
+  gap: var(--space-tight);
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.shell-nav__link {
+  display: flex;
+  min-height: var(--size-control-compact);
+  align-items: center;
+  padding: 0 var(--space-standard);
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.shell-nav__link:hover {
+  color: var(--color-text-primary);
+}
+
+/*
+ * Current section. The tinted fill is reinforced by weight and by
+ * `aria-current`, so the state is never carried by colour alone.
+ */
+.shell-nav__link[aria-current='page'] {
+  background: color-mix(
+    in srgb,
+    var(--color-accent) calc(var(--opacity-tint-fill) * 100%),
+    transparent
+  );
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-text-primary);
+  font-weight: var(--weight-semibold);
+}
+
+.shell-nav__label {
+  color: inherit;
+}
+
+.shell-actions {
+  display: flex;
+  gap: var(--space-tight);
+  align-items: center;
+  margin-inline-start: auto;
+}
+
+.shell-action {
+  display: inline-flex;
+  min-height: var(--size-control-compact);
+  align-items: center;
+  gap: var(--space-tight);
+  padding: 0 var(--space-control-inline);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.shell-action:hover {
+  color: var(--color-text-primary);
+}
+
+.shell-action[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  color: var(--color-text-primary);
+}
+
+.shell-action__icon {
+  display: inline-flex;
+  flex: none;
+}
+
+/* The two panel toggles exist only while their region is a drawer. */
+.shell-action--panel {
+  display: none;
+}
+
+/*
+ * The body holds the workspace, and above it anything the application state
+ * has to say first — a development banner, a recoverable-failure notice. Those
+ * take their own height and the workspace keeps the rest.
+ */
+.shell-body {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--color-page);
+}
+
+/* Workspace */
+
+.workspace {
+  --workspace-navigation-column: 0;
+  --workspace-details-column: 0;
+
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-columns:
+    var(--workspace-navigation-column)
+    minmax(0, 1fr)
+    var(--workspace-details-column);
+}
+
+.workspace[data-navigation='available'] {
+  --workspace-navigation-column: var(--layout-navigation-width);
+}
+
+.workspace[data-details='available'] {
+  --workspace-details-column: var(--layout-details-width);
+}
+
+.workspace__navigation {
+  overflow: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-content) var(--space-section);
+  background: var(--color-page-warm);
+  border-inline-end: var(--border-hairline) solid var(--border-strong);
+  grid-column: 1;
+  scrollbar-gutter: stable;
+}
+
+.workspace__content {
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: var(--space-content) var(--space-content)
+    calc(var(--space-content) * 2);
+  grid-column: 2;
+  scrollbar-gutter: stable;
+}
+
+.workspace__details {
+  overflow: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-content);
+  background: var(--color-page-warm);
+  border-inline-start: var(--border-hairline) solid var(--border-strong);
+  grid-column: 3;
+}
+
+.workspace__panel-head {
+  display: none;
+  align-items: center;
+  gap: var(--space-compact);
+  margin-bottom: var(--space-section);
+}
+
+.workspace__panel-close {
+  display: inline-flex;
+  width: var(--size-control-compact);
+  height: var(--size-control-compact);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-small);
+  margin-inline-start: auto;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.workspace__backdrop {
+  position: absolute;
+  z-index: 25;
+  display: none;
+  padding: 0;
+  border: 0;
+  background: var(--color-backdrop);
+  cursor: pointer;
+  inset: 0;
+}
+
+/*
+ * Stage one — the details region becomes an on-demand drawer.
+ * --breakpoint-details: 1120px
+ */
+@media (max-width: 1120px) {
+  .shell-action--panel.shell-action--details {
+    display: inline-flex;
+  }
+
+  .workspace[data-details='available'] {
+    --workspace-details-column: 0;
+  }
+
+  /*
+   * A closed drawer is hidden, not merely pushed off-screen: off-screen
+   * content stays focusable and stays in the screen-reader outline, which is
+   * how a keyboard lands somewhere invisible. Visibility flips back
+   * immediately on opening and only after the slide on closing.
+   */
+  .workspace__details {
+    position: absolute;
+    z-index: 35;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--layout-details-drawer-width);
+    box-shadow: var(--shadow-floating);
+    transform: translateX(105%);
+    transition:
+      transform var(--motion-panel) var(--motion-ease),
+      visibility 0s linear var(--motion-panel);
+    visibility: hidden;
+  }
+
+  .workspace[data-open='details'] .workspace__details {
+    transform: translateX(0);
+    transition-delay: 0s;
+    visibility: visible;
+  }
+
+  .workspace[data-open='details'] .workspace__backdrop {
+    display: block;
+  }
+
+  .workspace__details .workspace__panel-head {
+    display: flex;
+  }
+}
+
+/*
+ * Stage two — navigation becomes an on-demand drawer as well.
+ * --breakpoint-navigation: 820px
+ */
+@media (max-width: 820px) {
+  .shell-action--panel.shell-action--navigation {
+    display: inline-flex;
+  }
+
+  .workspace[data-navigation='available'] {
+    --workspace-navigation-column: 0;
+  }
+
+  .workspace__navigation {
+    position: absolute;
+    z-index: 35;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--layout-navigation-drawer-width);
+    box-shadow: var(--shadow-floating);
+    transform: translateX(-105%);
+    transition:
+      transform var(--motion-panel) var(--motion-ease),
+      visibility 0s linear var(--motion-panel);
+    visibility: hidden;
+  }
+
+  .workspace[data-open='navigation'] .workspace__navigation {
+    transform: translateX(0);
+    transition-delay: 0s;
+    visibility: visible;
+  }
+
+  .workspace[data-open='navigation'] .workspace__backdrop {
+    display: block;
+  }
+
+  .workspace__navigation .workspace__panel-head {
+    display: flex;
+  }
+}
+
+/*
+ * Small screens — the top bar gives primary navigation its own row and the
+ * actions keep their icons while their labels stay for screen readers only.
+ * --breakpoint-compact: 680px
+ */
+@media (max-width: 680px) {
+  .shell-header {
+    align-content: center;
+    flex-wrap: wrap;
+    gap: var(--space-tight) var(--space-standard);
+    padding: var(--space-compact) var(--space-standard);
+  }
+
+  .shell-brand {
+    flex: 1 1 auto;
+  }
+
+  .shell-brand__name {
+    font-size: var(--text-title);
+  }
+
+  .shell-nav {
+    flex: 1 1 100%;
+    order: 3;
+  }
+
+  .shell-actions {
+    margin-inline-start: 0;
+  }
+
+  .shell-action {
+    justify-content: center;
+    padding: 0 var(--space-compact);
+  }
+
+  .shell-action__label {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .workspace__content {
+    padding: var(--space-section) var(--space-standard)
+      calc(var(--space-content) * 2);
+  }
+}
+
+/* --breakpoint-tight: 480px */
+@media (max-width: 480px) {
+  .shell-nav__link {
+    padding: 0 var(--space-compact);
+    font-size: var(--text-meta);
+  }
+}
+
+/* Application-state surfaces */
+
+.status-screen {
+  display: flex;
+  max-width: 40rem;
+  flex-direction: column;
+  gap: var(--space-standard);
+  align-items: flex-start;
+  padding: var(--space-content);
+  margin: 0 auto;
+}
+
+.status-screen__detail {
+  max-width: var(--layout-reading-measure);
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.status-screen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-compact);
+}
+
+/*
+ * First run. It shares the status screen's calm measure and rhythm, because it
+ * is read in the same situation: one thing to understand, then one thing to
+ * decide.
+ */
+
+.first-run {
+  display: flex;
+  max-width: 40rem;
+  flex-direction: column;
+  gap: var(--space-standard);
+  align-items: flex-start;
+  padding: var(--space-content);
+  margin: 0 auto;
+}
+
+.first-run__detail {
+  max-width: var(--layout-reading-measure);
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.first-run__facts {
+  display: flex;
+  max-width: var(--layout-reading-measure);
+  flex-direction: column;
+  gap: var(--space-compact);
+  padding: 0;
+  margin: 0;
+  color: var(--color-text-secondary);
+  list-style: none;
+}
+
+.first-run__facts:empty {
+  display: none;
+}
+
+.first-run__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-compact);
+}
+
+.settings-page {
+  display: flex;
+  width: min(100%, 56rem);
+  flex-direction: column;
+  gap: var(--space-content);
+  padding: var(--space-content);
+  margin: 0 auto;
+}
+
+.settings-page > h1 {
+  margin: 0;
+}
+
+.settings-archive {
+  display: grid;
+  gap: var(--space-content);
+}
+
+/*
+ * Archive status follows the native Settings hierarchy: one calm identity
+ * card, a compact factual storage group, then one explicit navigation row.
+ */
+.archive-health-card,
+.settings-group,
+.settings-category-row {
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.archive-health-card {
+  display: grid;
+  gap: var(--space-content);
+  padding: calc(var(--space-card-padding) + var(--space-compact));
+}
+
+.archive-health-card__header {
+  display: flex;
+  gap: var(--space-standard);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.archive-health-card__status {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-compact);
+  align-items: center;
+  min-height: var(--size-control-compact);
+  padding: 0 var(--space-standard);
+  border: var(--border-hairline) solid
+    color-mix(in srgb, var(--color-success) 48%, transparent);
+  border-radius: 999px;
+  background: color-mix(
+    in srgb,
+    var(--color-success) calc(var(--opacity-tint-fill) * 100%),
+    transparent
+  );
+  color: var(--color-success);
+  font-weight: var(--weight-medium);
+}
+
+.archive-health-card__facts {
+  display: grid;
+  gap: var(--space-content);
+  margin: 0;
+}
+
+.archive-health-card__facts > div {
+  display: grid;
+  gap: var(--space-tight);
+}
+
+.archive-health-card__facts dt {
+  color: var(--color-text-secondary);
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+}
+
+.archive-health-card__facts dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-display);
+}
+
+.archive-health-card__facts .archive-health-card__secondary {
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-ui);
+  color: var(--color-text-secondary);
+}
+
+.archive-health-card__breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-tight);
+  padding: 0;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-ui);
+  list-style: none;
+}
+
+.archive-health-card__breakdown li + li::before {
+  margin-inline-end: var(--space-tight);
+  content: '·';
+}
+
+.archive-health-card__message,
+.archive-health-card__failure p,
+.settings-group__message,
+.settings-group__footer,
+.settings-page__heading p {
+  max-width: var(--layout-reading-measure);
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.archive-health-card__failure {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-standard);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-group {
+  overflow: hidden;
+}
+
+.settings-group > h2 {
+  padding: var(--space-standard) var(--space-card-padding);
+  margin: 0;
+  background: var(--color-surface-alt);
+}
+
+.settings-group__message,
+.settings-group__footer {
+  padding: var(--space-card-padding);
+}
+
+.settings-group__footer {
+  border-top: var(--border-hairline) solid var(--border-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--text-ui);
+}
+
+.settings-value-list {
+  margin: 0;
+}
+
+.settings-value-list > div {
+  display: grid;
+  grid-template-columns: minmax(10rem, 0.7fr) minmax(12rem, 1fr);
+  gap: var(--space-section);
+  align-items: baseline;
+  padding: var(--space-standard) var(--space-card-padding);
+}
+
+.settings-value-list > div + div {
+  border-top: var(--border-hairline) solid var(--border-muted);
+}
+
+.settings-value-list dt {
+  font-weight: var(--weight-medium);
+}
+
+.settings-value-list dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+  text-align: end;
+}
+
+.settings-category-row {
+  display: flex;
+  min-height: 4.75rem;
+  gap: var(--space-standard);
+  align-items: center;
+  padding: var(--space-card-padding);
+  text-decoration: none;
+}
+
+.settings-category-row:hover {
+  border-color: var(--border-strong);
+  background: var(--color-surface-alt);
+}
+
+.settings-category-row__icon {
+  display: inline-flex;
+  width: var(--size-control-compact);
+  height: var(--size-control-compact);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-small);
+  background: color-mix(
+    in srgb,
+    var(--color-accent) calc(var(--opacity-tint-fill) * 100%),
+    transparent
+  );
+  color: var(--color-text-primary);
+}
+
+.settings-category-row__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-category-row__copy span {
+  color: var(--color-text-secondary);
+  font-size: var(--text-ui);
+}
+
+.settings-category-row__chevron {
+  margin-inline-start: auto;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-display);
+}
+
+.settings-page--management {
+  align-items: stretch;
+}
+
+.settings-back-link {
+  align-self: flex-start;
+}
+
+.settings-page__heading {
+  display: grid;
+  gap: var(--space-compact);
+}
+
+.settings-page__heading > :is(h1, p) {
+  margin: 0;
+}
+
+@media (max-width: 680px) {
+  .settings-page {
+    gap: var(--space-section);
+    padding: 0;
+  }
+
+  .archive-health-card {
+    padding: var(--space-card-padding);
+  }
+
+  .archive-health-card__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settings-value-list > div {
+    grid-template-columns: 1fr;
+    gap: var(--space-tight);
+  }
+
+  .settings-value-list dd {
+    text-align: start;
+  }
+}
+
+.archive-import,
+.archive-operation,
+.archive-erase {
+  display: flex;
+  max-width: 52rem;
+  flex-direction: column;
+  gap: var(--space-standard);
+  padding: var(--space-content);
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.archive-erase {
+  margin-top: var(--space-content);
+  border-color: color-mix(
+    in srgb,
+    var(--color-destructive) 38%,
+    var(--border-muted)
+  );
+}
+
+.archive-erase__confirmation {
+  display: grid;
+  gap: var(--space-standard);
+  padding: var(--space-section);
+  border: var(--border-hairline) solid
+    color-mix(in srgb, var(--color-destructive) 48%, transparent);
+  border-radius: var(--radius-card);
+  background: color-mix(
+    in srgb,
+    var(--color-destructive) 7%,
+    var(--color-surface)
+  );
+  color: var(--color-text-primary);
+}
+
+.archive-erase__confirmation::backdrop {
+  background: color-mix(in srgb, var(--color-page) 72%, transparent);
+}
+
+.archive-erase__confirmation > :is(h3, p) {
+  max-width: var(--layout-reading-measure);
+  margin: 0;
+}
+
+.archive-import__heading,
+.archive-operation__heading {
+  display: grid;
+  gap: var(--space-compact);
+}
+
+.archive-import__heading :is(h2, p),
+.archive-import__message,
+.archive-operation__heading :is(h2, p),
+.archive-operation__message {
+  margin: 0;
+}
+
+.archive-import__detail,
+.archive-import__message,
+.archive-operation__detail,
+.archive-operation__message {
+  max-width: var(--layout-reading-measure);
+  color: var(--color-text-secondary);
+}
+
+.archive-import__picker,
+.archive-operation__picker {
+  display: grid;
+  gap: var(--space-compact);
+  font-weight: var(--weight-medium);
+}
+
+.archive-import__picker input,
+.archive-operation__picker input {
+  max-width: 100%;
+  font: inherit;
+}
+
+.archive-import__progress,
+.archive-operation__progress {
+  width: min(100%, var(--layout-reading-measure));
+  accent-color: var(--color-accent);
+}
+
+.archive-import__actions,
+.archive-operation__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-compact);
+}
+
+.archive-operation__actions[hidden] {
+  display: none;
+}
+
+.archive-import__counts,
+.archive-operation__counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-standard);
+  margin: 0;
+}
+
+.archive-import__counts div,
+.archive-operation__counts div {
+  display: grid;
+  gap: var(--space-tight);
+}
+
+.archive-import__counts dt,
+.archive-operation__counts dt {
+  color: var(--color-text-secondary);
+}
+
+.archive-import__counts dd,
+.archive-operation__counts dd {
+  margin: 0;
+}
+
+.archive-import__result,
+.archive-operation__result {
+  display: grid;
+  gap: var(--space-standard);
+}
+
+.archive-import__result h3,
+.archive-operation__result h3,
+.archive-operation > h3 {
+  margin: 0;
+}
+
+.app-notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-compact);
+  align-items: center;
+  padding: var(--space-standard) var(--space-section);
+  border: var(--border-hairline) solid
+    color-mix(in srgb, var(--color-destructive) 32%, transparent);
+  border-radius: var(--radius-card);
+  margin: var(--space-standard) var(--space-content);
+  background: color-mix(in srgb, var(--color-destructive) 7%, transparent);
+  color: var(--color-text-primary);
+}
+
+.button {
+  display: inline-flex;
+  min-height: var(--size-control-compact);
+  align-items: center;
+  padding: 0 var(--space-section);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--border-muted);
+}
+
+.button--destructive {
+  border-color: color-mix(
+    in srgb,
+    var(--color-destructive) 58%,
+    var(--border-strong)
+  );
+  color: var(--color-destructive);
+}
+
+.button--destructive:hover {
+  background: color-mix(
+    in srgb,
+    var(--color-destructive) 9%,
+    var(--color-surface)
+  );
+}
+
+.button--primary {
+  border-color: transparent;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--weight-medium);
+}
