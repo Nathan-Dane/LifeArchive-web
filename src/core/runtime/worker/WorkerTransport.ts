@@ -6,6 +6,7 @@ import {
   type WorkerResponseError,
   type WorkerToMainMessage,
 } from './protocol'
+import { mayMutateDurableState } from './durableOperations'
 
 export type TransportDurableOutcome = 'known' | 'not-started' | 'unknown'
 
@@ -60,6 +61,9 @@ export class WorkerTransport {
 
   private readonly worker: Worker
   private readonly createRequestId: () => string
+  private readonly fatalListeners = new Set<
+    (error: WorkerTransportError) => void
+  >()
   private readonly seenRequestIds = new Set<string>()
   private readonly queue: PendingRequest[] = []
   private active: PendingRequest | null = null
@@ -72,6 +76,7 @@ export class WorkerTransport {
   private closeResolve: (() => void) | null = null
   private closeReject: ((error: WorkerTransportError) => void) | null = null
   private listenersAttached = false
+  private fatalError: WorkerTransportError | null = null
 
   constructor(options: WorkerTransportOptions) {
     this.generation = options.generation ?? crypto.randomUUID()
@@ -97,9 +102,18 @@ export class WorkerTransport {
     return this.startPromise
   }
 
+  observeFatal(listener: (error: WorkerTransportError) => void): () => void {
+    this.fatalListeners.add(listener)
+    if (this.fatalError) listener(this.fatalError)
+    return () => this.fatalListeners.delete(listener)
+  }
+
   async request(options: WorkerRequestOptions): Promise<unknown> {
     await this.start()
 
+    if (this.fatalError) {
+      throw this.fatalError
+    }
     if (this.state !== 'ready') {
       throw new WorkerTransportError(
         'transport-closed',
@@ -181,7 +195,8 @@ export class WorkerTransport {
     }
     if (this.state === 'fatal') {
       this.closeReject?.(
-        new WorkerTransportError('worker-lost', 'unknown', 'Worker lost'),
+        this.fatalError ??
+          new WorkerTransportError('worker-lost', 'unknown', 'Worker lost'),
       )
       return
     }
@@ -307,7 +322,8 @@ export class WorkerTransport {
         pending,
         new WorkerTransportError(
           message.error.code,
-          'known',
+          message.error.durableOutcome ??
+            (mayMutateDurableState(pending.operation) ? 'unknown' : 'known'),
           message.error.diagnostic,
         ),
       )
@@ -363,11 +379,13 @@ export class WorkerTransport {
       wasStarting ? 'not-started' : 'unknown',
       error?.diagnostic,
     )
+    this.fatalError = loss
     if (wasStarting) {
       this.startReject(loss)
     }
     this.closeReject?.(loss)
     this.cleanup()
+    for (const listener of [...this.fatalListeners]) listener(loss)
   }
 
   private settleResolved(pending: PendingRequest, payload: unknown): void {

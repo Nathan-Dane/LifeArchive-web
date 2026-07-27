@@ -92,6 +92,7 @@ import {
   WorkerTransportError,
   type WorkerTransport,
 } from './worker/WorkerTransport'
+import { mayMutateDurableState } from './worker/durableOperations'
 
 interface WireSuccess {
   readonly outcome: 'success'
@@ -120,7 +121,8 @@ interface PreparedRequest {
 }
 
 export interface RuntimeClientOptions {
-  readonly transport: Pick<WorkerTransport, 'request' | 'close'>
+  readonly transport: Pick<WorkerTransport, 'request' | 'close'> &
+    Partial<Pick<WorkerTransport, 'observeFatal'>>
   readonly runtime: RuntimeFacts
   readonly requiredCapabilities?: readonly string[]
 }
@@ -140,10 +142,14 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
   >()
   private readonly changeListeners = new Set<(change: ArchiveChange) => void>()
   private readonly cancellableOperations = new Map<string, AbortController>()
+  private archiveOperationActive = false
 
   constructor(options: RuntimeClientOptions) {
     this.options = options
     this.runtimeState = { state: 'available', runtime: options.runtime }
+    options.transport.observeFatal?.((error) => {
+      this.recordWorkerLoss(error.durableOutcome)
+    })
   }
 
   readonly runtime: LifeArchiveClient['runtime'] = {
@@ -155,85 +161,85 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
   readonly archive: LifeArchiveClient['archive'] = {
     session: () => this.archiveState,
     observeSession: (listener) => subscribe(this.sessionListeners, listener),
-    create: async () => {
-      this.setArchiveState({ state: 'opening' })
-      const result = await this.invoke<OpenArchive>(
-        'store.open',
-        this.openRequest('create'),
-      )
-      this.finishOpen(result)
-      return result
-    },
-    open: async () => {
-      this.setArchiveState({ state: 'opening' })
-      const result = await this.invoke<OpenArchive>(
-        'store.open',
-        this.openRequest('existing'),
-      )
-      this.finishOpen(result)
-      return result
-    },
-    close: async () => {
-      const previousState = this.archiveState
-      this.setArchiveState({ state: 'closing' })
-      const result = await this.invoke<ArchiveCloseResult>('store.close', null)
-      if (result.status === 'ok') {
-        this.setArchiveState({ state: 'closed' })
-        await this.options.transport.close()
-      } else if (this.archiveState.state !== 'lost') {
-        this.setArchiveState(previousState)
-      }
-      return result
-    },
-    overview: () => this.invoke<ArchiveOverview>('archive.overview', {}),
-    verify: (request: ArchiveVerifyRequest) =>
-      this.invoke<ArchiveVerification>('archive.verify', request),
-    import: async (request: ArchiveImportRequest) => {
-      const controller = new AbortController()
-      this.cancellableOperations.set(request.operationId, controller)
-      try {
-        const result = await this.invoke<ArchiveImportResult>(
-          'archive.apply',
-          request,
-          controller.signal,
+    create: () =>
+      this.runExclusiveArchiveOperation(async () => {
+        this.setArchiveState({ state: 'opening' })
+        const result = await this.invoke<OpenArchive>(
+          'store.open',
+          this.openRequest('create'),
         )
-        if (result.status === 'ok' && this.archiveState.state === 'open') {
-          notify(this.changeListeners, {
-            storeId: this.archiveState.archive.storeId,
-            invalidation: result.value.invalidation,
-          })
+        this.finishOpen(result)
+        return result
+      }),
+    open: () =>
+      this.runExclusiveArchiveOperation(async () => {
+        this.setArchiveState({ state: 'opening' })
+        const result = await this.invoke<OpenArchive>(
+          'store.open',
+          this.openRequest('existing'),
+        )
+        this.finishOpen(result)
+        return result
+      }),
+    close: () =>
+      this.runExclusiveArchiveOperation(async () => {
+        const previousState = this.archiveState
+        this.setArchiveState({ state: 'closing' })
+        const result = await this.invoke<ArchiveCloseResult>(
+          'store.close',
+          null,
+        )
+        if (result.status === 'ok') {
+          this.setArchiveState({ state: 'closed' })
+          try {
+            await this.options.transport.close()
+          } catch {
+            // Product close completion is definitive. At this point its
+            // handle and root ownership are gone, so transport teardown
+            // cannot truthfully turn the result into a failed close.
+          }
+        } else if (this.archiveState.state !== 'lost') {
+          this.setArchiveState(previousState)
         }
         return result
-      } finally {
-        this.cancellableOperations.delete(request.operationId)
-      }
-    },
-    export: async (request: ArchiveExportRequest) => {
-      const controller = new AbortController()
-      this.cancellableOperations.set(request.operationId, controller)
-      try {
-        return await this.invoke<ArchiveExportResult>(
-          'archive.export',
-          request,
-          controller.signal,
-        )
-      } finally {
-        this.cancellableOperations.delete(request.operationId)
-      }
-    },
-    erase: async (request: ArchiveEraseRequest) => {
-      const result = await this.invoke<ArchiveEraseResult>(
-        'archive.erase',
-        request,
-      )
-      if (result.status === 'ok' && this.archiveState.state === 'open') {
-        notify(this.changeListeners, {
-          storeId: this.archiveState.archive.storeId,
-          invalidation: result.value.invalidation,
-        })
-      }
-      return result
-    },
+      }),
+    overview: () => this.invoke<ArchiveOverview>('archive.overview', {}),
+    verify: (request: ArchiveVerifyRequest) =>
+      this.runExclusiveArchiveOperation(() =>
+        this.invoke<ArchiveVerification>('archive.verify', request),
+      ),
+    import: (request: ArchiveImportRequest) =>
+      this.runExclusiveArchiveOperation(async () => {
+        const controller = new AbortController()
+        this.cancellableOperations.set(request.operationId, controller)
+        try {
+          return await this.invoke<ArchiveImportResult>(
+            'archive.apply',
+            request,
+            controller.signal,
+          )
+        } finally {
+          this.cancellableOperations.delete(request.operationId)
+        }
+      }),
+    export: (request: ArchiveExportRequest) =>
+      this.runExclusiveArchiveOperation(async () => {
+        const controller = new AbortController()
+        this.cancellableOperations.set(request.operationId, controller)
+        try {
+          return await this.invoke<ArchiveExportResult>(
+            'archive.export',
+            request,
+            controller.signal,
+          )
+        } finally {
+          this.cancellableOperations.delete(request.operationId)
+        }
+      }),
+    erase: (request: ArchiveEraseRequest) =>
+      this.runExclusiveArchiveOperation(() =>
+        this.invoke<ArchiveEraseResult>('archive.erase', request),
+      ),
   }
 
   readonly identity: LifeArchiveClient['identity'] = {
@@ -358,8 +364,11 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
     request: unknown,
     signal?: AbortSignal,
   ): Promise<ClientResult<Value>> {
+    let requestDispatched = false
+    let completionEvidence = false
     try {
       const prepared = await prepareRequest(operation, request)
+      requestDispatched = true
       const payload = await this.options.transport.request({
         operation,
         payload: {
@@ -372,28 +381,115 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       })
       const response = unwrapWireResponse(payload)
       const envelope = parseWireEnvelope(response.envelope)
+      if (
+        isRecord(response.envelope) &&
+        typeof response.envelope.operation === 'string' &&
+        response.envelope.operation !== operation
+      ) {
+        throw new TypeError('Mismatched runtime response operation')
+      }
+      completionEvidence = true
       if (envelope.outcome === 'failure') {
         return failed(mapWireFailure(envelope.failure))
       }
-      return ok(
-        deepFreeze(
-          mapWireResult(operation, envelope.result, response.transfers),
-        ) as Value,
-      )
+      const value = deepFreeze(
+        mapWireResult(operation, envelope.result, response.transfers),
+      ) as Value
+      this.publishMutationChange(operation, value)
+      return ok(value)
     } catch (error) {
-      const failure = mapTransportFailure(error)
+      const failure = mapTransportFailure(error, {
+        operation,
+        requestDispatched,
+        completionEvidence,
+      })
       if (failure.code === 'worker-lost') {
-        this.runtimeState = {
-          state: 'unavailable',
-          reason: 'worker-lost',
-        }
-        notify(this.statusListeners, this.runtimeState)
-        this.setArchiveState({
-          state: 'lost',
-          durableOutcome: failure.durableOutcome,
-        })
+        this.recordWorkerLoss(failure.durableOutcome)
       }
       return failed(failure)
+    }
+  }
+
+  private recordWorkerLoss(
+    durableOutcome: Extract<
+      ArchiveSession,
+      { state: 'lost' }
+    >['durableOutcome'],
+  ): void {
+    if (this.archiveState.state === 'closed') {
+      // Product close completion already proved that the handle and root
+      // ownership ended. Loss during the following transport teardown cannot
+      // make that closed archive an unknown open session.
+      return
+    }
+    if (
+      this.runtimeState.state !== 'unavailable' ||
+      this.runtimeState.reason !== 'worker-lost'
+    ) {
+      this.runtimeState = {
+        state: 'unavailable',
+        reason: 'worker-lost',
+      }
+      notify(this.statusListeners, this.runtimeState)
+    }
+    const currentOutcome =
+      this.archiveState.state === 'lost'
+        ? this.archiveState.durableOutcome
+        : 'not-started'
+    if (
+      this.archiveState.state === 'lost' &&
+      durableOutcomeRisk(currentOutcome) >= durableOutcomeRisk(durableOutcome)
+    ) {
+      return
+    }
+    this.setArchiveState({
+      state: 'lost',
+      durableOutcome,
+    })
+  }
+
+  private publishMutationChange(operation: string, value: unknown): void {
+    if (
+      !mayMutateDurableState(operation) ||
+      operation === 'store.open' ||
+      operation === 'store.close' ||
+      this.archiveState.state !== 'open' ||
+      !isRecord(value) ||
+      isNoChangeMutation(value)
+    ) {
+      return
+    }
+    notify(this.changeListeners, {
+      storeId: this.archiveState.archive.storeId,
+      invalidation: mapInvalidation(value.invalidation),
+    })
+  }
+
+  /**
+   * Lifecycle and package operations share one fail-fast admission boundary.
+   * Concurrent intent is not queued because running it later could apply a
+   * stale import after erase or reopen a definitively closed transport.
+   * Cancellation remains out of band through `operations.requestCancel`.
+   */
+  private async runExclusiveArchiveOperation<Value>(
+    operation: () => Promise<ClientResult<Value>>,
+  ): Promise<ClientResult<Value>> {
+    if (this.archiveOperationActive) {
+      return failed(
+        clientFailure({
+          area: 'concurrency',
+          code: 'busyRetryable',
+          phase: 'lock',
+          retryable: true,
+          durableOutcome: 'not-started',
+        }),
+      )
+    }
+    this.archiveOperationActive = true
+    try {
+      return await operation()
+    } finally {
+      this.archiveOperationActive = false
     }
   }
 
@@ -871,7 +967,18 @@ function mapWireFailure(failure: WireFailure['failure']): ClientFailure {
   })
 }
 
-function mapTransportFailure(error: unknown): ClientFailure {
+function mapTransportFailure(
+  error: unknown,
+  context: {
+    readonly operation: string
+    readonly requestDispatched: boolean
+    readonly completionEvidence: boolean
+  } = {
+    operation: '',
+    requestDispatched: false,
+    completionEvidence: false,
+  },
+): ClientFailure {
   if (error instanceof WorkerTransportError) {
     if (error.code === 'ArchiveAcquisitionCancelled') {
       return clientFailure({
@@ -895,7 +1002,37 @@ function mapTransportFailure(error: unknown): ClientFailure {
     code: 'invalidRuntimeResponse',
     phase: 'transport',
     retryable: false,
+    durableOutcome: mayMutateDurableState(context.operation)
+      ? context.completionEvidence
+        ? 'known'
+        : context.requestDispatched
+          ? 'unknown'
+          : 'not-started'
+      : context.requestDispatched
+        ? 'known'
+        : 'not-started',
   })
+}
+
+function durableOutcomeRisk(
+  outcome: Extract<ArchiveSession, { state: 'lost' }>['durableOutcome'],
+): number {
+  switch (outcome) {
+    case 'unknown':
+      return 2
+    case 'known':
+      return 1
+    case 'not-started':
+      return 0
+  }
+}
+
+function isNoChangeMutation(value: Record<string, unknown>): boolean {
+  return (
+    value.outcome === 'absent-unchanged' ||
+    value.outcome === 'conflict' ||
+    value.outcome === 'unchanged'
+  )
 }
 
 function failureArea(value: unknown): ClientFailure['area'] {

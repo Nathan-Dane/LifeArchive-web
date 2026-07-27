@@ -87,6 +87,7 @@ class AppStateController {
   private developmentMock = false
   private lastOpen: OpenArchive | null = null
   private openPurpose: 'open' | 'recovery' = 'open'
+  private replacementRequired = false
 
   constructor(bootstrap: AppBootstrap) {
     this.bootstrap = bootstrap
@@ -116,23 +117,17 @@ class AppStateController {
   retry = (): void => {
     if (
       this.state.state === 'runtime-unavailable' ||
-      this.state.state === 'fatal-incompatibility'
+      this.state.state === 'fatal-incompatibility' ||
+      this.state.state === 'closed' ||
+      (this.state.state === 'recoverable-failure' && this.replacementRequired)
     ) {
-      this.client = null
-      this.clientEpoch += 1
-      this.openPromise = null
-      this.openPurpose = 'open'
-      this.lastOpen = null
-      this.clearSubscriptions()
-      this.setState({ state: 'booting' })
-      this.runBootstrap()
+      this.replaceClient()
       return
     }
     if (
       this.client &&
       (this.state.state === 'locked' ||
-        this.state.state === 'recoverable-failure' ||
-        this.state.state === 'closed')
+        this.state.state === 'recoverable-failure')
     ) {
       this.openExisting(this.client, this.state.state === 'recoverable-failure')
     }
@@ -140,23 +135,49 @@ class AppStateController {
 
   private runBootstrap(): void {
     if (this.bootstrapPromise) return
-    this.bootstrapPromise = this.bootstrap()
-      .then((result) => {
-        if (result.state === 'client') {
-          this.attachClient(result.client, result.developmentMock)
-          return
-        }
-        this.applyRuntimeLoadState(result.runtime)
-      })
-      .catch(() => {
+    let bootstrap: Promise<AppBootstrapResult>
+    try {
+      bootstrap = this.bootstrap()
+    } catch (error) {
+      bootstrap = Promise.reject(error)
+    }
+    const completion = bootstrap.then(
+      (result) => {
+        if (this.bootstrapPromise !== completion) return
+        this.bootstrapPromise = null
+        this.applyBootstrapResult(result)
+      },
+      () => {
+        if (this.bootstrapPromise !== completion) return
+        this.bootstrapPromise = null
         this.setState({
           state: 'runtime-unavailable',
           reason: 'load-failed',
         })
-      })
-      .finally(() => {
-        this.bootstrapPromise = null
-      })
+      },
+    )
+    this.bootstrapPromise = completion
+  }
+
+  private replaceClient(): void {
+    this.client = null
+    this.clientEpoch += 1
+    this.openPromise = null
+    this.openPurpose = 'open'
+    this.lastOpen = null
+    this.replacementRequired = false
+    this.bootstrapPromise = null
+    this.clearSubscriptions()
+    this.setState({ state: 'booting' })
+    this.runBootstrap()
+  }
+
+  private applyBootstrapResult(result: AppBootstrapResult): void {
+    if (result.state === 'client') {
+      this.attachClient(result.client, result.developmentMock)
+      return
+    }
+    this.applyRuntimeLoadState(result.runtime)
   }
 
   private applyRuntimeLoadState(
@@ -190,6 +211,7 @@ class AppStateController {
     this.client = client
     this.clientEpoch += 1
     this.developmentMock = developmentMock
+    this.replacementRequired = false
     if (this.started) this.observeClient(client)
     const runtimeStatus = client.runtime.status()
     this.applyRuntimeStatus(runtimeStatus)
@@ -234,6 +256,9 @@ class AppStateController {
     if (status.state === 'incompatible') {
       this.setState({ state: 'fatal-incompatibility', reason: status.reason })
       return
+    }
+    if (status.reason === 'worker-lost') {
+      this.replacementRequired = true
     }
     if (this.lastOpen && this.client) {
       this.setRecoverable(null)

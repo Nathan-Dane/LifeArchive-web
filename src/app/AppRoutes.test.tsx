@@ -227,6 +227,87 @@ describe('application availability states', () => {
     ).toEqual([])
   })
 
+  it('retries worker loss with a fresh client and ignores the superseded client', async () => {
+    const lostClient = clientWithSession(OPEN_SESSION)
+    const freshClient = clientWithSession(OPEN_SESSION)
+    const bootstrap = vi
+      .fn<AppBootstrap>()
+      .mockResolvedValueOnce({
+        state: 'client',
+        client: lostClient.client,
+        developmentMock: false,
+      })
+      .mockResolvedValueOnce({
+        state: 'client',
+        client: freshClient.client,
+        developmentMock: false,
+      })
+    const user = userEvent.setup()
+    renderAppAt('/record', bootstrap)
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+
+    act(() => {
+      lostClient.emitRuntime({
+        state: 'unavailable',
+        reason: 'worker-lost',
+      })
+    })
+    await user.click(await screen.findByRole('button', { name: 'Try again' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+    expect(bootstrap).toHaveBeenCalledTimes(2)
+
+    act(() => {
+      lostClient.emitSession({ state: 'incompatible' })
+      lostClient.emitRuntime({
+        state: 'incompatible',
+        reason: 'contract-mismatch',
+      })
+    })
+    expect(screen.getByRole('heading', { name: 'Record' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'LifeArchive is incompatible' }),
+    ).toBeNull()
+  })
+
+  it('replaces a definitively closed client instead of reopening its dead transport', async () => {
+    const closedClient = clientWithSession(OPEN_SESSION)
+    const freshClient = clientWithSession(OPEN_SESSION)
+    const reopenClosed = vi.spyOn(closedClient.client.archive, 'open')
+    const bootstrap = vi
+      .fn<AppBootstrap>()
+      .mockResolvedValueOnce({
+        state: 'client',
+        client: closedClient.client,
+        developmentMock: false,
+      })
+      .mockResolvedValueOnce({
+        state: 'client',
+        client: freshClient.client,
+        developmentMock: false,
+      })
+    const user = userEvent.setup()
+    renderAppAt('/record', bootstrap)
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+
+    act(() => closedClient.emitSession({ state: 'closed' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Open archive' }),
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Record' }),
+    ).toBeInTheDocument()
+    expect(bootstrap).toHaveBeenCalledTimes(2)
+    expect(reopenClosed).not.toHaveBeenCalled()
+  })
+
   it('shows recovery without inventing an empty archive', async () => {
     const client = clientWithSession({ state: 'needs-recovery' })
     renderAppAt('/record', clientBootstrap(client))

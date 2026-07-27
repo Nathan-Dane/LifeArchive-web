@@ -231,6 +231,21 @@ function importArchive(
   } as MainToWorkerMessage)
 }
 
+function requestOperation(
+  scope: WorkerScope,
+  requestId: string,
+  operation: string,
+): void {
+  scope.send({
+    type: 'request',
+    protocolVersion: WORKER_PROTOCOL_VERSION,
+    generation: GENERATION,
+    requestId,
+    operation,
+    payload: { request: {}, transfers: [] },
+  } as MainToWorkerMessage)
+}
+
 function envelopeOf(message: WorkerToMainMessage | undefined): {
   readonly outcome?: unknown
   readonly failure?: { readonly code?: unknown }
@@ -377,6 +392,13 @@ describe('production worker archive import bridge', () => {
     expect((response as { error?: { code?: string } }).error?.code).toBe(
       'ArchiveAcquisitionCancelled',
     )
+    expect(
+      (
+        response as {
+          error?: { durableOutcome?: string }
+        }
+      ).error?.durableOutcome,
+    ).toBe('not-started')
     expect(runtimeModule.appliedSources).toHaveLength(0)
     expect(runtimeModule.released).toBe(true)
   }, 20_000)
@@ -428,5 +450,134 @@ describe('production worker archive import bridge', () => {
     expect(runtimeModule.released).toBe(true)
     expect(runtimeModule.closed).toBe(false)
     expect(scope.find('fatal')).toBeUndefined()
+  })
+
+  it('classifies a post-boundary apply executor fault as unknown', async () => {
+    const { file } = transportFile(twoEntryArchive())
+    const scope = await startWorker({ throwDuringApply: true })
+    await openArchive(scope)
+
+    importArchive(scope, file, 'unknown-apply')
+    await vi.waitFor(() =>
+      expect(scope.find('response', 'unknown-apply')).toBeDefined(),
+    )
+
+    expect(scope.find('response', 'unknown-apply')).toMatchObject({
+      ok: false,
+      error: {
+        code: 'Error',
+        durableOutcome: 'unknown',
+      },
+    })
+  })
+
+  it('classifies executor cleanup failure after a decoded reply as known', async () => {
+    const { file } = transportFile(twoEntryArchive())
+    const scope = await startWorker({
+      throwWhenFreeingApplyInvocation: true,
+    })
+    await openArchive(scope)
+
+    importArchive(scope, file, 'known-apply')
+    await vi.waitFor(() =>
+      expect(scope.find('response', 'known-apply')).toBeDefined(),
+    )
+
+    expect(scope.find('response', 'known-apply')).toMatchObject({
+      ok: false,
+      error: {
+        code: 'Error',
+        durableOutcome: 'known',
+      },
+    })
+  })
+
+  it('does not treat a mismatched runtime reply as completion evidence', async () => {
+    const { file } = transportFile(twoEntryArchive())
+    const scope = await startWorker({
+      malformedApplyReply: true,
+      throwWhenFreeingApplyInvocation: true,
+    })
+    await openArchive(scope)
+
+    importArchive(scope, file, 'mismatched-apply')
+    await vi.waitFor(() =>
+      expect(scope.find('response', 'mismatched-apply')).toBeDefined(),
+    )
+
+    expect(scope.find('response', 'mismatched-apply')).toMatchObject({
+      ok: false,
+      error: {
+        code: 'Error',
+        durableOutcome: 'unknown',
+      },
+    })
+  })
+
+  it('retains the live handle after a rejected product close and allows retry', async () => {
+    const scope = await startWorker({ closeFailureCount: 1 })
+    await openArchive(scope)
+
+    requestOperation(scope, 'close-failed', 'store.close')
+    await vi.waitFor(() =>
+      expect(scope.find('response', 'close-failed')).toBeDefined(),
+    )
+    expect(envelopeOf(scope.find('response', 'close-failed'))).toMatchObject({
+      outcome: 'failure',
+      failure: { code: 'ioFailure' },
+    })
+    expect(runtimeModule.handleFreeCalls).toBe(0)
+    expect(runtimeModule.closed).toBe(false)
+
+    await Promise.resolve()
+    requestOperation(scope, 'after-close-failure', 'archive.overview')
+    await vi.waitFor(() =>
+      expect(scope.find('response', 'after-close-failure')).toBeDefined(),
+    )
+    expect(
+      envelopeOf(scope.find('response', 'after-close-failure')),
+    ).toMatchObject({ outcome: 'success' })
+
+    await Promise.resolve()
+    requestOperation(scope, 'close-retry', 'store.close')
+    await vi.waitFor(() =>
+      expect(scope.find('response', 'close-retry')).toBeDefined(),
+    )
+    expect(envelopeOf(scope.find('response', 'close-retry'))).toMatchObject({
+      outcome: 'success',
+    })
+    expect(runtimeModule.closed).toBe(true)
+    expect(runtimeModule.handleFreeCalls).toBe(1)
+  })
+
+  it('keeps a definitive close successful when runtime cleanup faults', async () => {
+    const scope = await startWorker({
+      throwWhenFreeingCloseInvocation: true,
+      throwWhenFreeingHandle: true,
+    })
+    await openArchive(scope)
+
+    requestOperation(scope, 'close-cleanup-fault', 'store.close')
+    await vi.waitFor(() =>
+      expect(scope.find('response', 'close-cleanup-fault')).toBeDefined(),
+    )
+    expect(
+      envelopeOf(scope.find('response', 'close-cleanup-fault')),
+    ).toMatchObject({
+      outcome: 'success',
+      result: { outcome: 'closed' },
+    })
+    expect(runtimeModule.closed).toBe(true)
+    expect(runtimeModule.handleFreeCalls).toBe(1)
+
+    await Promise.resolve()
+    scope.send({
+      type: 'close',
+      protocolVersion: WORKER_PROTOCOL_VERSION,
+      generation: GENERATION,
+    })
+    await vi.waitFor(() => expect(scope.closed).toBe(true))
+    expect(scope.find('fatal')).toBeUndefined()
+    expect(runtimeModule.handleFreeCalls).toBe(1)
   })
 })
