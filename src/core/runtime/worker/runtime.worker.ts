@@ -6,6 +6,11 @@ import {
   type WorkerToMainMessage,
 } from './protocol'
 import { RootOwnership } from './RootOwnership'
+import {
+  stageArchiveTransport,
+  type RuntimeArchiveTransportSource,
+  type RuntimeArchiveSourceWriter,
+} from './archiveImportSource'
 
 export interface RuntimeWorkerResult {
   readonly payload: unknown
@@ -183,6 +188,11 @@ interface EmscriptenRuntimeModule {
     transferLengths: number,
     transferCount: number,
   ): Promise<number>
+  _lifearchive_browser_v1_execute_archive_source(
+    handle: number,
+    input: number,
+    source: number,
+  ): Promise<number>
   _lifearchive_browser_v1_cancel(handle: number, input: number): number
   _lifearchive_browser_v1_close(handle: number, input: number): Promise<number>
   _lifearchive_browser_v1_invocation_json(invocation: number): number
@@ -197,6 +207,19 @@ interface EmscriptenRuntimeModule {
   ): number
   _lifearchive_browser_v1_invocation_free(invocation: number): void
   _lifearchive_browser_v1_handle_free(handle: number): Promise<void>
+  _lifearchive_browser_v1_archive_source_begin(
+    handle: number,
+    sourceId: number,
+    byteLength: number,
+  ): Promise<number>
+  _lifearchive_browser_v1_archive_source_write(
+    source: number,
+    bytes: number,
+    byteLength: number,
+  ): Promise<number>
+  _lifearchive_browser_v1_archive_source_finish(source: number): Promise<number>
+  _lifearchive_browser_v1_archive_source_descriptor(source: number): number
+  _lifearchive_browser_v1_archive_source_free(source: number): Promise<void>
 }
 
 type RuntimeFactory = (options: {
@@ -235,7 +258,39 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
     const module = this.requiredModule()
     const runtime = this.requiredRuntime()
     const requestId = crypto.randomUUID()
-    const prepared = await prepareWorkerRequest(payload)
+    let stagedArchive: RuntimeArchiveTransportSource | null = null
+    let archiveWriter: RuntimeArchiveSourceWriter | null = null
+    let archiveSourceHandle = 0
+    if (
+      (operation === 'archive.verify' || operation === 'archive.apply') &&
+      isRecord(payload) &&
+      payload.archive instanceof File
+    ) {
+      if (!this.handle) throw new Error('runtime-handle-closed')
+      const source = await this.createArchiveSourceWriter(
+        module,
+        payload.archive.size,
+      )
+      archiveWriter = source.writer
+      archiveSourceHandle = source.handle
+      stagedArchive = await stageArchiveTransport(
+        archiveWriter,
+        payload.archive,
+        signal,
+      )
+    }
+    let prepared: Awaited<ReturnType<typeof prepareWorkerRequest>>
+    try {
+      prepared = await prepareWorkerRequest(payload, stagedArchive ?? undefined)
+    } catch (error) {
+      await archiveWriter?.dispose()
+      throw error
+    }
+    const operationId =
+      isRecord(prepared.request) &&
+      typeof prepared.request.operationId === 'string'
+        ? prepared.request.operationId
+        : null
     const envelope = {
       abiVersion: runtime.bindingsAbi,
       requestId,
@@ -245,19 +300,19 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
       transfers: prepared.descriptors,
     }
     const cancel = () => {
-      if (!this.handle) return
+      if (!this.handle || !operationId) return
       void this.callInvocation(
         module,
         (input) => module._lifearchive_browser_v1_cancel(this.handle, input),
         {
           ...envelope,
           operation: 'operation.cancel',
-          request: { requestId },
+          request: { operationId },
         },
-        prepared.transfers,
       )
     }
     signal.addEventListener('abort', cancel, { once: true })
+    if (signal.aborted) cancel()
     try {
       if (operation === 'product.describe') {
         return this.callInvocation(
@@ -339,21 +394,32 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
           envelope,
         )
       }
-      return this.callInvocation(
+      // Awaited, not returned: the `finally` below releases the runtime-owned
+      // staged source, and Rust reads those bytes across its own suspension
+      // points. Returning the pending promise would run the release first and
+      // hand the runtime freed memory.
+      return await this.callInvocation(
         module,
         (input, pointers, lengths, count) =>
-          module._lifearchive_browser_v1_execute(
-            this.handle,
-            input,
-            pointers,
-            lengths,
-            count,
-          ),
+          archiveSourceHandle
+            ? module._lifearchive_browser_v1_execute_archive_source(
+                this.handle,
+                input,
+                archiveSourceHandle,
+              )
+            : module._lifearchive_browser_v1_execute(
+                this.handle,
+                input,
+                pointers,
+                lengths,
+                count,
+              ),
         envelope,
         prepared.transfers,
       )
     } finally {
       signal.removeEventListener('abort', cancel)
+      await archiveWriter?.dispose()
     }
   }
 
@@ -376,6 +442,72 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
   private requiredRuntime(): RuntimeWorkerStartup {
     if (!this.runtime) throw new Error('runtime-not-started')
     return this.runtime
+  }
+
+  private async createArchiveSourceWriter(
+    module: EmscriptenRuntimeModule,
+    byteLength: number,
+  ): Promise<{
+    readonly handle: number
+    readonly writer: RuntimeArchiveSourceWriter
+  }> {
+    if (!Number.isSafeInteger(byteLength) || byteLength < 0) {
+      throw new TypeError('Archive File size is invalid')
+    }
+    const stack = module.stackSave()
+    let source = 0
+    try {
+      const sourceId = module.stringToUTF8OnStack(crypto.randomUUID())
+      const length = module.stringToUTF8OnStack(String(byteLength))
+      source = await module._lifearchive_browser_v1_archive_source_begin(
+        this.handle,
+        sourceId,
+        length,
+      )
+    } finally {
+      module.stackRestore(stack)
+    }
+    if (!source) throw new Error('runtime-archive-source-begin-failed')
+
+    let disposed = false
+    const writer: RuntimeArchiveSourceWriter = {
+      write: async (bytes) => {
+        if (disposed) throw new Error('runtime-archive-source-closed')
+        const stack = module.stackSave()
+        try {
+          const pointer = module.stackAlloc(bytes.byteLength || 1)
+          module.HEAPU8.set(bytes, pointer)
+          const written =
+            await module._lifearchive_browser_v1_archive_source_write(
+              source,
+              pointer,
+              bytes.byteLength,
+            )
+          if (written !== bytes.byteLength) {
+            throw new Error('runtime-archive-source-write-failed')
+          }
+        } finally {
+          module.stackRestore(stack)
+        }
+      },
+      finish: async () => {
+        if (disposed) throw new Error('runtime-archive-source-closed')
+        const finished =
+          await module._lifearchive_browser_v1_archive_source_finish(source)
+        if (!finished) throw new Error('runtime-archive-source-finish-failed')
+        const descriptor = module.UTF8ToString(
+          module._lifearchive_browser_v1_archive_source_descriptor(source),
+        )
+        return parseArchiveSourceDescriptor(descriptor)
+      },
+      dispose: async () => {
+        if (disposed) return
+        disposed = true
+        await module._lifearchive_browser_v1_archive_source_free(source)
+        source = 0
+      },
+    }
+    return { handle: source, writer }
   }
 
   private async callInvocation(
@@ -446,7 +578,10 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
   }
 }
 
-async function prepareWorkerRequest(payload: unknown): Promise<{
+async function prepareWorkerRequest(
+  payload: unknown,
+  archiveSource?: RuntimeArchiveTransportSource,
+): Promise<{
   readonly request: unknown
   readonly transfers: readonly ArrayBuffer[]
   readonly descriptors: readonly {
@@ -461,10 +596,14 @@ async function prepareWorkerRequest(payload: unknown): Promise<{
     !Array.isArray(payload.transfers) ||
     !payload.transfers.every((value) => value instanceof ArrayBuffer)
   ) {
-    return { request: payload, transfers: [], descriptors: [] }
+    return {
+      request: withArchiveSource(payload, archiveSource),
+      transfers: [],
+      descriptors: [],
+    }
   }
   const transfers = payload.transfers
-  const request = payload.request
+  const request = withArchiveSource(payload.request, archiveSource)
   const requestedTransferId =
     isRecord(request) && typeof request.sourceTransferId === 'string'
       ? request.sourceTransferId
@@ -481,6 +620,36 @@ async function prepareWorkerRequest(payload: unknown): Promise<{
     })),
   )
   return { request, transfers, descriptors }
+}
+
+function withArchiveSource(
+  request: unknown,
+  source?: RuntimeArchiveTransportSource,
+): unknown {
+  if (!source) return request
+  if (!isRecord(request)) {
+    throw new TypeError('Archive request is malformed')
+  }
+  return { ...request, archiveTransportSource: source }
+}
+
+function parseArchiveSourceDescriptor(
+  input: string,
+): RuntimeArchiveTransportSource {
+  const value = JSON.parse(input) as unknown
+  if (
+    !isRecord(value) ||
+    value.kind !== 'runtime-staged-chunks' ||
+    typeof value.path !== 'string' ||
+    typeof value.byteLength !== 'string'
+  ) {
+    throw new TypeError('Runtime archive source descriptor is malformed')
+  }
+  return {
+    kind: value.kind,
+    path: value.path,
+    byteLength: value.byteLength,
+  }
 }
 
 async function sha256(buffer: ArrayBuffer): Promise<string> {

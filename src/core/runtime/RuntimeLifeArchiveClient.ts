@@ -1,8 +1,11 @@
 import {
   clientFailure,
   failed,
+  isRevision,
+  isStableId,
   ok,
   operationId,
+  revision,
   stableId,
   type ArchiveChange,
   type ArchiveSession,
@@ -23,6 +26,8 @@ import type {
   ArchiveIdentity,
   ArchiveIdentitySaveResult,
   ArchiveIdentityState,
+  ArchiveImportIdentityOutcome,
+  ArchiveImportIssue,
   ArchiveImportRequest,
   ArchiveImportResult,
   ArchiveOverview,
@@ -31,6 +36,7 @@ import type {
   CalendarContext,
   CalendarContextRequest,
   CancellationRequestResult,
+  InvalidationToken,
   MediaContent,
   MediaContentRequest,
   MediaDeleteRequest,
@@ -107,6 +113,12 @@ interface WireResponse {
   readonly transfers: readonly ArrayBuffer[]
 }
 
+interface PreparedRequest {
+  readonly request: unknown
+  readonly transfers: ArrayBuffer[]
+  readonly archive?: File
+}
+
 export interface RuntimeClientOptions {
   readonly transport: Pick<WorkerTransport, 'request' | 'close'>
   readonly runtime: RuntimeFacts
@@ -127,6 +139,7 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
     (session: ArchiveSession) => void
   >()
   private readonly changeListeners = new Set<(change: ArchiveChange) => void>()
+  private readonly cancellableOperations = new Map<string, AbortController>()
 
   constructor(options: RuntimeClientOptions) {
     this.options = options
@@ -172,8 +185,26 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
     overview: () => this.invoke<ArchiveOverview>('archive.overview', null),
     verify: (request: ArchiveVerifyRequest) =>
       this.invoke<ArchiveVerification>('archive.verify', request),
-    import: (request: ArchiveImportRequest) =>
-      this.invoke<ArchiveImportResult>('archive.apply', request),
+    import: async (request: ArchiveImportRequest) => {
+      const controller = new AbortController()
+      this.cancellableOperations.set(request.operationId, controller)
+      try {
+        const result = await this.invoke<ArchiveImportResult>(
+          'archive.apply',
+          request,
+          controller.signal,
+        )
+        if (result.status === 'ok' && this.archiveState.state === 'open') {
+          notify(this.changeListeners, {
+            storeId: this.archiveState.archive.storeId,
+            invalidation: result.value.invalidation,
+          })
+        }
+        return result
+      } finally {
+        this.cancellableOperations.delete(request.operationId)
+      }
+    },
     export: (request: ArchiveExportRequest) =>
       this.invoke<ArchiveExportResult>('archive.export', request),
     erase: (request: ArchiveEraseRequest) =>
@@ -274,18 +305,33 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
   }
 
   readonly operations: LifeArchiveClient['operations'] = {
-    newStableId: () => stableId(crypto.randomUUID()),
-    newOperationId: () => operationId(crypto.randomUUID()),
-    requestCancel: (id) =>
-      this.invoke<CancellationRequestResult>('operation.cancel', {
-        operationId: id,
-      }),
+    newStableId: () => stableId(newIdentifierText()),
+    newOperationId: () => operationId(newIdentifierText()),
+    requestCancel: (id) => {
+      const controller = this.cancellableOperations.get(id)
+      if (!controller) {
+        return Promise.resolve(
+          ok<CancellationRequestResult>({
+            operationId: id,
+            outcome: 'not-active',
+          }),
+        )
+      }
+      controller.abort()
+      return Promise.resolve(
+        ok<CancellationRequestResult>({
+          operationId: id,
+          outcome: 'requested',
+        }),
+      )
+    },
     observeChanges: (listener) => subscribe(this.changeListeners, listener),
   }
 
   private async invoke<Value>(
     operation: string,
     request: unknown,
+    signal?: AbortSignal,
   ): Promise<ClientResult<Value>> {
     try {
       const prepared = await prepareRequest(operation, request)
@@ -294,8 +340,10 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
         payload: {
           request: prepared.request,
           transfers: prepared.transfers,
+          ...(prepared.archive ? { archive: prepared.archive } : {}),
         },
         transfer: prepared.transfers,
+        signal,
       })
       const response = unwrapWireResponse(payload)
       const envelope = parseWireEnvelope(response.envelope)
@@ -362,7 +410,7 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
 async function prepareRequest(
   operation: string,
   request: unknown,
-): Promise<{ readonly request: unknown; readonly transfers: ArrayBuffer[] }> {
+): Promise<PreparedRequest> {
   if (operation === 'media.import' && isRecord(request)) {
     const bytes = request.bytes
     if (!(bytes instanceof ArrayBuffer)) {
@@ -387,18 +435,23 @@ async function prepareRequest(
     isRecord(request) &&
     request.archive instanceof File
   ) {
-    const archive = request.archive
+    const { archive, ...runtimeRequest } = request
     return {
-      request: {
-        ...request,
-        archive: undefined,
-        fileName: archive.name,
-        sourceTransferId: 'archive-source',
-      },
-      transfers: [await archive.arrayBuffer()],
+      request: runtimeRequest,
+      transfers: [],
+      archive,
     }
   }
   return { request, transfers: [] }
+}
+
+/**
+ * Mints identifier text in the canonical casing the runtime round-trips.
+ * `crypto.randomUUID` returns lowercase, which the runtime rejects because it
+ * does not match the value it would echo back.
+ */
+function newIdentifierText(): string {
+  return crypto.randomUUID().toUpperCase()
 }
 
 function unwrapWireResponse(value: unknown): WireResponse {
@@ -444,7 +497,102 @@ function mapWireResult(
       }),
     }
   }
+  if (operation === 'archive.apply' && isRecord(result)) {
+    return mapImportResult(result)
+  }
   return result
+}
+
+/**
+ * Renames the runtime's application vocabulary into the client's. It chooses
+ * nothing: every count, identifier, and identity outcome is the one the
+ * runtime decided, only under the name feature code reads.
+ */
+function mapImportResult(result: Record<string, unknown>): ArchiveImportResult {
+  return {
+    importedEntries: count(result.importedEntries),
+    importedMedia: count(result.importedAttachments),
+    skippedEntries: count(result.skippedEntries),
+    skippedMedia: count(result.skippedAttachments),
+    skippedEntryIds: identifiers(result.skippedEntryIds),
+    skippedMediaIds: identifiers(result.skippedAttachmentIds),
+    issues: Array.isArray(result.issues)
+      ? result.issues.filter(isRecord).map(mapImportIssue)
+      : [],
+    identity: mapImportIdentity(result),
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapImportIssue(issue: Record<string, unknown>): ArchiveImportIssue {
+  const kind = issue.recordKind
+  return {
+    code: typeof issue.code === 'string' ? issue.code : 'unknown',
+    recordKind:
+      kind === 'entry'
+        ? 'entry'
+        : kind === 'attachment'
+          ? 'media'
+          : kind === 'track'
+            ? 'track'
+            : null,
+    id:
+      typeof issue.id === 'string' && isStableId(issue.id)
+        ? stableId(issue.id)
+        : null,
+  }
+}
+
+function mapImportIdentity(
+  result: Record<string, unknown>,
+): ArchiveImportIdentityOutcome {
+  switch (result.identityOutcome) {
+    case 'adopted':
+      return { outcome: 'adopted' }
+    case 'filled':
+      return { outcome: 'filled', unchangedFields: [] }
+    case 'conflicts':
+      return {
+        outcome: 'filled',
+        unchangedFields: Array.isArray(result.identityConflicts)
+          ? result.identityConflicts
+              .filter(isRecord)
+              .map((conflict) => conflict.field)
+              .filter((field) => typeof field === 'string')
+          : [],
+      }
+    default:
+      return { outcome: 'preserved' }
+  }
+}
+
+function mapInvalidation(value: unknown): InvalidationToken {
+  if (
+    !isRecord(value) ||
+    typeof value.storeInstanceId !== 'string' ||
+    typeof value.revision !== 'string' ||
+    !isRevision(value.revision)
+  ) {
+    throw new TypeError('Malformed runtime invalidation token')
+  }
+  return {
+    storeInstanceId: value.storeInstanceId,
+    revision: revision(value.revision),
+  }
+}
+
+function count(value: unknown): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : 0
+}
+
+function identifiers(value: unknown): readonly StableId[] {
+  return Array.isArray(value)
+    ? value
+        .filter((entry) => typeof entry === 'string' && isStableId(entry))
+        .map((entry) => stableId(entry))
+    : []
 }
 
 function parseWireEnvelope(value: unknown): WireEnvelope {
@@ -476,6 +624,15 @@ function mapWireFailure(failure: WireFailure['failure']): ClientFailure {
 
 function mapTransportFailure(error: unknown): ClientFailure {
   if (error instanceof WorkerTransportError) {
+    if (error.code === 'ArchiveAcquisitionCancelled') {
+      return clientFailure({
+        area: 'cancelled',
+        code: 'cancelled',
+        phase: 'cancellation',
+        retryable: true,
+        durableOutcome: 'not-started',
+      })
+    }
     return clientFailure({
       area: 'transport',
       code: error.code,

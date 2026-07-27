@@ -1110,20 +1110,24 @@ export interface ArchiveImportRequest {
 
 export interface ArchiveImportIssue {
   readonly code: string
-  readonly recordKind: 'entry' | 'media'
+  /** Absent when the issue is about the package rather than one record. */
+  readonly recordKind: 'entry' | 'media' | 'track' | null
   readonly id: StableId | null
 }
 
 /**
  * What import did to identity. An empty archive may adopt identity; a matching
  * archive only fills empty fields and reports the fields it did not overwrite.
+ *
+ * The outcome carries no identity value: application reports what it did, and
+ * the resulting identity is read through `identity.load` rather than inferred
+ * here from a partial echo.
  */
 export type ArchiveImportIdentityOutcome =
   | { readonly outcome: 'preserved' }
-  | { readonly outcome: 'adopted'; readonly identity: ArchiveIdentity }
+  | { readonly outcome: 'adopted' }
   | {
       readonly outcome: 'filled'
-      readonly identity: ArchiveIdentity
       readonly unchangedFields: readonly string[]
     }
 

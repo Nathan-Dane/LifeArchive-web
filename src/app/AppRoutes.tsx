@@ -2,6 +2,7 @@ import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { RecordPage } from '../features/record/RecordPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { TimelinePage } from '../features/timeline/TimelinePage'
+import type { LifeArchiveClient } from '../core/client'
 import { useTranslate } from '../i18n'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { WorkspaceLayout } from './shell'
@@ -63,14 +64,17 @@ function routeElement(element: React.ReactNode) {
  * then the primary surface is the whole workspace and the shell offers no
  * drawer to open.
  */
-export function AppRoutes() {
+export function AppRoutes({ client }: { readonly client: LifeArchiveClient }) {
   return (
     <WorkspaceLayout>
       <Routes>
         <Route path="/" element={<Navigate to="/record" replace />} />
         <Route path="/record" element={routeElement(<RecordPage />)} />
         <Route path="/timeline" element={routeElement(<TimelinePage />)} />
-        <Route path="/settings" element={routeElement(<SettingsPage />)} />
+        <Route
+          path="/settings"
+          element={routeElement(<SettingsPage client={client} />)}
+        />
         <Route path="*" element={<Navigate to="/record" replace />} />
       </Routes>
     </WorkspaceLayout>

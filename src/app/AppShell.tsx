@@ -103,7 +103,7 @@ export function AppShell() {
                 {t('app.action.reload')}
               </button>
             </aside>
-            <AppRoutes />
+            <AppRoutes client={state.client} />
           </Frame>
         )
       }
@@ -126,7 +126,7 @@ export function AppShell() {
           developmentMock={state.developmentMock}
           navigation={<MainNavigation />}
         >
-          <AppRoutes />
+          <AppRoutes client={state.client} />
         </Frame>
       )
   }
