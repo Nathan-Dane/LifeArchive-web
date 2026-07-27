@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Archive adapter test harness</title>
+  </head>
+  <body>
+    <main>
+      <input id="archive-input" type="file" />
+      <pre id="selection-result" aria-live="polite"></pre>
+      <button id="deliver-export" type="button">
+        Hand off simulated export
+      </button>
+      <pre id="delivery-result" aria-live="polite"></pre>
+    </main>
+    <script type="module" src="./archive-transfer-harness.ts"></script>
+  </body>
+</html>

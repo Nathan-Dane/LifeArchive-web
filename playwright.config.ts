@@ -2,11 +2,13 @@ import { defineConfig, devices } from '@playwright/test'
 
 const PORT = 4173
 const BASE_URL = `http://localhost:${PORT}`
+const ADAPTER_HARNESS_PORT = 4187
 const IS_CI = Boolean(process.env.CI)
 
 /**
- * Smoke coverage only. These tests check that the bootstrap shell serves and
- * routes in real browsers; everything else is tested in Vitest.
+ * Production-unavailable coverage plus the real browser archive adapter.
+ * Archive adapter tests use a source-served test harness and explicitly
+ * simulate the still-unintegrated runtime side of the handoff.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -26,16 +28,25 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    { name: 'chromium-151', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox-153', use: { ...devices['Desktop Firefox'] } },
   ],
-  webServer: {
-    command: `pnpm build && pnpm preview --port ${PORT} --strictPort`,
-    url: BASE_URL,
-    timeout: 120_000,
-    reuseExistingServer: !IS_CI,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  webServer: [
+    {
+      command: `pnpm build && pnpm preview --port ${PORT} --strictPort`,
+      url: BASE_URL,
+      timeout: 120_000,
+      reuseExistingServer: !IS_CI,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      command: `pnpm dev --port ${ADAPTER_HARNESS_PORT} --strictPort`,
+      url: `http://localhost:${ADAPTER_HARNESS_PORT}/e2e/archive-transfer.html`,
+      timeout: 120_000,
+      reuseExistingServer: !IS_CI,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  ],
 })

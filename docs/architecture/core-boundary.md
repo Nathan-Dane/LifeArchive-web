@@ -74,6 +74,38 @@ Layer responsibilities:
   client module. Feature code imports ergonomic values only. A generated type
   appearing in a component's props is a boundary violation.
 
+### Worker protocol
+
+One dedicated worker owns one canonical logical archive root. A worker start
+has a fresh opaque generation, and every request, response, cancellation, and
+invalidation carries it. Traffic from an older generation is ignored.
+Request IDs are unique for the entire generation, including after completion,
+so a late response cannot complete newer work.
+
+The lifecycle is `starting` → `ready` → `opening` → `open` → `closing` →
+`closed`, with `fatal` reachable from every live state. Startup emits exactly
+one `ready` or `fatal` value. Product requests are admitted one at a time.
+Duplicate IDs and late replies do not replace or complete the original
+request.
+
+Cancellation is out of band. Queued work can finish as canceled before it
+starts. Active archive export/apply asks the product cancellation capability
+to cancel, but its caller remains pending for Rust's definitive result. Every
+other active synchronous operation also remains pending until completion.
+Disposing a view therefore cannot make a durable mutation's outcome
+unknowable.
+
+Close is a barrier: stop admission, settle active work, refuse queued work,
+perform product close, release ownership, then terminate. A crash or ownership
+loss is a value failure, marks started durable work as having an unknown
+outcome, and requires recovery when reopening the same root. It never selects
+an empty replacement archive.
+
+`src/core/runtime/worker/WorkerTransport.ts` implements these transport rules.
+Its tests exercise the production transport directly, so this repository does
+not keep a separate test-only protocol implementation that can drift from the
+runtime boundary.
+
 ### Mocks
 
 - **A mock client may exist only behind the same interface.** It implements
