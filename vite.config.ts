@@ -69,6 +69,7 @@ function localRuntimeFiles() {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [localRuntimeFiles(), react()],
+  base: '/',
   server: {
     headers: {
       'Cross-Origin-Embedder-Policy': 'require-corp',

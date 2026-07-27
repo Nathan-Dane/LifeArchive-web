@@ -4,6 +4,8 @@ pnpm-lock.yaml
 playwright-report
 test-results
 coverage
+public/_headers
+public/_redirects
 
 # Preserved byte-for-byte; never reformat.
 docs/reference/record-v0.1.0.html

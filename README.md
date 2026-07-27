@@ -128,6 +128,7 @@ using it.
 | [`docs/architecture/core-boundary.md`](docs/architecture/core-boundary.md) | Data flow, client, worker, storage, state. |
 | [`docs/architecture/repository-boundary.md`](docs/architecture/repository-boundary.md) | CI, licensing, private/public separation. |
 | [`docs/architecture/runtime-delivery.md`](docs/architecture/runtime-delivery.md) | Runtime loading, pinning, capability negotiation. |
+| [`docs/operations/browser-local-pilot.md`](docs/operations/browser-local-pilot.md) | Preparing, accepting, rolling back, or operating the browser-local pilot. |
 | [`docs/reference/README.md`](docs/reference/README.md) | Using the visual reference. |
 | [`runtime/README.md`](runtime/README.md) | The runtime artifact directory. |
 
