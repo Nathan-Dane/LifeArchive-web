@@ -1,5 +1,6 @@
-import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
+import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { RecordPage } from '../features/record/RecordPage'
+import { RecordNavigationPanel } from '../features/record/navigation'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { ArchiveManagementPage } from '../features/settings/archive'
 import { TimelinePage } from '../features/timeline/TimelinePage'
@@ -12,12 +13,19 @@ import { WorkspaceLayout } from './shell'
  * The routes, paired with the catalog key that names them. The path is an
  * identifier and the label is copy; deriving one from the other by capitalising
  * a URL segment is how a navigation item ends up untranslatable.
+ *
+ * A route may also declare the workspace regions it offers. Which regions
+ * exist belongs to the view, not to the shell, so the shell asks the route
+ * rather than deciding for it.
  */
 const MAIN_ROUTES = [
   {
     path: '/record',
     label: 'app.navigation.record',
     element: () => <RecordPage />,
+    navigation: (client: LifeArchiveClient) => (
+      <RecordNavigationPanel client={client} />
+    ),
   },
   {
     path: '/timeline',
@@ -73,7 +81,8 @@ function routeElement(element: React.ReactNode) {
  * The feature routes, inside the workspace.
  *
  * Time navigation and object details belong to Record rather than the route
- * composition.
+ * composition, so the workspace is given whatever regions the matched route
+ * declares and knows nothing about what is inside them.
  */
 export function AppRoutes({
   client,
@@ -82,8 +91,13 @@ export function AppRoutes({
   readonly client: LifeArchiveClient
   readonly inert?: boolean
 }) {
+  const { pathname } = useLocation()
+  const matched = MAIN_ROUTES.find((route) => route.path === pathname)
+  const navigation =
+    matched && 'navigation' in matched ? matched.navigation(client) : undefined
+
   return (
-    <WorkspaceLayout inert={inert}>
+    <WorkspaceLayout inert={inert} navigation={navigation}>
       <Routes>
         <Route path="/" element={<Navigate to="/record" replace />} />
         {MAIN_ROUTES.map((route) => (

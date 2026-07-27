@@ -101,9 +101,13 @@ describe('the shell after migration', () => {
         name: enMessages['record.page.title'],
       }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent(
-      enMessages['development.mock.notice'],
-    )
+    /*
+     * A view may keep quiet regions of its own, so the notice is found among
+     * the status regions rather than assumed to be the only one.
+     */
+    expect(
+      screen.getAllByRole('status').map((region) => region.textContent),
+    ).toContain(enMessages['development.mock.notice'])
   })
 
   it('takes its accessibility copy from the catalog', async () => {
