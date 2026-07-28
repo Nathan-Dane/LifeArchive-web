@@ -75,3 +75,17 @@ test('rejects unversioned executable assets and source-map references', async ()
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('rejects local-runtime selection material', async () => {
+  const root = await fixture()
+  try {
+    await writeFile(
+      path.join(root, 'dist/assets/index-AbCd1234.js'),
+      'const appVersion="1.2.3";const receipt="local-runtime.json";\n',
+    )
+    const offenders = inspectProductionArtifact({ root }).offenders.join('\n')
+    assert.match(offenders, /development-only local-runtime\.json/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
