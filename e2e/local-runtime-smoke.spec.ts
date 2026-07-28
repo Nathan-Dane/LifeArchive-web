@@ -138,8 +138,6 @@ test.describe('verified local development runtime', () => {
     await expect(page.getByText('Ready to save.')).toBeVisible()
 
     await editor.fill(writing)
-    await expect(page.getByText('Unsaved changes.')).toBeVisible()
-    await page.getByRole('button', { name: 'Save writing' }).click()
     await expect(page.getByText('Saved.')).toBeVisible()
 
     await page.reload()
@@ -149,8 +147,6 @@ test.describe('verified local development runtime', () => {
     await expect
       .poll(() => reloadedEditor.evaluate((element) => element.textContent))
       .toBe(writing)
-    await page.getByRole('button', { name: 'Save writing' }).click()
-    await expect(page.getByText('Saved.')).toBeVisible()
 
     await page.close()
     const reopened = await context.newPage()
@@ -191,7 +187,6 @@ test.describe('verified local development runtime', () => {
       await expect(editor.or(createAnyway)).toBeVisible({ timeout: 20_000 })
       if (await createAnyway.isVisible()) await createAnyway.click()
       await editor.fill(writing)
-      await page.getByRole('button', { name: 'Save writing' }).click()
       await expect(page.getByText('Saved.')).toBeVisible()
 
       await persistent.close()

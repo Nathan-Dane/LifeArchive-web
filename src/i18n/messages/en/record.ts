@@ -121,9 +121,18 @@ export const recordMessages = {
   'record.editor.status.failed': 'The save did not complete.',
   'record.editor.status.conflicted':
     'The save stopped because the archive changed.',
-  'record.editor.save': 'Save writing',
+  'record.editor.status.offlineRuntime':
+    'The archive runtime is offline. Unsaved writing remains in this tab.',
+  'record.editor.retrySave': 'Try saving again',
   'record.editor.saveFailed':
     'The save did not complete. The editor buffer was kept. {detail}',
+  'record.editor.conflictTitle': 'Choose which writing to keep',
+  'record.editor.conflictDetail':
+    'Your writing remains in the editor. Nothing will be combined or overwritten until you choose.',
+  'record.editor.conflictCurrent': 'Writing currently in the archive',
+  'record.editor.conflictCurrentEmpty': 'No current writing',
+  'record.editor.conflictSaveMine': 'Save my writing',
+  'record.editor.conflictUseArchive': 'Use archive writing',
   'record.editor.loading': 'Reading the selected writing.',
   'record.editor.loadFailed':
     'The selected writing could not be read. The editor buffer was kept. {detail}',
