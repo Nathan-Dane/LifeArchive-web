@@ -27,8 +27,17 @@ export function MarkdownEditor({
 }: MarkdownEditorProps) {
   const t = useTranslate()
   const localisation = useLocalisation()
-  const { document, update, retry, save, saveStatus, saveFailure } =
-    useEditorDocument(client, window, selected, developmentMock)
+  const {
+    document,
+    update,
+    retryLoad,
+    retrySave,
+    saveMine,
+    useArchiveVersion,
+    saveStatus,
+    saveFailure,
+    conflict,
+  } = useEditorDocument(client, window, selected, developmentMock)
   const disabled =
     document.status === 'unavailable' || document.status === 'loading'
   const loadStatus =
@@ -58,24 +67,49 @@ export function MarkdownEditor({
         >
           {status}
           {document.status === 'failed' ? (
-            <button type="button" className="button" onClick={retry}>
+            <button type="button" className="button" onClick={retryLoad}>
               {t('record.editor.retry')}
             </button>
           ) : null}
-          {!developmentMock &&
-          selected === null &&
-          document.status === 'ready' ? (
-            <button
-              type="button"
-              className="button"
-              disabled={saveStatus === 'saving' || saveStatus === 'conflicted'}
-              onClick={() => void save()}
-            >
-              {t('record.editor.save')}
+          {saveStatus === 'failed' || saveStatus === 'offlineRuntime' ? (
+            <button type="button" className="button" onClick={retrySave}>
+              {t('record.editor.retrySave')}
             </button>
           ) : null}
         </div>
       </header>
+      {saveStatus === 'conflicted' && conflict ? (
+        <div
+          className="record-editor__conflict"
+          role="alert"
+          aria-labelledby="record-editor-conflict-title"
+        >
+          <h3 id="record-editor-conflict-title">
+            {t('record.editor.conflictTitle')}
+          </h3>
+          <p>{t('record.editor.conflictDetail')}</p>
+          <div>
+            <h4>{t('record.editor.conflictCurrent')}</h4>
+            <pre>
+              {conflict.presence === 'present'
+                ? conflict.entry.markdown
+                : t('record.editor.conflictCurrentEmpty')}
+            </pre>
+          </div>
+          <div className="record-editor__conflict-actions">
+            <button type="button" className="button" onClick={saveMine}>
+              {t('record.editor.conflictSaveMine')}
+            </button>
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={useArchiveVersion}
+            >
+              {t('record.editor.conflictUseArchive')}
+            </button>
+          </div>
+        </div>
+      ) : null}
       <Suspense
         fallback={
           <div
