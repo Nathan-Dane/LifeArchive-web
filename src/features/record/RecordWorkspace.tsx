@@ -10,6 +10,7 @@
 import { useMemo, type ReactNode } from 'react'
 import type { LifeArchiveClient } from '../../core/client'
 import { useEventEditor } from './events'
+import { useSpanEditor } from './spans'
 import { RecordNavigationPanel } from './navigation/RecordNavigationPanel'
 import {
   useTemporalCursor,
@@ -80,6 +81,15 @@ export function RecordDestinationProvider({
     onDeleted: rawObjects.removeObject,
     refreshObjects: rawObjects.retry,
   })
+  const rawSpans = useSpanEditor(client, {
+    selected: rawObjects.state.selected,
+    developmentMock,
+    register: draftSession.register,
+    onCreated: rawObjects.selectCreated,
+    onChanged: rawObjects.replaceObject,
+    onDeleted: rawObjects.removeObject,
+    refreshObjects: rawObjects.retry,
+  })
   const events = useMemo(
     () => ({
       ...rawEvents,
@@ -87,6 +97,14 @@ export function RecordDestinationProvider({
         guard(() => rawEvents.startCreate(date)),
     }),
     [guard, rawEvents],
+  )
+  const spans = useMemo(
+    () => ({
+      ...rawSpans,
+      startCreate: (date: Parameters<typeof rawSpans.startCreate>[0]) =>
+        guard(() => rawSpans.startCreate(date)),
+    }),
+    [guard, rawSpans],
   )
   const objects = useMemo(
     () => ({
@@ -104,7 +122,7 @@ export function RecordDestinationProvider({
       value={{ register: draftSession.register }}
     >
       <RecordDestinationContext.Provider
-        value={{ client, developmentMock, cursor, objects, events }}
+        value={{ client, developmentMock, cursor, objects, events, spans }}
       >
         {children}
       </RecordDestinationContext.Provider>
@@ -114,7 +132,7 @@ export function RecordDestinationProvider({
 
 /** Record's leading workspace region: where in time and what is selected. */
 export function RecordNavigationRegion() {
-  const { cursor, objects, events } = useRecordDestination()
+  const { cursor, objects, events, spans } = useRecordDestination()
   return (
     <div className="record-navigation-region">
       <RecordNavigationPanel cursor={cursor} />
@@ -123,9 +141,14 @@ export function RecordNavigationRegion() {
         window={cursor.state.view?.window ?? null}
         objects={objects}
         creatingEvent={events.creating}
+        creatingSpan={spans.creating}
         onCreateEvent={() => {
           const date = cursor.state.view?.calendar.focusedDate
           if (date) events.startCreate(date)
+        }}
+        onCreateSpan={() => {
+          const date = cursor.state.view?.calendar.focusedDate
+          if (date) spans.startCreate(date)
         }}
       />
     </div>
@@ -134,13 +157,14 @@ export function RecordNavigationRegion() {
 
 /** Record's trailing workspace region: what is selected. */
 export function RecordDetailsRegion() {
-  const { cursor, objects, events } = useRecordDestination()
+  const { cursor, objects, events, spans } = useRecordDestination()
   return (
     <RecordObjectDetails
       scale={cursor.state.scale}
       window={cursor.state.view?.window ?? null}
       objects={objects}
       event={events}
+      span={spans}
     />
   )
 }

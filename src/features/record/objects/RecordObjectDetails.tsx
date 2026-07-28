@@ -17,6 +17,7 @@ import type { TimeScale, TimeWindow } from '../../../core/client'
 import { useFormat, useLocalisation } from '../../../i18n'
 import { civilLocation } from '../civilLocation'
 import { EventDetails, type EventEditor } from '../events'
+import { SpanDetails, type SpanEditor } from '../spans'
 import { objectWhen } from './objectNames'
 import type { RecordObjects } from './recordObjects'
 
@@ -32,6 +33,7 @@ export interface RecordObjectDetailsProps {
   readonly window: TimeWindow | null
   readonly objects: RecordObjects
   readonly event?: EventEditor
+  readonly span?: SpanEditor
 }
 
 export function RecordObjectDetails({
@@ -39,6 +41,7 @@ export function RecordObjectDetails({
   window,
   objects,
   event,
+  span,
 }: RecordObjectDetailsProps) {
   const localisation = useLocalisation()
   const t = localisation.t
@@ -48,6 +51,9 @@ export function RecordObjectDetails({
 
   if (event && (event.creating || selected?.placement.kind === 'event')) {
     return <EventDetails event={event} />
+  }
+  if (span && (span.creating || selected?.placement.kind === 'span')) {
+    return <SpanDetails span={span} />
   }
 
   return (

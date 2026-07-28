@@ -282,6 +282,7 @@ describe('the objects a day holds', () => {
       'Span: Living in Aarhus, 1 August 2024 to Present',
       'Span: The studio year, 1 January 2025 to 31 December 2025',
       'New Event',
+      'New Span',
     ])
   })
 
@@ -326,9 +327,9 @@ describe('the objects a day holds', () => {
 
     /* No derived end date stands in for an ongoing Span, anywhere. */
     const details = screen.getByRole('complementary', { name: 'Details' })
-    expect(
-      within(details).getByText('1 August 2024 to Present'),
-    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(within(details).getByText('Present')).toBeInTheDocument(),
+    )
 
     await user.click(tabFor(STUDIO))
     expect(tabFor(STUDIO)).toHaveAttribute('aria-pressed', 'true')
@@ -617,7 +618,11 @@ describe('object selection across the workspace', () => {
     expect(tabFor(STUDIO)).toHaveAttribute('aria-pressed', 'true')
     await user.click(screen.getByRole('button', { name: 'Details' }))
     const details = screen.getByRole('dialog', { name: 'Details' })
-    expect(within(details).getByText('The studio year')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(
+        within(details).getByDisplayValue('The studio year'),
+      ).toBeInTheDocument(),
+    )
     /* Changing width is not a new question for the archive. */
     expect(client.calls.countOf('record.listObjects')).toBe(1)
   })
