@@ -18,12 +18,14 @@ import { createContext, useContext } from 'react'
 import type { LifeArchiveClient } from '../../core/client'
 import type { TemporalCursor } from './navigation/temporalCursor'
 import type { RecordObjects } from './objects/recordObjects'
+import type { EventEditor } from './events'
 
 export interface RecordDestination {
   readonly client: LifeArchiveClient
   readonly developmentMock: boolean
   readonly cursor: TemporalCursor
   readonly objects: RecordObjects
+  readonly events: EventEditor
 }
 
 export const RecordDestinationContext = createContext<RecordDestination | null>(

@@ -59,6 +59,8 @@ export const recordMessages = {
   'record.objects.ordinaryYear': 'Year entry',
   'record.objects.kindEvent': 'Event',
   'record.objects.kindSpan': 'Span',
+  'record.objects.groupEntry': 'Entry',
+  'record.objects.noItems': 'No Items',
 
   /*
    * The spoken name of one object. Duplicate titles are allowed and several
@@ -69,10 +71,6 @@ export const recordMessages = {
   'record.objects.spanName': 'Span: {title}, {start} to {end}',
   'record.objects.spanOngoingName': 'Span: {title}, {start} to Present',
   'record.objects.spanOngoingRange': '{start} to Present',
-
-  'record.objects.add': 'Add',
-  'record.objects.addUnavailable':
-    'Creating Events and Spans is not available in this version.',
 
   /*
    * Broader scales offer a count and a picker rather than a tab for every
@@ -103,6 +101,50 @@ export const recordMessages = {
   'record.objects.detailsWhen': 'When',
   'record.objects.detailsIdentifier': 'Identifier',
   'record.objects.detailsNoWindow': 'No period is being shown.',
+
+  /* Details follows the reference hierarchy without adopting its placeholders. */
+  'record.details.title': 'Details',
+  'record.details.identity': 'Identity',
+  'record.details.time': 'Time',
+  'record.details.organisation': 'Organisation',
+
+  /* Event creation and revision-safe editing. */
+  'record.event.new': 'New Event',
+  'record.event.titleAndIcon': 'Title and icon',
+  'record.event.semanticIcon': 'Semantic icon',
+  'record.event.date': 'Date',
+  'record.event.noTimeOfDay': 'Events have no time of day.',
+  'record.event.track': 'Track',
+  'record.event.noTrack': 'Not in a Track',
+  'record.event.tags': 'Tags',
+  'record.event.noTags': 'No tags',
+  'record.event.create': 'Create',
+  'record.event.cancel': 'Cancel',
+  'record.event.delete': 'Delete Event',
+  'record.event.deleteConfirm':
+    'Delete this Event? Its exact stable identity will be soft-deleted.',
+  'record.event.confirmDelete': 'Delete Event',
+  'record.event.saveFailed':
+    'The Event change did not complete. The complete draft remains in this tab. {detail}',
+  'record.event.conflictTitle': 'The Event changed in the archive',
+  'record.event.conflictDetail':
+    'Your complete draft remains here. Choose which version to continue with.',
+  'record.event.conflictSaveMine': 'Save my Event',
+  'record.event.conflictUseArchive': 'Use archive Event',
+  'record.event.status.idle': 'Event editing is unavailable.',
+  'record.event.status.creating': 'Draft Event. Choose Create or Cancel.',
+  'record.event.status.loading': 'Reading the selected Event.',
+  'record.event.status.ready': 'Ready to save.',
+  'record.event.status.dirty': 'Unsaved Event changes.',
+  'record.event.status.saving': 'Saving Event…',
+  'record.event.status.saved': 'Saved.',
+  'record.event.status.failed': 'The Event change did not complete.',
+  'record.event.status.conflicted':
+    'The Event change stopped because the archive changed.',
+  'record.event.status.missing': 'This Event is no longer available.',
+  'record.event.status.mock':
+    'Development preview. Changes remain in this tab only.',
+  'record.icon.fallbackGlyph': '?',
 
   /* Markdown writing surface. Mock mode never makes a durability claim. */
   'record.editor.label': 'Writing',
