@@ -1,10 +1,17 @@
 import { useId, useState } from 'react'
-import { isCivilDate, isStableId } from '../../../core/client'
+import { isCivilDate } from '../../../core/client'
 import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
 import { RecordSemanticIcon } from '../events'
 import type { SpanEditor } from './useSpanEditor'
+import { TrackChooser, type Tracks } from '../tracks'
 
-export function SpanDetails({ span }: { readonly span: SpanEditor }) {
+export function SpanDetails({
+  span,
+  tracks,
+}: {
+  readonly span: SpanEditor
+  readonly tracks?: Tracks
+}) {
   const t = useTranslate()
   const localisation = useLocalisation()
   const headingId = useId()
@@ -14,15 +21,11 @@ export function SpanDetails({ span }: { readonly span: SpanEditor }) {
   const draft = span.draft
   if (!draft) return null
 
-  const trackValid = draft.trackId.length === 0 || isStableId(draft.trackId)
   const rangeReady =
     isCivilDate(draft.startDate) &&
     (draft.ongoing || isCivilDate(draft.endDate))
   const createReady =
-    draft.title.length > 0 &&
-    draft.iconId.length > 0 &&
-    rangeReady &&
-    trackValid
+    draft.title.length > 0 && draft.iconId.length > 0 && rangeReady && true
   const conversionReady = isCivilDate(conversionDate)
 
   return (
@@ -125,14 +128,22 @@ export function SpanDetails({ span }: { readonly span: SpanEditor }) {
           <span className="record-details__label-line meta-text">
             {t('record.event.track')}
           </span>
-          <input
-            value={draft.trackId}
-            aria-invalid={!trackValid || undefined}
-            placeholder={t('record.event.noTrack')}
-            onChange={(event) =>
-              span.update({ trackId: event.currentTarget.value })
-            }
-          />
+          {tracks ? (
+            <TrackChooser
+              tracks={tracks}
+              value={draft.trackId}
+              disabled={span.status === 'saving'}
+              onChange={(trackId) => {
+                if (span.creating) {
+                  span.update({ trackId: trackId ?? '' })
+                } else {
+                  void span.changeTrack(trackId)
+                }
+              }}
+            />
+          ) : (
+            <span>{t('record.event.noTrack')}</span>
+          )}
         </label>
         <label className="record-details__field">
           <span className="record-details__label-line meta-text">

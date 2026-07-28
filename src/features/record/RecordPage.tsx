@@ -7,17 +7,19 @@ import { MarkdownEditor } from './editor'
 import { EventWritingEditor } from './events'
 import { useRecordDestination } from './recordDestination'
 import { SpanWritingEditor } from './spans'
+import { TrackHistory } from './tracks'
 
 export function RecordPage() {
   const t = useTranslate()
-  const { client, cursor, objects, events, spans, developmentMock } =
+  const { client, cursor, objects, events, spans, tracks, developmentMock } =
     useRecordDestination()
   const window = cursor.state.view?.window ?? null
   const eventActive =
     events.creating || objects.state.selected?.placement.kind === 'event'
   const spanActive =
     spans.creating || objects.state.selected?.placement.kind === 'span'
-  const structuredActive = eventActive || spanActive
+  const trackActive = tracks.active
+  const structuredActive = eventActive || spanActive || trackActive
   return (
     <div className="record-page">
       <h1 className="display-large">{t('record.page.title')}</h1>
@@ -34,11 +36,14 @@ export function RecordPage() {
           developmentMock={developmentMock}
         />
       </div>
-      <div hidden={!eventActive}>
+      <div hidden={!eventActive || trackActive}>
         <EventWritingEditor event={events} />
       </div>
-      <div hidden={!spanActive}>
+      <div hidden={!spanActive || trackActive}>
         <SpanWritingEditor span={spans} />
+      </div>
+      <div hidden={!trackActive}>
+        <TrackHistory tracks={tracks} />
       </div>
     </div>
   )

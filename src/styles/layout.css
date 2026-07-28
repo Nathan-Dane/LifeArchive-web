@@ -1838,6 +1838,149 @@
   font-size: var(--text-meta);
 }
 
+/* Track management stays compact in navigation, while its history occupies
+   Record's primary region. Core order is reflected by ordinary block flow. */
+.record-tracks {
+  display: grid;
+  gap: var(--space-compact);
+  padding-top: var(--space-section);
+  border-top: var(--border-hairline) solid var(--border-subtle);
+}
+
+.record-tracks__heading {
+  display: flex;
+  gap: var(--space-compact);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.record-tracks__heading > h3,
+.record-tracks__list p,
+.record-tracks__failure p {
+  margin: 0;
+}
+
+.record-tracks__new {
+  min-height: var(--size-control-compact);
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.record-tracks__archived,
+.record-track-member__check {
+  display: flex;
+  gap: var(--space-compact);
+  align-items: center;
+}
+
+.record-tracks__list {
+  display: grid;
+  gap: var(--space-tight);
+}
+
+.record-tracks__item {
+  display: grid;
+  grid-template-columns: var(--size-control-compact) minmax(0, 1fr);
+  gap: var(--space-compact);
+  align-items: center;
+  min-height: var(--size-control-featured);
+  padding: var(--space-tight) var(--space-compact);
+  border: var(--border-hairline) solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: start;
+}
+
+.record-tracks__item > span:last-child {
+  display: grid;
+  min-width: 0;
+}
+
+.record-tracks__item[aria-pressed='true'] {
+  border-color: var(--border-muted);
+  background: var(--color-surface-raised);
+}
+
+.record-tracks__icon {
+  display: inline-grid;
+  place-items: center;
+}
+
+.record-tracks__failure {
+  display: grid;
+  gap: var(--space-compact);
+  justify-items: start;
+  color: var(--color-text-secondary);
+}
+
+.record-details__field select,
+.record-track-member :is(input, select, textarea) {
+  width: 100%;
+  min-height: var(--size-control-compact);
+  padding: 0 var(--space-control-inline);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.record-track-member {
+  display: grid;
+  gap: var(--space-standard);
+  padding: var(--space-standard);
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-card);
+}
+
+.record-track-member > label:not(.record-track-member__check) {
+  display: grid;
+  gap: var(--space-tight);
+}
+
+.record-track-member textarea {
+  min-height: calc(var(--size-control-featured) * 2);
+  padding-block: var(--space-compact);
+  resize: vertical;
+}
+
+.record-track-history {
+  display: grid;
+  gap: var(--space-content);
+}
+
+.record-track-history header > :is(h2, p) {
+  margin: 0;
+}
+
+.record-track-history ol {
+  display: grid;
+  gap: var(--space-compact);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.record-track-history li {
+  display: grid;
+  grid-template-columns: var(--size-control-compact) minmax(0, 1fr);
+  gap: var(--space-standard);
+  align-items: center;
+  padding: var(--space-standard);
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.record-track-history li > span:last-child {
+  display: grid;
+  gap: var(--space-tight);
+}
+
 .app-notice {
   display: flex;
   flex-wrap: wrap;

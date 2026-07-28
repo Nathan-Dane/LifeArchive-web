@@ -6,6 +6,7 @@ import {
   stableId,
   type CivilDate,
   type ClientFailure,
+  type InvalidationToken,
   type LifeArchiveClient,
   type PrivacyLevel,
   type RevisionConflict,
@@ -59,6 +60,7 @@ interface EventModel {
   status: EventEditorStatus
   failure: ClientFailure | null
   conflict: RevisionConflict<StructuredConflictState> | null
+  invalidation: InvalidationToken | null
   generation: number
   activeSave: Promise<void> | null
 }
@@ -69,6 +71,7 @@ export interface EventEditor {
   readonly object: StructuredObject | null
   readonly failure: ClientFailure | null
   readonly conflict: RevisionConflict<StructuredConflictState> | null
+  readonly invalidation: InvalidationToken | null
   readonly creating: boolean
   readonly update: (change: Partial<EventDraftFields>) => void
   readonly startCreate: (date: CivilDate) => void
@@ -78,6 +81,7 @@ export interface EventEditor {
   readonly retrySave: () => void
   readonly saveMine: () => void
   readonly useArchiveVersion: () => void
+  readonly changeTrack: (trackId: StableId | null) => Promise<boolean>
   readonly deleteEvent: () => Promise<boolean>
 }
 
@@ -242,6 +246,7 @@ export function useEventEditor(
               return
             }
             model.object = result.value.object
+            model.invalidation = result.value.invalidation
             model.saved = savedDraft
             model.status = developmentMock
               ? 'mock'
@@ -340,6 +345,7 @@ export function useEventEditor(
         status: 'loading',
         failure: null,
         conflict: null,
+        invalidation: null,
         generation: 0,
         activeSave: null,
       }
@@ -372,6 +378,7 @@ export function useEventEditor(
       }
       const fields = fieldsFromObject(object)
       placeholder.object = object
+      placeholder.invalidation = result.value.invalidation
       placeholder.draft = fields
       placeholder.saved = fields
       placeholder.status = developmentMock ? 'mock' : 'ready'
@@ -430,6 +437,7 @@ export function useEventEditor(
         status: 'creating',
         failure: null,
         conflict: null,
+        invalidation: null,
         generation: 0,
         activeSave: null,
       }
@@ -493,6 +501,7 @@ export function useEventEditor(
       status: developmentMock ? 'mock' : 'saved',
       failure: null,
       conflict: null,
+      invalidation: result.value.invalidation,
       activeSave: null,
     }
     models.current.delete(key)
@@ -578,6 +587,76 @@ export function useEventEditor(
     return true
   }, [activeKey, client, onDeleted, publish, refreshObjects, saveModel])
 
+  const changeTrack = useCallback(
+    async (trackId: StableId | null): Promise<boolean> => {
+      const model = activeKey ? models.current.get(activeKey) : null
+      if (
+        !model?.object ||
+        !model.invalidation ||
+        model.newObjectId ||
+        model.object.summary.trackId === trackId
+      ) {
+        return model?.object?.summary.trackId === trackId
+      }
+      await saveModel(model, true)
+      if (
+        !model.object ||
+        !model.invalidation ||
+        model.conflict ||
+        model.failure ||
+        !equalFields(model.draft, model.saved)
+      ) {
+        publish(model)
+        return false
+      }
+      model.status = 'saving'
+      model.failure = null
+      publish(model)
+      const request = {
+        memberId: model.object.summary.id,
+        memberKind: 'event' as const,
+        expectedMemberRevision: model.object.summary.revision,
+        expectedInvalidation: model.invalidation,
+        nowMs: Date.now(),
+      }
+      const result = trackId
+        ? await client.tracks.attachMember({ ...request, trackId })
+        : await client.tracks.detachMember(request)
+      if (result.status === 'failed') {
+        model.failure = result.failure
+        model.status = 'failed'
+        publish(model)
+        return false
+      }
+      if (result.value.outcome === 'conflict') {
+        model.conflict = result.value.conflict
+        model.status = 'conflicted'
+        publish(model)
+        return false
+      }
+      if (result.value.object.summary.placement.kind !== 'event') return false
+      const fields = fieldsFromObject(result.value.object)
+      model.object = result.value.object
+      model.invalidation = result.value.invalidation
+      model.draft = fields
+      model.saved = fields
+      model.status = developmentMock ? 'mock' : 'saved'
+      onChanged(result.value.object.summary)
+      refreshObjects()
+      publish(model)
+      return true
+    },
+    [
+      activeKey,
+      client,
+      developmentMock,
+      onChanged,
+      publish,
+      refreshObjects,
+      saveModel,
+    ],
+  )
+
   const displayedView = view?.key === activeKey ? view : null
   return {
     status: displayedView?.status ?? 'idle',
@@ -585,6 +664,7 @@ export function useEventEditor(
     object: displayedView?.object ?? null,
     failure: displayedView?.failure ?? null,
     conflict: displayedView?.conflict ?? null,
+    invalidation: displayedView?.invalidation ?? null,
     creating: displayedView?.newObjectId !== null && displayedView !== null,
     update,
     startCreate,
@@ -598,6 +678,7 @@ export function useEventEditor(
     retrySave,
     saveMine,
     useArchiveVersion,
+    changeTrack,
     deleteEvent,
   }
 }

@@ -20,6 +20,7 @@ import type { TemporalCursor } from './navigation/temporalCursor'
 import type { RecordObjects } from './objects/recordObjects'
 import type { EventEditor } from './events'
 import type { SpanEditor } from './spans'
+import type { Tracks } from './tracks'
 
 export interface RecordDestination {
   readonly client: LifeArchiveClient
@@ -28,6 +29,7 @@ export interface RecordDestination {
   readonly objects: RecordObjects
   readonly events: EventEditor
   readonly spans: SpanEditor
+  readonly tracks: Tracks
 }
 
 export const RecordDestinationContext = createContext<RecordDestination | null>(

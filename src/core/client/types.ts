@@ -618,6 +618,11 @@ export interface TrackWithFirstMemberRequest {
   readonly newMemberId: StableId
   readonly track: TrackDraft
   readonly member: StructuredDraft
+  /**
+   * True only when the capture UI never supplied tag state. The core may then
+   * apply the Track suggestion. An explicit empty collection remains empty.
+   */
+  readonly tagStateOmitted?: boolean
   readonly nowMs: Instant
 }
 
@@ -633,6 +638,7 @@ export interface TrackMemberCreateRequest {
   readonly expectedInvalidation: InvalidationToken
   readonly newMemberId: StableId
   readonly member: StructuredDraft
+  readonly tagStateOmitted?: boolean
   readonly nowMs: Instant
 }
 

@@ -474,13 +474,13 @@ export const runtimeBoundary = {
     TrackWithFirstMember
   >(
     'track.createWithFirstMember',
-    ({ newTrackId, newMemberId, track, member, nowMs }) =>
+    ({ newTrackId, newMemberId, track, member, tagStateOmitted, nowMs }) =>
       noTransfers({
         trackId: newTrackId,
         memberId: newMemberId,
         track: mapTrackDraft(track),
         member: mapStructuredDraft(member),
-        tagStateOmitted: false,
+        tagStateOmitted: tagStateOmitted ?? false,
         nowMs,
       }),
     (value) => {
@@ -557,6 +557,7 @@ export const runtimeBoundary = {
       expectedInvalidation,
       newMemberId,
       member,
+      tagStateOmitted,
       nowMs,
     }) =>
       noTransfers({
@@ -565,7 +566,7 @@ export const runtimeBoundary = {
         expectedToken: mapInvalidationRequest(expectedInvalidation),
         memberId: newMemberId,
         member: mapStructuredDraft(member),
-        tagStateOmitted: false,
+        tagStateOmitted: tagStateOmitted ?? false,
         nowMs,
       }),
     (value) =>

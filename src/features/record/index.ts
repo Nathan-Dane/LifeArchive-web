@@ -16,3 +16,4 @@ export {
   useRecordDestination,
   type RecordDestination,
 } from './recordDestination'
+export { type Tracks, type TracksState } from './tracks'
