@@ -1082,6 +1082,228 @@
 }
 
 /*
+ * Media follows the writing surface as a distinct archive-owned collection.
+ * The reference's card rhythm is retained, while controls and truthful
+ * operation state get their own space instead of being hidden in a drop target.
+ */
+
+.record-media {
+  display: grid;
+  gap: var(--space-standard);
+  padding-top: var(--space-section);
+  border-top: var(--border-hairline) solid var(--border-subtle);
+}
+
+.record-media__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-standard);
+  align-items: start;
+  justify-content: space-between;
+}
+
+.record-media__header > div {
+  display: grid;
+  gap: var(--space-tight);
+}
+
+.record-media__header :is(h2, p),
+.record-media__status,
+.record-media__failure > p,
+.record-media__confirm > p,
+.record-media__preview :is(h3, p) {
+  margin: 0;
+}
+
+.record-media__picker {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.record-media__status {
+  display: flex;
+  min-height: var(--size-control-compact);
+  flex-wrap: wrap;
+  gap: var(--space-standard);
+  align-items: center;
+  color: var(--color-text-secondary);
+}
+
+.record-media__status:empty {
+  display: none;
+}
+
+.record-media__status progress {
+  width: min(100%, 18rem);
+  accent-color: var(--color-accent);
+}
+
+.record-media__empty {
+  display: grid;
+  min-height: calc(var(--size-control-featured) * 2);
+  place-items: center;
+  align-content: center;
+  gap: var(--space-tight);
+  padding: var(--space-content);
+  border: var(--border-hairline) dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: center;
+}
+
+.record-media__empty--unavailable {
+  background: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  cursor: default;
+}
+
+.record-media__grid {
+  display: grid;
+  padding: 0;
+  margin: 0;
+  gap: var(--space-standard);
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  list-style: none;
+}
+
+.record-media__card {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  min-width: 0;
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.record-media__preview-action {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: start;
+}
+
+.record-media__glyph {
+  display: grid;
+  min-height: calc(var(--size-control-featured) * 2);
+  place-items: center;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--color-accent) 10%, var(--color-surface-alt)),
+    var(--color-surface-alt)
+  );
+  color: var(--color-text-tertiary);
+  font-family: var(--font-display);
+  font-size: var(--text-display-large);
+}
+
+.record-media__metadata {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-tight);
+  padding: var(--space-standard);
+}
+
+.record-media__metadata > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-media__delete {
+  min-height: var(--size-control-compact);
+  padding: 0 var(--space-standard);
+  border: 0;
+  border-top: var(--border-hairline) solid var(--border-subtle);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: start;
+}
+
+.record-media__delete:hover,
+.record-media__delete:focus-visible {
+  color: var(--color-destructive);
+}
+
+.record-media__failure,
+.record-media__confirm {
+  display: grid;
+  gap: var(--space-standard);
+  justify-items: start;
+  padding: var(--space-standard);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-alt);
+}
+
+.record-media__confirm > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-compact);
+}
+
+.record-media__preview {
+  display: grid;
+  gap: var(--space-standard);
+  padding: var(--space-section);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-alt);
+}
+
+.record-media__preview > header {
+  display: flex;
+  gap: var(--space-standard);
+  align-items: start;
+  justify-content: space-between;
+}
+
+.record-media__preview > header > div {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-tight);
+}
+
+.record-media__preview :is(img, video) {
+  width: 100%;
+  max-height: min(60vh, 38rem);
+  border-radius: var(--radius-card);
+  background: var(--color-page);
+  object-fit: contain;
+}
+
+.record-media__preview audio {
+  width: 100%;
+}
+
+@media (max-width: 680px) {
+  .record-media__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .record-media__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .record-media__header > button {
+    align-self: start;
+  }
+}
+
+/*
  * Record Markdown editor. Lexical owns the live visual document and the
  * feature boundary serialises that state to Markdown without exposing source
  * punctuation to the writer.

@@ -4,6 +4,7 @@ import type {
   LifeArchiveClient,
   OrdinaryConflictState,
   OrdinaryTarget,
+  Revision,
   StructuredSummary,
   TimeWindow,
 } from '../../../core/client'
@@ -55,6 +56,10 @@ interface SaveView {
   readonly status: EditorSaveStatus
   readonly failure: ClientFailure | null
   readonly conflict: OrdinaryConflictState | null
+  readonly mediaOwner: {
+    readonly id: Extract<OrdinaryTarget, { expectation: 'existing' }>['entryId']
+    readonly revision: Revision
+  } | null
 }
 
 const AUTOSAVE_DELAY_MS = 500
@@ -113,6 +118,7 @@ export function useEditorDocument(
     status: 'unavailable',
     failure: null,
     conflict: null,
+    mediaOwner: null,
   })
   const { register } = useRecordDraftSession()
 
@@ -125,6 +131,13 @@ export function useEditorDocument(
       status: cached.saveStatus,
       failure: cached.saveFailure,
       conflict: cached.conflict?.current ?? null,
+      mediaOwner:
+        cached.target?.expectation === 'existing'
+          ? {
+              id: cached.target.entryId,
+              revision: cached.target.expectedRevision,
+            }
+          : null,
     })
   }, [])
 
@@ -537,6 +550,20 @@ export function useEditorDocument(
     refresh(key)
   }, [key, refresh])
 
+  const adoptMediaRevision = useCallback(
+    (revision: Revision) => {
+      if (!key) return
+      const cached = cache.current.get(key)
+      if (cached?.target?.expectation !== 'existing') return
+      cached.target = {
+        ...cached.target,
+        expectedRevision: revision,
+      }
+      refresh(key)
+    },
+    [key, refresh],
+  )
+
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -565,5 +592,7 @@ export function useEditorDocument(
     saveStatus,
     saveFailure: saveView.key === key ? saveView.failure : null,
     conflict: saveView.key === key ? saveView.conflict : null,
+    mediaOwner: saveView.key === key ? saveView.mediaOwner : null,
+    adoptMediaRevision,
   }
 }
