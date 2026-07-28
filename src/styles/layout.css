@@ -1399,13 +1399,39 @@
   border-top: var(--border-hairline) solid var(--border-subtle);
 }
 
-.record-objects__row {
+.record-objects__groups {
+  display: grid;
+  gap: var(--space-section);
+}
+
+.record-objects__group {
   display: grid;
   gap: var(--space-compact);
 }
 
+.record-objects__group-title {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-meta);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-meta);
+  text-transform: uppercase;
+}
+
+.record-objects__group-items {
+  display: grid;
+  gap: var(--space-tight);
+}
+
+.record-objects__empty {
+  padding: var(--space-tight);
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-meta);
+  text-align: center;
+}
+
 .record-objects__tab,
-.record-objects__picker-toggle,
 .record-objects__add {
   display: grid;
   width: 100%;
@@ -1420,11 +1446,26 @@
   text-align: start;
 }
 
-.record-objects__tab-kind {
-  color: var(--color-text-secondary);
-  font-size: var(--text-meta);
-  letter-spacing: var(--tracking-meta);
-  text-transform: uppercase;
+.record-objects__tab:not(.record-objects__tab--ordinary) {
+  grid-template-columns: var(--size-control-compact) minmax(0, 1fr);
+  gap: var(--space-compact);
+  align-items: center;
+}
+
+.record-objects__icon {
+  display: grid;
+  width: var(--size-control-compact);
+  height: var(--size-control-compact);
+  place-items: center;
+  border: var(--border-hairline) solid var(--border-subtle);
+  border-radius: 50%;
+  color: currentColor;
+}
+
+.record-objects__tab-copy {
+  display: grid;
+  min-width: 0;
+  gap: calc(var(--space-tight) / 2);
 }
 
 .record-objects__tab-title {
@@ -1435,70 +1476,35 @@
   white-space: nowrap;
 }
 
+.record-objects__tab-when {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--text-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Selection is a fill plus `aria-pressed`, never the accent colour alone. */
-.record-objects__tab[aria-pressed='true'],
-.record-objects__picker-toggle[aria-pressed='true'] {
+.record-objects__tab[aria-pressed='true'] {
   border-color: transparent;
   background: var(--color-accent);
   color: var(--color-on-accent);
   font-weight: var(--weight-medium);
 }
 
-.record-objects__tab[aria-pressed='true'] .record-objects__tab-kind {
+.record-objects__tab[aria-pressed='true'] .record-objects__tab-when {
   color: var(--color-on-accent);
 }
 
-/*
- * A control that is present but cannot act yet. It keeps its place and its
- * focusability — its description says why — and is dimmed rather than removed,
- * so the row a reader learns is the row that will keep working.
- */
-.record-objects__add[aria-disabled='true'] {
+.record-objects__add {
   border-style: dashed;
   color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.record-objects__add:disabled {
   cursor: default;
   opacity: var(--opacity-disabled);
-}
-
-.record-objects__picker {
-  display: grid;
-  gap: var(--space-section);
-  padding: var(--space-card-padding);
-  border: var(--border-hairline) solid var(--border-muted);
-  border-radius: var(--radius-card);
-  background: var(--color-surface);
-}
-
-.record-objects__group {
-  display: grid;
-  gap: var(--space-compact);
-}
-
-.record-objects__list {
-  display: grid;
-  padding: 0;
-  margin: 0;
-  gap: var(--space-tight);
-  list-style: none;
-}
-
-.record-objects__choice {
-  display: grid;
-  width: 100%;
-  min-height: var(--size-tap-target);
-  align-content: center;
-  padding: var(--space-tight) var(--space-standard);
-  border: var(--border-hairline) solid var(--border-subtle);
-  border-radius: var(--radius-small);
-  background: var(--color-surface-alt);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  gap: var(--space-tight);
-  text-align: start;
-}
-
-.record-objects__choice-when {
-  color: var(--color-text-secondary);
 }
 
 .record-objects__notice,
@@ -1537,7 +1543,7 @@
   height: 100%;
   min-height: 0;
   align-content: start;
-  gap: var(--space-compact);
+  gap: 0;
   padding: var(--space-card-padding);
   border: var(--border-hairline) solid var(--border-muted);
   border-radius: var(--radius-panel);
@@ -1559,8 +1565,108 @@
   }
 }
 
-.record-details > h2 {
+.record-details__head {
+  display: flex;
+  align-items: center;
+  min-height: var(--size-control-featured);
+  padding-bottom: var(--space-section);
+}
+
+.record-details__head > h2 {
   margin: 0;
+}
+
+.record-details__section {
+  display: grid;
+  gap: var(--space-standard);
+  padding: var(--space-section) 0;
+  border-bottom: var(--border-hairline) solid var(--border-subtle);
+}
+
+.record-details__section > h3,
+.record-details__value,
+.record-details__hint,
+.record-details__failure,
+.record-details__delete-confirm > p {
+  margin: 0;
+}
+
+.record-details__value {
+  font-size: var(--text-ui);
+}
+
+.record-details__field {
+  display: grid;
+  gap: var(--space-tight);
+}
+
+.record-details__field > span:first-child {
+  color: var(--color-text-secondary);
+}
+
+.record-details__field input {
+  width: 100%;
+  min-height: var(--size-control-compact);
+  padding: 0 var(--space-standard);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-alt);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.record-details__field input[aria-invalid='true'] {
+  border-color: var(--color-destructive);
+}
+
+.record-details__identity {
+  display: grid;
+  grid-template-columns: var(--size-control-compact) minmax(0, 1fr);
+  gap: var(--space-tight);
+}
+
+.record-details__icon {
+  display: grid;
+  width: var(--size-control-compact);
+  height: var(--size-control-compact);
+  place-items: center;
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-alt);
+}
+
+.record-details__hint,
+.record-details__failure {
+  color: var(--color-text-secondary);
+}
+
+.record-details__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-compact);
+}
+
+.record-details__delete,
+.record-details__delete-confirm {
+  margin-top: auto;
+}
+
+.record-details__delete {
+  width: 100%;
+  min-height: var(--size-control-compact);
+  border: var(--border-hairline) solid
+    color-mix(in srgb, var(--color-destructive) 32%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-destructive) 7%, transparent);
+  color: var(--color-destructive);
+  cursor: pointer;
+}
+
+.record-details__delete-confirm {
+  display: grid;
+  gap: var(--space-standard);
+  padding-top: var(--space-section);
+  color: var(--color-text-secondary);
 }
 
 .record-details__facts {

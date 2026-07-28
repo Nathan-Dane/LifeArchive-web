@@ -16,6 +16,7 @@ import { useId } from 'react'
 import type { TimeScale, TimeWindow } from '../../../core/client'
 import { useFormat, useLocalisation } from '../../../i18n'
 import { civilLocation } from '../civilLocation'
+import { EventDetails, type EventEditor } from '../events'
 import { objectWhen } from './objectNames'
 import type { RecordObjects } from './recordObjects'
 
@@ -30,12 +31,14 @@ export interface RecordObjectDetailsProps {
   readonly scale: TimeScale
   readonly window: TimeWindow | null
   readonly objects: RecordObjects
+  readonly event?: EventEditor
 }
 
 export function RecordObjectDetails({
   scale,
   window,
   objects,
+  event,
 }: RecordObjectDetailsProps) {
   const localisation = useLocalisation()
   const t = localisation.t
@@ -43,45 +46,36 @@ export function RecordObjectDetails({
   const headingId = useId()
   const selected = objects.state.selected
 
+  if (event && (event.creating || selected?.placement.kind === 'event')) {
+    return <EventDetails event={event} />
+  }
+
   return (
     <section className="record-details" aria-labelledby={headingId}>
-      <p className="eyebrow">
-        {t(
-          selected === null
-            ? 'record.objects.detailsOrdinary'
-            : selected.placement.kind === 'event'
-              ? 'record.objects.kindEvent'
-              : 'record.objects.kindSpan',
-        )}
-      </p>
-      <h2 id={headingId} className="title">
-        {selected === null ? t(SCALE_LABEL[scale]) : selected.title}
-      </h2>
-      <dl className="record-details__facts">
-        <div className="record-details__fact">
-          <dt className="meta-text">{t('record.objects.detailsWhen')}</dt>
-          <dd>
-            {selected === null
-              ? window
-                ? civilLocation(format, window)
-                : t('record.objects.detailsNoWindow')
-              : objectWhen(localisation, format, selected)}
-          </dd>
-        </div>
+      <header className="record-details__head">
+        <h2 id={headingId} className="title">
+          {t('record.details.title')}
+        </h2>
+      </header>
+      <section className="record-details__section">
+        <h3 className="eyebrow">{t('record.details.identity')}</h3>
+        <p className="record-details__value">
+          {selected === null ? t(SCALE_LABEL[scale]) : selected.title}
+        </p>
         {selected === null ? null : (
-          <div className="record-details__fact">
-            <dt className="meta-text">
-              {t('record.objects.detailsIdentifier')}
-            </dt>
-            {/*
-              The exact stable ID, unmodified. It is the only thing that tells
-              two objects with the same title and date apart, so it is shown as
-              the core spelled it rather than shortened or re-cased.
-            */}
-            <dd className="record-details__identifier">{selected.id}</dd>
-          </div>
+          <p className="record-details__identifier">{selected.id}</p>
         )}
-      </dl>
+      </section>
+      <section className="record-details__section">
+        <h3 className="eyebrow">{t('record.details.time')}</h3>
+        <p className="record-details__value">
+          {selected === null
+            ? window
+              ? civilLocation(format, window)
+              : t('record.objects.detailsNoWindow')
+            : objectWhen(localisation, format, selected)}
+        </p>
+      </section>
     </section>
   )
 }

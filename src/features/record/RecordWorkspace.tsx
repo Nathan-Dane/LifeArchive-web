@@ -9,6 +9,7 @@
 
 import { useMemo, type ReactNode } from 'react'
 import type { LifeArchiveClient } from '../../core/client'
+import { useEventEditor } from './events'
 import { RecordNavigationPanel } from './navigation/RecordNavigationPanel'
 import {
   useTemporalCursor,
@@ -70,6 +71,23 @@ export function RecordDestinationProvider({
     window: settled ? (cursor.state.view?.window ?? null) : null,
     goTo: rawCursor.goTo,
   })
+  const rawEvents = useEventEditor(client, {
+    selected: rawObjects.state.selected,
+    developmentMock,
+    register: draftSession.register,
+    onCreated: rawObjects.selectCreated,
+    onChanged: rawObjects.replaceObject,
+    onDeleted: rawObjects.removeObject,
+    refreshObjects: rawObjects.retry,
+  })
+  const events = useMemo(
+    () => ({
+      ...rawEvents,
+      startCreate: (date: Parameters<typeof rawEvents.startCreate>[0]) =>
+        guard(() => rawEvents.startCreate(date)),
+    }),
+    [guard, rawEvents],
+  )
   const objects = useMemo(
     () => ({
       ...rawObjects,
@@ -86,7 +104,7 @@ export function RecordDestinationProvider({
       value={{ register: draftSession.register }}
     >
       <RecordDestinationContext.Provider
-        value={{ client, developmentMock, cursor, objects }}
+        value={{ client, developmentMock, cursor, objects, events }}
       >
         {children}
       </RecordDestinationContext.Provider>
@@ -96,7 +114,7 @@ export function RecordDestinationProvider({
 
 /** Record's leading workspace region: where in time and what is selected. */
 export function RecordNavigationRegion() {
-  const { cursor, objects } = useRecordDestination()
+  const { cursor, objects, events } = useRecordDestination()
   return (
     <div className="record-navigation-region">
       <RecordNavigationPanel cursor={cursor} />
@@ -104,6 +122,11 @@ export function RecordNavigationRegion() {
         scale={cursor.state.scale}
         window={cursor.state.view?.window ?? null}
         objects={objects}
+        creatingEvent={events.creating}
+        onCreateEvent={() => {
+          const date = cursor.state.view?.calendar.focusedDate
+          if (date) events.startCreate(date)
+        }}
       />
     </div>
   )
@@ -111,12 +134,13 @@ export function RecordNavigationRegion() {
 
 /** Record's trailing workspace region: what is selected. */
 export function RecordDetailsRegion() {
-  const { cursor, objects } = useRecordDestination()
+  const { cursor, objects, events } = useRecordDestination()
   return (
     <RecordObjectDetails
       scale={cursor.state.scale}
       window={cursor.state.view?.window ?? null}
       objects={objects}
+      event={events}
     />
   )
 }
