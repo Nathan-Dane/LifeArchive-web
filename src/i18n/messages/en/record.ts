@@ -196,6 +196,64 @@ export const recordMessages = {
   'record.span.status.missing': 'This Span is no longer available.',
   'record.span.status.mock':
     'Development preview. Changes remain in this tab only.',
+
+  /* Track management, mixed-member capture, and membership chooser. */
+  'record.track.heading': 'Tracks',
+  'record.track.new': 'New Track',
+  'record.track.showArchived': 'Show archived Tracks',
+  'record.track.empty': 'No Tracks',
+  'record.track.memberCount': {
+    one: '{count} member',
+    other: '{count} members',
+  },
+  'record.track.archived': 'Archived',
+  'record.track.none': 'Not in a Track',
+  'record.track.createHeading': 'New Track',
+  'record.track.editHeading': 'Track details',
+  'record.track.name': 'Name',
+  'record.track.icon': 'Semantic icon',
+  'record.track.suggestedTag': 'Tag for new items',
+  'record.track.noSuggestedTag': 'No suggested tag',
+  'record.track.createWithFirst': 'Create with a first member',
+  'record.track.create': 'Create Track',
+  'record.track.createAtomically': 'Create Track and member',
+  'record.track.save': 'Save Track',
+  'record.track.addMember': 'Create member in this Track',
+  'record.track.createMember': 'Create member',
+  'record.track.memberDetails': 'New member',
+  'record.track.memberKind': 'Kind',
+  'record.track.memberTitle': 'Title',
+  'record.track.memberWriting': 'Writing',
+  'record.track.suggestedTagMayApply':
+    'The Track suggestion will apply unless tag state is supplied',
+  'record.track.useNoTags': 'Use no tags',
+  'record.track.history': 'Track history',
+  'record.track.historyEmpty': 'No members in this Track.',
+  'record.track.markerPreview': 'Markers: {titles}',
+  'record.track.loadMore': 'Load more members',
+  'record.track.delete': 'Delete Track',
+  'record.track.deleteEmpty':
+    'Delete this empty Track? This does not delete any Event or Span.',
+  'record.track.deletePopulated': {
+    one: 'Delete this Track and detach its one member? The Event or Span, including all its writing and metadata, will remain in the archive.',
+    other:
+      'Delete this Track and detach its {count} members? The Events and Spans, including all their writing and metadata, will remain in the archive.',
+  },
+  'record.track.detachConfirm':
+    'Detach every member without deleting any Event or Span',
+  'record.track.confirmDelete': 'Delete Track',
+  'record.track.failureDraftKept': 'The complete Track draft remains here.',
+  'record.track.conflictTitle': 'The Track changed in the archive',
+  'record.track.conflictDetail':
+    'Your complete Track draft remains here. Choose which version to continue with.',
+  'record.track.saveMine': 'Save my Track',
+  'record.track.useArchive': 'Use archive Track',
+  'record.track.retryCreate': 'Try again with a new identity',
+  'record.track.memberConflictTitle':
+    'The Track or member changed in the archive',
+  'record.track.memberConflictDetail':
+    'The complete new-member draft remains here. Refresh its Track context, then try creating it again.',
+  'record.track.refreshAndRetry': 'Refresh Track context',
   'record.icon.fallbackGlyph': '?',
 
   /* Markdown writing surface. Mock mode never makes a durability claim. */

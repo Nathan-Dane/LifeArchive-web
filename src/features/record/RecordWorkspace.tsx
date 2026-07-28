@@ -27,6 +27,7 @@ import {
   RecordDraftSessionContext,
   useRecordDraftSessionGuard,
 } from './recordDraftSession'
+import { TrackNavigation, useTracks } from './tracks'
 
 export interface RecordDestinationProviderProps {
   readonly client: LifeArchiveClient
@@ -72,6 +73,11 @@ export function RecordDestinationProvider({
     window: settled ? (cursor.state.view?.window ?? null) : null,
     goTo: rawCursor.goTo,
   })
+  const rawTracks = useTracks(client, {
+    developmentMock,
+    onMemberCreated: rawObjects.selectCreated,
+    refreshObjects: rawObjects.retry,
+  })
   const rawEvents = useEventEditor(client, {
     selected: rawObjects.state.selected,
     developmentMock,
@@ -106,23 +112,51 @@ export function RecordDestinationProvider({
     }),
     [guard, rawSpans],
   )
+  const tracks = useMemo(
+    () => ({
+      ...rawTracks,
+      select: (summary: Parameters<typeof rawTracks.select>[0]) =>
+        guard(() => rawTracks.select(summary)),
+      startCreate: (date: Parameters<typeof rawTracks.startCreate>[0]) =>
+        guard(() => rawTracks.startCreate(date)),
+    }),
+    [guard, rawTracks],
+  )
   const objects = useMemo(
     () => ({
       ...rawObjects,
-      selectOrdinary: () => guard(rawObjects.selectOrdinary),
+      selectOrdinary: () =>
+        guard(() => {
+          rawTracks.clearSelection()
+          rawObjects.selectOrdinary()
+        }),
       selectObject: (object: Parameters<typeof rawObjects.selectObject>[0]) =>
-        guard(() => rawObjects.selectObject(object)),
+        guard(() => {
+          rawTracks.clearSelection()
+          rawObjects.selectObject(object)
+        }),
       goToObject: (object: Parameters<typeof rawObjects.goToObject>[0]) =>
-        guard(() => rawObjects.goToObject(object)),
+        guard(() => {
+          rawTracks.clearSelection()
+          rawObjects.goToObject(object)
+        }),
     }),
-    [guard, rawObjects],
+    [guard, rawObjects, rawTracks],
   )
   return (
     <RecordDraftSessionContext.Provider
       value={{ register: draftSession.register }}
     >
       <RecordDestinationContext.Provider
-        value={{ client, developmentMock, cursor, objects, events, spans }}
+        value={{
+          client,
+          developmentMock,
+          cursor,
+          objects,
+          events,
+          spans,
+          tracks,
+        }}
       >
         {children}
       </RecordDestinationContext.Provider>
@@ -132,7 +166,8 @@ export function RecordDestinationProvider({
 
 /** Record's leading workspace region: where in time and what is selected. */
 export function RecordNavigationRegion() {
-  const { cursor, objects, events, spans } = useRecordDestination()
+  const { cursor, objects, events, spans, tracks } = useRecordDestination()
+  const date = cursor.state.view?.calendar.focusedDate ?? null
   return (
     <div className="record-navigation-region">
       <RecordNavigationPanel cursor={cursor} />
@@ -143,28 +178,35 @@ export function RecordNavigationRegion() {
         creatingEvent={events.creating}
         creatingSpan={spans.creating}
         onCreateEvent={() => {
-          const date = cursor.state.view?.calendar.focusedDate
-          if (date) events.startCreate(date)
+          if (date) {
+            tracks.clearSelection()
+            events.startCreate(date)
+          }
         }}
         onCreateSpan={() => {
-          const date = cursor.state.view?.calendar.focusedDate
-          if (date) spans.startCreate(date)
+          if (date) {
+            tracks.clearSelection()
+            spans.startCreate(date)
+          }
         }}
       />
+      <TrackNavigation tracks={tracks} date={date} />
     </div>
   )
 }
 
 /** Record's trailing workspace region: what is selected. */
 export function RecordDetailsRegion() {
-  const { cursor, objects, events, spans } = useRecordDestination()
+  const { cursor, objects, events, spans, tracks } = useRecordDestination()
   return (
     <RecordObjectDetails
       scale={cursor.state.scale}
       window={cursor.state.view?.window ?? null}
+      date={cursor.state.view?.calendar.focusedDate ?? null}
       objects={objects}
       event={events}
       span={spans}
+      tracks={tracks}
     />
   )
 }
