@@ -19,7 +19,7 @@ const payloadNames = [
 
 const ACCEPTED_BROWSER: BrowserAdmissionEnvironment = {
   engine: 'chromium',
-  majorVersion: 151,
+  majorVersion: 137,
   deviceClass: 'desktop',
   storageMode: 'regular',
 }
