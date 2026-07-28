@@ -6,14 +6,15 @@ const ENABLED = process.env.LIFEARCHIVE_LOCAL_RUNTIME_E2E === '1'
 /**
  * Opt-in, machine-local development evidence only.
  *
- * The ignored runtime/installed receipt may come from a licensed local sibling
- * workspace. It is not part of this public checkout, does not change the
- * production lock, and cannot establish reproducible production acceptance.
+ * Vite proxies only the immutable path from the production runtime pin through
+ * the local origin. The browser still verifies the whole artifact, manifest,
+ * and payloads before instantiation. This does not change the production lock
+ * or establish reproducible production acceptance.
  */
 test.describe('verified local development runtime', () => {
   test.skip(
     !ENABLED,
-    'set LIFEARCHIVE_LOCAL_RUNTIME_E2E=1 after installing a verified local runtime',
+    'set LIFEARCHIVE_LOCAL_RUNTIME_E2E=1 to exercise the pinned runtime through Vite',
   )
 
   test('instantiates and negotiates before exposing first run', async ({

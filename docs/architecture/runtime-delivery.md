@@ -3,8 +3,7 @@
 How the compiled LifeArchive runtime reaches this repository, how it is pinned
 and verified, how it is loaded, and how it behaves when it is missing.
 
-Nothing described here is integrated yet. `runtime/runtime.lock.json` currently
-records `"status": "not-integrated"`.
+Runtime 0.1.0 is integrated and pinned in `runtime/runtime.lock.json`.
 
 ## Artifact contents
 
@@ -45,8 +44,8 @@ The artifact is verified against `sha256` before it is used:
 - at fetch time, by the script that downloads it — a mismatch aborts and leaves
   nothing installed;
 - in CI, before any job that depends on the runtime;
-- optionally at load time in the worker, where the platform makes the bytes
-  available for hashing.
+- at browser load before archive extraction, compatibility checks, or worker
+  startup.
 
 An unverified artifact is never loaded, and a checksum mismatch is a hard
 failure. There is no "continue anyway" path.
@@ -144,6 +143,19 @@ Development, tests, and previews may select a mock client implementing the same
 - development-only — excluded from production builds;
 - policy-free — it returns fixed values or records calls; it does not
   reimplement Rust-owned behaviour.
+
+## Development runtime acquisition
+
+A pinned development build keeps the production artifact's exact versioned
+path but resolves it against the current Vite origin. Vite proxies only that
+path to the HTTPS origin recorded in `runtime.lock.json`. This avoids widening
+the public artifact's CORS policy to arbitrary localhost ports.
+
+The proxy is transport only. The browser still rejects redirects and verifies
+the whole-artifact SHA-256, archive allowlist, manifest identity, per-file
+checksums, compatibility, and capability negotiation before starting the
+worker. Production builds do not contain or use the development proxy and
+continue to fetch the immutable URL from the lock directly.
 
 ## Update flow
 
