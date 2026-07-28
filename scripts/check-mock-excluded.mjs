@@ -19,6 +19,14 @@ const DEFAULT_ROOT = path.resolve(import.meta.dirname, '..')
 
 /** Must stay identical to `DEVELOPMENT_MOCK_MARKER` in the mock module. */
 const DEVELOPMENT_MOCK_MARKER = 'lifearchive:development-mock:v1'
+const LOCAL_RUNTIME_SOURCE_MARKER = 'lifearchive:local-runtime-source:v1'
+const DEVELOPMENT_RUNTIME_FRAGMENTS = [
+  DEVELOPMENT_MOCK_MARKER,
+  LOCAL_RUNTIME_SOURCE_MARKER,
+  'local-runtime.json',
+  '/runtime/installed/',
+  'local-runtime=',
+]
 const TEXT_EXTENSIONS = new Set([
   '.css',
   '.html',
@@ -139,8 +147,10 @@ export function inspectProductionArtifact({
     }
     if (!TEXT_EXTENSIONS.has(extension)) continue
     const text = readFileSync(file, 'utf8')
-    if (text.includes(DEVELOPMENT_MOCK_MARKER)) {
-      offenders.push(`${relative} (contains ${DEVELOPMENT_MOCK_MARKER})`)
+    for (const fragment of DEVELOPMENT_RUNTIME_FRAGMENTS) {
+      if (text.includes(fragment)) {
+        offenders.push(`${relative} (contains development-only ${fragment})`)
+      }
     }
     if (/sourceMappingURL\s*=/.test(text)) {
       offenders.push(`${relative} (references a source map)`)
@@ -200,7 +210,7 @@ function main() {
     `production-artifact: ${result.files.length} files checked; ${result.scripts.length} hashed script(s), app ${result.appVersion}, runtime ${result.runtimeStatus}${result.runtimeVersion ? ` ${result.runtimeVersion}` : ''}.`,
   )
   console.log(
-    'production-artifact: no mocks, fixtures, source maps, runtime payloads, or archive material found.',
+    'production-artifact: no mock/local development modes, fixtures, source maps, runtime payloads, or archive material found.',
   )
 }
 

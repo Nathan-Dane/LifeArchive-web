@@ -146,7 +146,19 @@ Development, tests, and previews may select a mock client implementing the same
 
 ## Development runtime acquisition
 
-A pinned development build keeps the production artifact's exact versioned
+Development has exactly three source selections:
+
+- absent `VITE_LIFEARCHIVE_CLIENT` selects the hosted artifact pinned by
+  `runtime/runtime.lock.json`;
+- `VITE_LIFEARCHIVE_CLIENT=development-mock` dynamically loads the visible,
+  non-durable fixed mock;
+- `VITE_LIFEARCHIVE_CLIENT=local-runtime` requires a verified local receipt and
+  artifact installed by `pnpm runtime:install-local`.
+
+Any other development value is an error. Runtime failure never changes the
+selection, and there is no fallback edge between the three sources.
+
+The hosted development path keeps the production artifact's exact versioned
 path but resolves it against the current Vite origin. Vite proxies only that
 path to the HTTPS origin recorded in `runtime.lock.json`. This avoids widening
 the public artifact's CORS policy to arbitrary localhost ports.
@@ -156,6 +168,23 @@ the whole-artifact SHA-256, archive allowlist, manifest identity, per-file
 checksums, compatibility, and capability negotiation before starting the
 worker. Production builds do not contain or use the development proxy and
 continue to fetch the immutable URL from the lock directly.
+
+The local installer consumes an already packaged artifact plus its exact
+checksum sidecar. It verifies the sidecar, archive allowlist, manifest identity,
+frontend contract and ABI, ordered capability inventory, and every payload
+hash before atomically writing ignored material under `runtime/installed/`.
+The receipt contains its own exact lock and artifact filename. The browser
+loads that artifact through a checksum-qualified same-origin URL and then uses
+the same verification and negotiation path as hosted bytes.
+
+Local selection never edits or depends on the tracked production lock. A
+missing, stale, malformed, or incompatible receipt or artifact fails as local
+runtime selection; it does not try the hosted pin or the mock. A changed
+checksum changes the artifact URL and verification-cache identity.
+
+Production ignores `VITE_LIFEARCHIVE_CLIENT` and always selects the tracked
+pin. Mock code, the local resolver, receipts, and installed artifacts are
+excluded from production output.
 
 ## Update flow
 

@@ -2,8 +2,9 @@
 
 interface ImportMetaEnv {
   /**
-   * The explicit development client selection. Only `development-mock` selects
-   * the non-durable development client, and only in a development build.
+   * The explicit development client selection. Absence selects the tracked
+   * hosted pin; `development-mock` and `local-runtime` are the only accepted
+   * development values. Production always selects the hosted pin.
    */
   readonly VITE_LIFEARCHIVE_CLIENT?: string
 }
