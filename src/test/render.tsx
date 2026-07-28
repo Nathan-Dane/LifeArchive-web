@@ -1,4 +1,5 @@
 import { render, type RenderResult } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import type { AppBootstrap } from '../core/bootstrap'
 import { AppShell } from '../app/AppShell'
@@ -10,6 +11,12 @@ import { TestLifeArchiveClient } from './TestLifeArchiveClient'
 export interface RenderAppOptions {
   /** The locale for dates, numbers, and plurals. Copy stays English. */
   readonly locale?: string
+  /**
+   * Rendered inside the router, beside the application. For tests that watch
+   * the location itself — a feature that puts an exact identifier in the URL
+   * has to be checked against the URL, not only against what it draws.
+   */
+  readonly within?: ReactNode
 }
 
 /**
@@ -35,7 +42,7 @@ export function renderAppAt(
     }).client,
     developmentMock: true,
   }),
-  { locale }: RenderAppOptions = {},
+  { locale, within }: RenderAppOptions = {},
 ): RenderResult {
   return render(
     <I18nProvider locale={locale}>
@@ -43,6 +50,7 @@ export function renderAppAt(
         <AppStateProvider bootstrap={bootstrap}>
           <AppShell />
         </AppStateProvider>
+        {within}
       </MemoryRouter>
     </I18nProvider>,
   )

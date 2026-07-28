@@ -63,6 +63,12 @@ export interface TemporalCursorState {
   readonly expanded: boolean
 }
 
+/** One cursor position: a scale and the civil location read at that scale. */
+export interface TemporalDestination {
+  readonly scale: TimeScale
+  readonly anchor: CivilDate
+}
+
 export interface TemporalCursor {
   readonly state: TemporalCursorState
   /** Views the same civil location at another scale. */
@@ -73,6 +79,15 @@ export interface TemporalCursor {
   readonly goToToday: () => void
   /** Moves to a civil date the core placed in the calendar. */
   readonly selectDate: (date: CivilDate) => void
+  /**
+   * Moves scale and civil location together, as one cursor position.
+   *
+   * A handoff — an object chosen at a broader scale, a notice pointing at an
+   * object's own dates — lands somewhere the reader did not step to, and both
+   * halves of that landing are one move. Setting them separately would ask the
+   * core about an intermediate position nobody asked to see.
+   */
+  readonly goTo: (destination: TemporalDestination) => void
   readonly setExpanded: (expanded: boolean) => void
   readonly retry: () => void
 }
@@ -183,6 +198,14 @@ export function useTemporalCursor(
     )
   }, [])
 
+  const goTo = useCallback(({ scale, anchor }: TemporalDestination) => {
+    setTarget((current) =>
+      current.scale === scale && current.anchor === anchor
+        ? current
+        : { scale, anchor, load: current.load + 1 },
+    )
+  }, [])
+
   const goToToday = useCallback(() => {
     const observed = device.today()
     setToday(observed)
@@ -239,6 +262,7 @@ export function useTemporalCursor(
     step,
     goToToday,
     selectDate,
+    goTo,
     setExpanded,
     retry,
   }
