@@ -40,8 +40,15 @@ const MAIN_ROUTES = [
       navigation: <RecordNavigationRegion />,
       details: <RecordDetailsRegion />,
     }),
-    surround: (client: LifeArchiveClient, workspace: ReactNode) => (
-      <RecordDestinationProvider client={client}>
+    surround: (
+      client: LifeArchiveClient,
+      workspace: ReactNode,
+      developmentMock: boolean,
+    ) => (
+      <RecordDestinationProvider
+        client={client}
+        developmentMock={developmentMock}
+      >
         {workspace}
       </RecordDestinationProvider>
     ),
@@ -106,9 +113,11 @@ function routeElement(element: React.ReactNode) {
 export function AppRoutes({
   client,
   inert = false,
+  developmentMock = false,
 }: {
   readonly client: LifeArchiveClient
   readonly inert?: boolean
+  readonly developmentMock?: boolean
 }) {
   const { pathname } = useLocation()
   const matched = MAIN_ROUTES.find((route) => route.path === pathname)
@@ -140,6 +149,6 @@ export function AppRoutes({
   )
 
   return matched && 'surround' in matched
-    ? matched.surround(client, workspace)
+    ? matched.surround(client, workspace, developmentMock)
     : workspace
 }

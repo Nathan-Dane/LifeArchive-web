@@ -9,6 +9,7 @@ import {
   stableId,
   type LifeArchiveClient,
   type OrdinaryEntryState,
+  type OrdinarySaveResult,
 } from '../../../core/client'
 import { I18nProvider } from '../../../i18n'
 import { TestLifeArchiveClient } from '../../../test/TestLifeArchiveClient'
@@ -73,6 +74,7 @@ function editor(source: string) {
         client={client([ok(entry(source))])}
         window={WINDOW}
         selected={null}
+        developmentMock
       />
     </I18nProvider>,
   )
@@ -308,6 +310,115 @@ describe('MarkdownEditor', () => {
       .click(screen.getByRole('button', { name: 'Try reading again' }))
     await waitFor(() => expect(textbox).toHaveTextContent('local draft'))
     expect(textbox).not.toHaveTextContent('recovered')
+  })
+
+  it('saves exact existing ordinary writing with its loaded revision', async () => {
+    const source = 'Café\u00a0  text\n\n日本語\tremains'
+    const loaded = entry(source)
+    if (loaded.presence !== 'present') throw new Error('Expected entry')
+    const savedEntry = {
+      ...loaded.entry,
+      revision: revision('3'),
+      markdown: source,
+    }
+    const save = vi.fn<LifeArchiveClient['record']['save']>(async () =>
+      ok<OrdinarySaveResult>({
+        outcome: 'unchanged',
+        entry: savedEntry,
+        invalidation: {
+          ...INVALIDATION,
+          revision: revision('2'),
+        },
+      }),
+    )
+    const base = client([ok(loaded)])
+    const realClient: LifeArchiveClient = {
+      ...base,
+      record: { ...base.record, save },
+    }
+
+    render(
+      <I18nProvider locale="en">
+        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+      </I18nProvider>,
+    )
+    await screen.findByRole('textbox', { name: 'Writing editor' })
+    await screen.findByText('Ready to save.')
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Save writing' }))
+
+    await screen.findByText('Saved.')
+    expect(save).toHaveBeenCalledWith({
+      window: WINDOW,
+      markdown: source,
+      nowMs: expect.any(Number),
+      target: {
+        expectation: 'existing',
+        entryId: loaded.entry.id,
+        expectedRevision: loaded.entry.revision,
+      },
+    })
+  })
+
+  it('does not create an absent ordinary entry until edited writing is saved', async () => {
+    const absent: OrdinaryEntryState = {
+      presence: 'absent',
+      window: WINDOW,
+      invalidation: INVALIDATION,
+    }
+    const base = client([ok(absent)])
+    const save = vi.fn<LifeArchiveClient['record']['save']>(async (request) =>
+      ok<OrdinarySaveResult>({
+        outcome: 'created',
+        entry: {
+          id:
+            request.target.expectation === 'absent'
+              ? request.target.newEntryId
+              : request.target.entryId,
+          revision: revision('1'),
+          window: WINDOW,
+          markdown: request.markdown,
+          plainText: request.markdown,
+          createdAtMs: request.nowMs,
+          updatedAtMs: request.nowMs,
+          isPinned: false,
+          privacy: 'normal',
+          source: 'manual',
+        },
+        invalidation: {
+          ...INVALIDATION,
+          revision: revision('2'),
+        },
+      }),
+    )
+    const realClient: LifeArchiveClient = {
+      ...base,
+      record: { ...base.record, save },
+    }
+    const user = userEvent.setup()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await screen.findByText('Ready to save.')
+    expect(save).not.toHaveBeenCalled()
+
+    await user.click(textbox)
+    await user.paste('Café 日本語')
+    await screen.findByText('Unsaved changes.')
+    await user.click(screen.getByRole('button', { name: 'Save writing' }))
+
+    await screen.findByText('Saved.')
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(save.mock.calls[0]?.[0]).toMatchObject({
+      markdown: 'Café 日本語',
+      target: { expectation: 'absent' },
+    })
   })
 
   it('renders HTML and unsafe links only as editable text', async () => {

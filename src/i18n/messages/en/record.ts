@@ -111,6 +111,19 @@ export const recordMessages = {
   'record.editor.source': 'Writing editor',
   'record.editor.mockStatus':
     'Development preview. Changes remain in this tab only.',
+  'record.editor.status.unavailable': 'Writing is unavailable.',
+  'record.editor.status.mock':
+    'Development preview. Changes remain in this tab only.',
+  'record.editor.status.ready': 'Ready to save.',
+  'record.editor.status.dirty': 'Unsaved changes.',
+  'record.editor.status.saving': 'Saving…',
+  'record.editor.status.saved': 'Saved.',
+  'record.editor.status.failed': 'The save did not complete.',
+  'record.editor.status.conflicted':
+    'The save stopped because the archive changed.',
+  'record.editor.save': 'Save writing',
+  'record.editor.saveFailed':
+    'The save did not complete. The editor buffer was kept. {detail}',
   'record.editor.loading': 'Reading the selected writing.',
   'record.editor.loadFailed':
     'The selected writing could not be read. The editor buffer was kept. {detail}',

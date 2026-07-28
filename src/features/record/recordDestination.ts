@@ -21,6 +21,7 @@ import type { RecordObjects } from './objects/recordObjects'
 
 export interface RecordDestination {
   readonly client: LifeArchiveClient
+  readonly developmentMock: boolean
   readonly cursor: TemporalCursor
   readonly objects: RecordObjects
 }
