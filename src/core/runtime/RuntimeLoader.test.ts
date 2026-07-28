@@ -274,6 +274,7 @@ async function loaderFor(
     readonly corruptPayload?: boolean
     readonly createWorker?: () => Worker
     readonly secure?: boolean
+    readonly useDevelopmentArtifactProxy?: boolean
   } = {},
 ) {
   const fixed = await fixture({
@@ -291,10 +292,13 @@ async function loaderFor(
   const lock = change.lock ?? fixed.lock
   const worker = new NegotiatingWorker(fixed.manifest.capabilities)
   const fetches: { readonly url: string; readonly cache?: RequestCache }[] = []
+  const expectedArtifactUrl = change.useDevelopmentArtifactProxy
+    ? `https://app.example${new URL(fixed.lock.artifactUrl).pathname}`
+    : fixed.lock.artifactUrl
   const fetchImpl: typeof fetch = (input, init) => {
     const url = String(input)
     fetches.push({ url, cache: init?.cache })
-    if (url === fixed.lock.artifactUrl) {
+    if (url === expectedArtifactUrl) {
       if (change.artifactResponse instanceof Error) {
         return Promise.reject(change.artifactResponse)
       }
@@ -315,6 +319,7 @@ async function loaderFor(
     loader: new RuntimeLoader({
       lock,
       fetch: fetchImpl,
+      useDevelopmentArtifactProxy: change.useDevelopmentArtifactProxy,
       isSecureContext: change.secure ?? true,
       installedBaseUrl: 'https://app.example/runtime/installed/',
       createObjectUrl: () => {
@@ -403,6 +408,20 @@ describe('RuntimeLoader', () => {
       },
     })
     expect(revoked).toEqual(objectUrls)
+  })
+
+  it('loads the pinned artifact through the current development origin', async () => {
+    const { loader, fetches } = await loaderFor({
+      useDevelopmentArtifactProxy: true,
+    })
+
+    await expect(loader.load()).resolves.toMatchObject({ state: 'open' })
+    expect(fetches).toEqual([
+      {
+        url: 'https://app.example/lifearchive-runtime-web-0.1.0.tar.gz',
+        cache: 'no-store',
+      },
+    ])
   })
 
   it('reports unsupported and insecure environments before fetching', async () => {
