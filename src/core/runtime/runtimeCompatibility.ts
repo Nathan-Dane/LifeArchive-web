@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import webRuntimePolicy from '../../../runtime/web-runtime-policy.json'
 
 const exactVersion = /^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){0,2}$/
 const exactRuntimeVersion =
@@ -14,47 +15,9 @@ const bundlePathSchema = z
   .refine((value) => value.split('/').every((part) => part !== '.'))
   .refine((value) => value.split('/').every((part) => part !== '..'))
 
-export const WEB_V0_1_CAPABILITIES = [
-  ['product.describe', '5'],
-  ['archive.verify', '4'],
-  ['store.open', '5'],
-  ['store.close', '1'],
-  ['store.invalidation', '1'],
-  ['operation.cancel', '1'],
-  ['record.loadSpan', '1'],
-  ['record.saveDraft', '1'],
-  ['record.deleteEntry', '1'],
-  ['timeline.index', '4'],
-  ['timeline.focusedDetail', '1'],
-  ['media.listForEntry', '1'],
-  ['media.resolveContent', '1'],
-  ['media.import', '1'],
-  ['media.delete', '1'],
-  ['archive.overview', '5'],
-  ['archive.export', '5'],
-  ['archive.apply', '5'],
-  ['archive.erase', '2'],
-  ['record.listObjects', '3'],
-  ['structured.load', '3'],
-  ['structured.create', '3'],
-  ['structured.save', '3'],
-  ['structured.delete', '1'],
-  ['structured.convertSpanToEvent', '3'],
-  ['timeline.structuredDetail', '3'],
-  ['timeline.structuredList', '3'],
-  ['archive.identity.load', '1'],
-  ['archive.identity.save', '1'],
-  ['track.list', '2'],
-  ['track.load', '2'],
-  ['track.create', '2'],
-  ['track.save', '2'],
-  ['track.delete', '2'],
-  ['track.createWithFirstMember', '2'],
-  ['track.history', '2'],
-  ['track.attachMember', '1'],
-  ['track.detachMember', '1'],
-  ['track.createMember', '1'],
-] as const
+export const WEB_V0_1_CAPABILITIES = webRuntimePolicy.capabilities.map(
+  ({ name, version }) => [name, version] as const,
+)
 
 const unpinnedRuntimeLockSchema = z.strictObject({
   manifestVersion: z.literal(1),
@@ -153,6 +116,21 @@ export const runtimeManifestSchema = z
     }),
   })
   .superRefine((manifest, context) => {
+    if (manifest.productContract !== webRuntimePolicy.productContract) {
+      context.addIssue({
+        code: 'custom',
+        message: 'product contract must match the web runtime policy',
+        path: ['productContract'],
+      })
+    }
+    if (manifest.bindingsAbi !== webRuntimePolicy.bindingsAbi) {
+      context.addIssue({
+        code: 'custom',
+        message: 'bindings ABI must match the web runtime policy',
+        path: ['bindingsAbi'],
+      })
+    }
+
     if (/^[0-9a-f]{40}$|^[0-9a-f]{64}$/i.test(manifest.buildId)) {
       context.addIssue({
         code: 'custom',
