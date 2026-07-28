@@ -7,6 +7,7 @@ import { MarkdownEditor } from './editor'
 import { EventWritingEditor } from './events'
 import { useRecordDestination } from './recordDestination'
 import { SpanWritingEditor } from './spans'
+import { RecordMedia } from './media'
 import { TrackHistory } from './tracks'
 
 export function RecordPage() {
@@ -34,13 +35,26 @@ export function RecordPage() {
           window={window}
           selected={structuredActive ? null : objects.state.selected}
           developmentMock={developmentMock}
+          allowMedia={cursor.state.scale === 'day'}
         />
       </div>
       <div hidden={!eventActive || trackActive}>
         <EventWritingEditor event={events} />
+        <RecordMedia
+          client={client}
+          ownerId={events.creating ? null : (events.object?.summary.id ?? null)}
+          developmentMock={developmentMock}
+          onParentRevision={events.adoptMediaRevision}
+        />
       </div>
       <div hidden={!spanActive || trackActive}>
         <SpanWritingEditor span={spans} />
+        <RecordMedia
+          client={client}
+          ownerId={spans.creating ? null : (spans.object?.summary.id ?? null)}
+          developmentMock={developmentMock}
+          onParentRevision={spans.adoptMediaRevision}
+        />
       </div>
       <div hidden={!trackActive}>
         <TrackHistory tracks={tracks} />

@@ -256,6 +256,57 @@ export const recordMessages = {
   'record.track.refreshAndRetry': 'Refresh Track context',
   'record.icon.fallbackGlyph': '?',
 
+  /* Core-owned media. A durability statement follows only core success. */
+  'record.media.heading': 'Media',
+  'record.media.detail':
+    'Original files are copied into this archive. Picker access and previews are temporary.',
+  'record.media.add': 'Add media',
+  'record.media.picker': 'Choose media files',
+  'record.media.choose': 'Choose photos or files from this computer',
+  'record.media.empty': 'No media in this entry',
+  'record.media.ownerRequired': 'No media in this Day',
+  'record.media.ownerRequiredDetail':
+    'Add some writing first. You can add media after this Day’s entry is created.',
+  'record.media.gallery': 'Media in this entry',
+  'record.media.loading': 'Reading media from the archive…',
+  'record.media.reading': 'Reading {fileName}…',
+  'record.media.importing': 'Copying {fileName} into the archive…',
+  'record.media.progress': 'Media import progress',
+  'record.media.imported':
+    'The core copied the original bytes into durable archive storage.',
+  'record.media.importedMock':
+    'Development preview. The selected bytes remain in this tab only.',
+  'record.media.deleted': 'Media removed from the archive.',
+  'record.media.acquisitionFailed':
+    'The browser could not read that file. Nothing was added.',
+  'record.media.listFailed':
+    'Media could not be read from the archive. Nothing was changed. {detail}',
+  'record.media.mutationFailed':
+    'The media change did not complete. The gallery was kept unchanged. {detail}',
+  'record.media.retry': 'Try reading media again',
+  'record.media.kind.image': 'Image',
+  'record.media.kind.video': 'Video',
+  'record.media.kind.audio': 'Audio',
+  'record.media.kind.document': 'Document',
+  'record.media.kind.text': 'Text',
+  'record.media.kind.other': 'File',
+  'record.media.itemMetadata': '{kind} · {size}',
+  'record.media.previewAction': 'Preview {fileName}',
+  'record.media.deleteAction': 'Remove {fileName}',
+  'record.media.remove': 'Remove',
+  'record.media.closePreview': 'Close preview',
+  'record.media.previewLoading': 'Reading preview bytes from the archive…',
+  'record.media.previewMetadata': '{mimeType} · {size}',
+  'record.media.previewFailed':
+    'The archived content is unavailable for preview. {detail}',
+  'record.media.previewUnsupported':
+    'This format is not opened inside LifeArchive. The original remains unchanged in the archive.',
+  'record.media.previewAlt': 'Preview of {fileName}',
+  'record.media.deleteConfirm':
+    'Remove {fileName} from this entry and the archive?',
+  'record.media.confirmDelete': 'Remove media',
+  'record.media.cancelDelete': 'Keep media',
+
   /* Markdown writing surface. Mock mode never makes a durability claim. */
   'record.editor.label': 'Writing',
   'record.editor.heading': 'Writing',
