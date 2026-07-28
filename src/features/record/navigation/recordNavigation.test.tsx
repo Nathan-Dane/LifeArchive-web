@@ -35,6 +35,7 @@ import {
 } from '../../../test/timeFixtures'
 import { createDeviceCalendar } from './deviceCalendar'
 import { RecordNavigationPanel } from './RecordNavigationPanel'
+import { useTemporalCursor } from './temporalCursor'
 
 /* -------------------------------------------------------------------------- */
 /* Fixtures                                                                   */
@@ -111,13 +112,20 @@ function timeStub(answers: {
   }
 }
 
+/**
+ * The panel presents a cursor it is given. Record builds that cursor once for
+ * its three regions; here one holder stands in for that composition, so every
+ * assertion below is still about the panel and the core behind it.
+ */
+function PanelHolder({ client }: { readonly client: LifeArchiveClient }) {
+  const cursor = useTemporalCursor(client, { device: DEVICE })
+  return <RecordNavigationPanel cursor={cursor} />
+}
+
 function renderPanel(client: LifeArchiveClient) {
   return render(
     <I18nProvider locale="en-GB">
-      <RecordNavigationPanel
-        client={client}
-        cursorOptions={{ device: DEVICE }}
-      />
+      <PanelHolder client={client} />
     </I18nProvider>,
   )
 }

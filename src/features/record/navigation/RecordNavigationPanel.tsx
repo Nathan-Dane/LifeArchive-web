@@ -14,20 +14,12 @@
 
 import { useId, useRef, type KeyboardEvent } from 'react'
 import { LiveStatus } from '../../../accessibility'
-import type {
-  LifeArchiveClient,
-  TimeScale,
-  TimeWindow,
-} from '../../../core/client'
-import {
-  failureMessage,
-  useFormat,
-  useLocalisation,
-  type Formatters,
-} from '../../../i18n'
+import type { TimeScale } from '../../../core/client'
+import { failureMessage, useFormat, useLocalisation } from '../../../i18n'
+import { civilLocation } from '../civilLocation'
 import { RecordCalendarCells, RecordCalendarHeadings } from './RecordCalendar'
 import { StepIcon } from './StepIcon'
-import { useTemporalCursor, type TemporalCursorOptions } from './temporalCursor'
+import type { TemporalCursor } from './temporalCursor'
 
 const SCALES: readonly TimeScale[] = ['day', 'week', 'month', 'year']
 
@@ -52,30 +44,19 @@ const NEXT_LABEL = {
   year: 'record.navigation.nextYear',
 } as const
 
-/**
- * The civil location of a window, in the reader's own date wording. A window
- * covering one day is spelled as that day; a wider one is spelled as the
- * inclusive range the core gave it, rather than as a name for the period.
- */
-function civilLocation(format: Formatters, window: TimeWindow): string {
-  return window.startDate === window.endDate
-    ? format.civilDate(window.startDate)
-    : format.civilDateRange(window.startDate, window.endDate)
-}
-
 export interface RecordNavigationPanelProps {
-  readonly client: LifeArchiveClient
-  readonly cursorOptions?: TemporalCursorOptions
+  /**
+   * The one Record cursor. It is passed in rather than created here: the
+   * writing surface and the details region read the same position, and a panel
+   * that owned a cursor of its own would be a second time state beside them.
+   */
+  readonly cursor: TemporalCursor
 }
 
-export function RecordNavigationPanel({
-  client,
-  cursorOptions,
-}: RecordNavigationPanelProps) {
+export function RecordNavigationPanel({ cursor }: RecordNavigationPanelProps) {
   const localisation = useLocalisation()
   const t = localisation.t
   const format = useFormat()
-  const cursor = useTemporalCursor(client, cursorOptions)
   const { state } = cursor
   const monthId = useId()
   const toggle = useRef<HTMLButtonElement>(null)
