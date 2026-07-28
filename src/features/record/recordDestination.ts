@@ -15,10 +15,12 @@
  */
 
 import { createContext, useContext } from 'react'
+import type { LifeArchiveClient } from '../../core/client'
 import type { TemporalCursor } from './navigation/temporalCursor'
 import type { RecordObjects } from './objects/recordObjects'
 
 export interface RecordDestination {
+  readonly client: LifeArchiveClient
   readonly cursor: TemporalCursor
   readonly objects: RecordObjects
 }

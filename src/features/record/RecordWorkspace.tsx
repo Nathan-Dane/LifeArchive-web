@@ -15,6 +15,7 @@ import {
   type TemporalCursorOptions,
 } from './navigation/temporalCursor'
 import { RecordObjectDetails } from './objects/RecordObjectDetails'
+import { RecordObjectSwitcher } from './objects/RecordObjectSwitcher'
 import { useRecordObjects } from './objects/recordObjects'
 import {
   RecordDestinationContext,
@@ -47,16 +48,25 @@ export function RecordDestinationProvider({
     goTo: cursor.goTo,
   })
   return (
-    <RecordDestinationContext.Provider value={{ cursor, objects }}>
+    <RecordDestinationContext.Provider value={{ client, cursor, objects }}>
       {children}
     </RecordDestinationContext.Provider>
   )
 }
 
-/** Record's leading workspace region: where in time the reader is. */
+/** Record's leading workspace region: where in time and what is selected. */
 export function RecordNavigationRegion() {
-  const { cursor } = useRecordDestination()
-  return <RecordNavigationPanel cursor={cursor} />
+  const { cursor, objects } = useRecordDestination()
+  return (
+    <div className="record-navigation-region">
+      <RecordNavigationPanel cursor={cursor} />
+      <RecordObjectSwitcher
+        scale={cursor.state.scale}
+        window={cursor.state.view?.window ?? null}
+        objects={objects}
+      />
+    </div>
+  )
 }
 
 /** Record's trailing workspace region: what is selected. */
