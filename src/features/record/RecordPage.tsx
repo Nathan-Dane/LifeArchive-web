@@ -8,7 +8,7 @@ import { useRecordDestination } from './recordDestination'
 
 export function RecordPage() {
   const t = useTranslate()
-  const { client, cursor, objects } = useRecordDestination()
+  const { client, cursor, objects, developmentMock } = useRecordDestination()
   const window = cursor.state.view?.window ?? null
   return (
     <div className="record-page">
@@ -17,6 +17,7 @@ export function RecordPage() {
         client={client}
         window={window}
         selected={objects.state.selected}
+        developmentMock={developmentMock}
       />
     </div>
   )

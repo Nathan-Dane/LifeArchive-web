@@ -1,3 +1,4 @@
+import { chromium, firefox } from '@playwright/test'
 import { expect, test } from './qualified-browser-fixtures'
 
 const LOCAL_RUNTIME_URL = 'http://localhost:4187/record'
@@ -105,5 +106,108 @@ test.describe('verified local development runtime', () => {
     ).toHaveCount(0)
     expect(pageErrors).toEqual([])
     expect(consoleErrors).toEqual([])
+  })
+
+  test('preserves exact ordinary writing through reload and archive reopen', async ({
+    context,
+    page,
+  }) => {
+    const writing = 'Café  日本語\tpreserved'
+    const pageErrors: string[] = []
+    const consoleErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text())
+    })
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator.storage, 'persist', {
+        configurable: true,
+        value: () => Promise.resolve(true),
+      })
+    })
+    await page.goto(LOCAL_RUNTIME_URL)
+    await page.getByRole('button', { name: 'Create archive' }).click()
+
+    const editor = page.getByRole('textbox', { name: 'Writing editor' })
+    const createAnyway = page.getByRole('button', {
+      name: 'Create archive anyway',
+    })
+    await expect(editor.or(createAnyway)).toBeVisible({ timeout: 20_000 })
+    if (await createAnyway.isVisible()) await createAnyway.click()
+    await expect(editor).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText('Ready to save.')).toBeVisible()
+
+    await editor.fill(writing)
+    await expect(page.getByText('Unsaved changes.')).toBeVisible()
+    await page.getByRole('button', { name: 'Save writing' }).click()
+    await expect(page.getByText('Saved.')).toBeVisible()
+
+    await page.reload()
+    const reloadedEditor = page.getByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await expect
+      .poll(() => reloadedEditor.evaluate((element) => element.textContent))
+      .toBe(writing)
+    await page.getByRole('button', { name: 'Save writing' }).click()
+    await expect(page.getByText('Saved.')).toBeVisible()
+
+    await page.close()
+    const reopened = await context.newPage()
+    await reopened.goto(LOCAL_RUNTIME_URL)
+    const reopenedEditor = reopened.getByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await expect
+      .poll(() => reopenedEditor.evaluate((element) => element.textContent), {
+        timeout: 20_000,
+      })
+      .toBe(writing)
+    expect(pageErrors).toEqual([])
+    expect(consoleErrors).toEqual([])
+  })
+
+  test('preserves ordinary writing through a full browser-process restart', async ({
+    browserName,
+  }, testInfo) => {
+    const writing = 'Restart proof: Café  日本語'
+    const browserType = browserName === 'firefox' ? firefox : chromium
+    const profile = testInfo.outputPath('ordinary-restart-profile')
+    let persistent = await browserType.launchPersistentContext(profile)
+    try {
+      let page = persistent.pages()[0] ?? (await persistent.newPage())
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator.storage, 'persist', {
+          configurable: true,
+          value: () => Promise.resolve(true),
+        })
+      })
+      await page.goto(LOCAL_RUNTIME_URL)
+      await page.getByRole('button', { name: 'Create archive' }).click()
+      const createAnyway = page.getByRole('button', {
+        name: 'Create archive anyway',
+      })
+      const editor = page.getByRole('textbox', { name: 'Writing editor' })
+      await expect(editor.or(createAnyway)).toBeVisible({ timeout: 20_000 })
+      if (await createAnyway.isVisible()) await createAnyway.click()
+      await editor.fill(writing)
+      await page.getByRole('button', { name: 'Save writing' }).click()
+      await expect(page.getByText('Saved.')).toBeVisible()
+
+      await persistent.close()
+      persistent = await browserType.launchPersistentContext(profile)
+      page = persistent.pages()[0] ?? (await persistent.newPage())
+      await page.goto(LOCAL_RUNTIME_URL)
+      const reopenedEditor = page.getByRole('textbox', {
+        name: 'Writing editor',
+      })
+      await expect
+        .poll(() => reopenedEditor.evaluate((element) => element.textContent), {
+          timeout: 20_000,
+        })
+        .toBe(writing)
+    } finally {
+      await persistent.close()
+    }
   })
 })
