@@ -16,30 +16,36 @@ export interface MarkdownEditorProps {
   readonly client: LifeArchiveClient
   readonly window: TimeWindow | null
   readonly selected: StructuredSummary | null
+  readonly developmentMock?: boolean
 }
 
 export function MarkdownEditor({
   client,
   window,
   selected,
+  developmentMock = false,
 }: MarkdownEditorProps) {
   const t = useTranslate()
   const localisation = useLocalisation()
-  const { document, update, retry } = useEditorDocument(
-    client,
-    window,
-    selected,
-  )
+  const { document, update, retry, save, saveStatus, saveFailure } =
+    useEditorDocument(client, window, selected, developmentMock)
   const disabled =
     document.status === 'unavailable' || document.status === 'loading'
-  const status =
+  const loadStatus =
     document.status === 'failed' && document.failure
       ? t('record.editor.loadFailed', {
           detail: failureMessage(localisation, document.failure),
         })
       : document.status === 'loading'
         ? t('record.editor.loading')
-        : t('record.editor.mockStatus')
+        : null
+  const status =
+    loadStatus ??
+    (saveStatus === 'failed' && saveFailure
+      ? t('record.editor.saveFailed', {
+          detail: failureMessage(localisation, saveFailure),
+        })
+      : t(`record.editor.status.${saveStatus}`))
 
   return (
     <section className="record-editor" aria-label={t('record.editor.label')}>
@@ -54,6 +60,18 @@ export function MarkdownEditor({
           {document.status === 'failed' ? (
             <button type="button" className="button" onClick={retry}>
               {t('record.editor.retry')}
+            </button>
+          ) : null}
+          {!developmentMock &&
+          selected === null &&
+          document.status === 'ready' ? (
+            <button
+              type="button"
+              className="button"
+              disabled={saveStatus === 'saving' || saveStatus === 'conflicted'}
+              onClick={() => void save()}
+            >
+              {t('record.editor.save')}
             </button>
           ) : null}
         </div>

@@ -24,12 +24,14 @@ import {
 
 export interface RecordDestinationProviderProps {
   readonly client: LifeArchiveClient
+  readonly developmentMock?: boolean
   readonly children: ReactNode
   readonly cursorOptions?: TemporalCursorOptions
 }
 
 export function RecordDestinationProvider({
   client,
+  developmentMock = false,
   children,
   cursorOptions,
 }: RecordDestinationProviderProps) {
@@ -48,7 +50,9 @@ export function RecordDestinationProvider({
     goTo: cursor.goTo,
   })
   return (
-    <RecordDestinationContext.Provider value={{ client, cursor, objects }}>
+    <RecordDestinationContext.Provider
+      value={{ client, developmentMock, cursor, objects }}
+    >
       {children}
     </RecordDestinationContext.Provider>
   )
