@@ -147,8 +147,9 @@ in v0.1.0 without an explicit contract change first.
   never the sole cue; a tag always appears with its name or an equivalent.
 - **HTML as the durable writing format.** The demo's rich-text toolbar implies
   a `contenteditable` HTML document. Durable writing is Markdown. A rich
-  editing surface may exist, but what is stored is Markdown, and round-trip
-  fidelity of the stored bytes is a requirement.
+  editing surface may exist, but what is stored is Markdown. The visible
+  writing and supported formatting must survive import and export; equivalent
+  Markdown spelling and insignificant whitespace may be normalised.
 - **Static "Saved" claims.** The demo hard-codes `Saved`. Save status must be
   derived from a real mutation result, and must be able to express saving,
   saved, failed, and conflicted.
