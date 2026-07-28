@@ -7,7 +7,7 @@
  * the client itself would be a second place the destination could come from.
  */
 
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { LifeArchiveClient } from '../../core/client'
 import { RecordNavigationPanel } from './navigation/RecordNavigationPanel'
 import {
@@ -21,6 +21,10 @@ import {
   RecordDestinationContext,
   useRecordDestination,
 } from './recordDestination'
+import {
+  RecordDraftSessionContext,
+  useRecordDraftSessionGuard,
+} from './recordDraftSession'
 
 export interface RecordDestinationProviderProps {
   readonly client: LifeArchiveClient
@@ -35,7 +39,24 @@ export function RecordDestinationProvider({
   children,
   cursorOptions,
 }: RecordDestinationProviderProps) {
-  const cursor = useTemporalCursor(client, cursorOptions)
+  const draftSession = useRecordDraftSessionGuard()
+  const rawCursor = useTemporalCursor(client, cursorOptions)
+  const guard = draftSession.flushBefore
+  const cursor = useMemo(
+    () => ({
+      ...rawCursor,
+      chooseScale: (scale: Parameters<typeof rawCursor.chooseScale>[0]) =>
+        guard(() => rawCursor.chooseScale(scale)),
+      step: (step: Parameters<typeof rawCursor.step>[0]) =>
+        guard(() => rawCursor.step(step)),
+      goToToday: () => guard(rawCursor.goToToday),
+      selectDate: (date: Parameters<typeof rawCursor.selectDate>[0]) =>
+        guard(() => rawCursor.selectDate(date)),
+      goTo: (destination: Parameters<typeof rawCursor.goTo>[0]) =>
+        guard(() => rawCursor.goTo(destination)),
+    }),
+    [guard, rawCursor],
+  )
   /*
    * Only a settled cursor has a window worth asking about. The panel keeps the
    * previous answer on screen while a newer one is in flight, which is right
@@ -45,16 +66,31 @@ export function RecordDestinationProvider({
    * the way there.
    */
   const settled = cursor.state.status === 'ready'
-  const objects = useRecordObjects(client, {
+  const rawObjects = useRecordObjects(client, {
     window: settled ? (cursor.state.view?.window ?? null) : null,
-    goTo: cursor.goTo,
+    goTo: rawCursor.goTo,
   })
+  const objects = useMemo(
+    () => ({
+      ...rawObjects,
+      selectOrdinary: () => guard(rawObjects.selectOrdinary),
+      selectObject: (object: Parameters<typeof rawObjects.selectObject>[0]) =>
+        guard(() => rawObjects.selectObject(object)),
+      goToObject: (object: Parameters<typeof rawObjects.goToObject>[0]) =>
+        guard(() => rawObjects.goToObject(object)),
+    }),
+    [guard, rawObjects],
+  )
   return (
-    <RecordDestinationContext.Provider
-      value={{ client, developmentMock, cursor, objects }}
+    <RecordDraftSessionContext.Provider
+      value={{ register: draftSession.register }}
     >
-      {children}
-    </RecordDestinationContext.Provider>
+      <RecordDestinationContext.Provider
+        value={{ client, developmentMock, cursor, objects }}
+      >
+        {children}
+      </RecordDestinationContext.Provider>
+    </RecordDraftSessionContext.Provider>
   )
 }
 

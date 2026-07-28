@@ -10,6 +10,7 @@ import {
   type LifeArchiveClient,
   type OrdinaryEntryState,
   type OrdinarySaveResult,
+  type TimeWindow,
 } from '../../../core/client'
 import { I18nProvider } from '../../../i18n'
 import { TestLifeArchiveClient } from '../../../test/TestLifeArchiveClient'
@@ -94,6 +95,42 @@ function selectText(textbox: HTMLElement, start: number, end: number) {
     selection?.addRange(range)
     document.dispatchEvent(new Event('selectionchange'))
   })
+}
+
+function saved(
+  request: Parameters<LifeArchiveClient['record']['save']>[0],
+  nextRevision = '3',
+): OrdinarySaveResult {
+  return {
+    outcome: request.target.expectation === 'absent' ? 'created' : 'updated',
+    entry: {
+      id:
+        request.target.expectation === 'absent'
+          ? request.target.newEntryId
+          : request.target.entryId,
+      revision: revision(nextRevision),
+      window: request.window,
+      markdown: request.markdown,
+      plainText: request.markdown,
+      createdAtMs: request.nowMs,
+      updatedAtMs: request.nowMs,
+      isPinned: false,
+      privacy: 'normal',
+      source: 'manual',
+    },
+    invalidation: {
+      ...INVALIDATION,
+      revision: revision(nextRevision),
+    },
+  }
+}
+
+function deferred<Value>() {
+  let resolve!: (value: Value) => void
+  const promise = new Promise<Value>((settle) => {
+    resolve = settle
+  })
+  return { promise, resolve }
 }
 
 describe('MarkdownEditor', () => {
@@ -312,24 +349,12 @@ describe('MarkdownEditor', () => {
     expect(textbox).not.toHaveTextContent('recovered')
   })
 
-  it('saves exact existing ordinary writing with its loaded revision', async () => {
+  it('autosaves existing ordinary writing with its loaded revision', async () => {
     const source = 'Café\u00a0  text\n\n日本語\tremains'
     const loaded = entry(source)
     if (loaded.presence !== 'present') throw new Error('Expected entry')
-    const savedEntry = {
-      ...loaded.entry,
-      revision: revision('3'),
-      markdown: source,
-    }
-    const save = vi.fn<LifeArchiveClient['record']['save']>(async () =>
-      ok<OrdinarySaveResult>({
-        outcome: 'unchanged',
-        entry: savedEntry,
-        invalidation: {
-          ...INVALIDATION,
-          revision: revision('2'),
-        },
-      }),
+    const save = vi.fn<LifeArchiveClient['record']['save']>(async (request) =>
+      ok(saved(request)),
     )
     const base = client([ok(loaded)])
     const realClient: LifeArchiveClient = {
@@ -342,17 +367,19 @@ describe('MarkdownEditor', () => {
         <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
       </I18nProvider>,
     )
-    await screen.findByRole('textbox', { name: 'Writing editor' })
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
     await screen.findByText('Ready to save.')
-    await userEvent
-      .setup()
-      .click(screen.getByRole('button', { name: 'Save writing' }))
+    const user = userEvent.setup()
+    await user.click(textbox)
+    await user.paste(' revision-safe')
 
     await screen.findByText('Saved.')
-    expect(save).toHaveBeenCalledWith({
+    expect(save).toHaveBeenCalledOnce()
+    expect(save.mock.calls[0]?.[0]).toMatchObject({
       window: WINDOW,
-      markdown: source,
-      nowMs: expect.any(Number),
+      markdown: expect.stringContaining('revision-safe'),
       target: {
         expectation: 'existing',
         entryId: loaded.entry.id,
@@ -411,7 +438,6 @@ describe('MarkdownEditor', () => {
     await user.click(textbox)
     await user.paste('Café 日本語')
     await screen.findByText('Unsaved changes.')
-    await user.click(screen.getByRole('button', { name: 'Save writing' }))
 
     await screen.findByText('Saved.')
     expect(save).toHaveBeenCalledTimes(1)
@@ -419,6 +445,310 @@ describe('MarkdownEditor', () => {
       markdown: 'Café 日本語',
       target: { expectation: 'absent' },
     })
+  })
+
+  it('debounces rapid typing into one exact save', async () => {
+    const save = vi.fn<LifeArchiveClient['record']['save']>(async (request) =>
+      ok(saved(request)),
+    )
+    const base = client([ok(entry('start'))])
+    const realClient: LifeArchiveClient = {
+      ...base,
+      record: { ...base.record, save },
+    }
+    const user = userEvent.setup()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await user.click(textbox)
+    await user.paste(' one')
+    await user.paste(' two')
+    await user.paste(' three')
+
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1), {
+      timeout: 2_000,
+    })
+    expect(save.mock.calls[0]?.[0].markdown).toContain('one two three')
+    await screen.findByText('Saved.')
+  })
+
+  it('keeps failed writing and retries the same exact buffer', async () => {
+    const failure = clientFailure({
+      area: 'transport',
+      code: 'workerLost',
+      phase: 'transport',
+      retryable: true,
+    })
+    let calls = 0
+    const save = vi.fn<LifeArchiveClient['record']['save']>(async (request) => {
+      calls += 1
+      return calls === 1 ? failed(failure) : ok(saved(request))
+    })
+    const base = client([ok(entry('before'))])
+    const realClient: LifeArchiveClient = {
+      ...base,
+      record: { ...base.record, save },
+    }
+    const user = userEvent.setup()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await user.click(textbox)
+    await user.paste(' exact draft')
+    await screen.findByRole('button', { name: 'Try saving again' })
+    expect(textbox).toHaveTextContent('before')
+    expect(textbox).toHaveTextContent('exact draft')
+
+    await user.click(screen.getByRole('button', { name: 'Try saving again' }))
+    await screen.findByText('Saved.')
+    expect(save).toHaveBeenCalledTimes(2)
+    expect(save.mock.calls[1]?.[0].markdown).toBe(
+      save.mock.calls[0]?.[0].markdown,
+    )
+  })
+
+  it('shows the current conflict snapshot and never merges automatically', async () => {
+    const current = entry('archive version')
+    if (current.presence !== 'present') throw new Error('Expected entry')
+    const save = vi.fn<LifeArchiveClient['record']['save']>(async (request) =>
+      ok<OrdinarySaveResult>({
+        outcome: 'conflict',
+        conflict: {
+          expectedRevision:
+            request.target.expectation === 'existing'
+              ? request.target.expectedRevision
+              : revision('0'),
+          actualRevision: revision('9'),
+          current: {
+            presence: 'present',
+            window: WINDOW,
+            entry: { ...current.entry, revision: revision('9') },
+          },
+        },
+      }),
+    )
+    const base = client([ok(entry('my start'))])
+    const realClient: LifeArchiveClient = {
+      ...base,
+      record: { ...base.record, save },
+    }
+    const user = userEvent.setup()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await user.click(textbox)
+    await user.paste(' kept locally')
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('archive version')
+    expect(textbox).toHaveTextContent('my start')
+    expect(textbox).toHaveTextContent('kept locally')
+    expect(textbox).not.toHaveTextContent('archive version')
+    expect(screen.getByRole('status')).toHaveTextContent('archive changed')
+
+    await user.click(
+      screen.getByRole('button', { name: 'Use archive writing' }),
+    )
+    await waitFor(() => expect(textbox).toHaveTextContent('archive version'))
+    expect(textbox).not.toHaveTextContent('kept locally')
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('status')).toHaveTextContent('Ready to save')
+  })
+
+  it('reports an offline runtime without attempting a save', async () => {
+    const save = vi.fn<LifeArchiveClient['record']['save']>()
+    const base = client([ok(entry('before'))])
+    const realClient: LifeArchiveClient = {
+      ...base,
+      runtime: {
+        ...base.runtime,
+        status: () => ({ state: 'unavailable', reason: 'worker-lost' }),
+      },
+      record: { ...base.record, save },
+    }
+    const user = userEvent.setup()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await user.click(textbox)
+    await user.paste(' remains here')
+
+    await screen.findByText(/archive runtime is offline/i)
+    expect(textbox).toHaveTextContent('before')
+    expect(textbox).toHaveTextContent('remains here')
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('flushes on pagehide and on unmount', async () => {
+    const save = vi.fn<LifeArchiveClient['record']['save']>(async (request) =>
+      ok(saved(request)),
+    )
+    const base = client([ok(entry('before'))])
+    const realClient: LifeArchiveClient = {
+      ...base,
+      record: { ...base.record, save },
+    }
+    const user = userEvent.setup()
+    const view = render(
+      <I18nProvider locale="en">
+        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await user.click(textbox)
+    await user.paste(' pagehide')
+    window.dispatchEvent(new Event('pagehide'))
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+
+    await user.paste(' unmount')
+    view.unmount()
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+    expect(save.mock.calls[1]?.[0].markdown).toContain('pagehide unmount')
+  })
+
+  it('warns before reload and flushes when the page becomes hidden', async () => {
+    const save = vi.fn<LifeArchiveClient['record']['save']>(async (request) =>
+      ok(saved(request)),
+    )
+    const base = client([ok(entry('before'))])
+    const realClient: LifeArchiveClient = {
+      ...base,
+      record: { ...base.record, save },
+    }
+    const user = userEvent.setup()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await user.click(textbox)
+    await user.paste(' pending')
+
+    const reload = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(reload)
+    expect(reload.defaultPrevented).toBe(true)
+
+    const visibility = vi
+      .spyOn(document, 'visibilityState', 'get')
+      .mockReturnValue('hidden')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    visibility.mockRestore()
+  })
+
+  it('keeps the route and exact buffer when its pre-navigation flush fails', async () => {
+    const failure = clientFailure({
+      area: 'record',
+      code: 'busyRetryable',
+      phase: 'mutation',
+      retryable: true,
+    })
+    const save = vi.fn<LifeArchiveClient['record']['save']>(async () =>
+      failed(failure),
+    )
+    const route = vi.fn()
+    const base = client([ok(entry('before'))])
+    const realClient: LifeArchiveClient = {
+      ...base,
+      record: { ...base.record, save },
+    }
+    const user = userEvent.setup()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+        <a href="/settings" onClick={route}>
+          Leave Record
+        </a>
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await user.click(textbox)
+    await user.paste(' exact route draft')
+    await user.click(screen.getByRole('link', { name: 'Leave Record' }))
+
+    await screen.findByRole('button', { name: 'Try saving again' })
+    expect(route).not.toHaveBeenCalled()
+    expect(textbox).toHaveTextContent('exact route draft')
+    expect(save).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores a late save response after the editor navigates away', async () => {
+    const secondWindow = coreWindow('day', '2025-06-15')
+    const pending =
+      deferred<Awaited<ReturnType<LifeArchiveClient['record']['save']>>>()
+    const save = vi.fn<LifeArchiveClient['record']['save']>(
+      async () => pending.promise,
+    )
+    const base = client([ok(entry('first')), ok(entry('second'))])
+    const realClient: LifeArchiveClient = {
+      ...base,
+      record: {
+        ...base.record,
+        load: async (requested: TimeWindow) =>
+          ok(entry(requested.id === WINDOW.id ? 'first' : 'second')),
+        save,
+      },
+    }
+    const user = userEvent.setup()
+    const view = render(
+      <I18nProvider locale="en">
+        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await user.click(textbox)
+    await user.paste(' in flight')
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1), {
+      timeout: 2_000,
+    })
+
+    view.rerender(
+      <I18nProvider locale="en">
+        <MarkdownEditor
+          client={realClient}
+          window={secondWindow}
+          selected={null}
+        />
+      </I18nProvider>,
+    )
+    const secondTextbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await waitFor(() => expect(secondTextbox).toHaveTextContent('second'))
+    pending.resolve(ok(saved(save.mock.calls[0]![0])))
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Ready to save'),
+    )
+    expect(secondTextbox).toHaveTextContent('second')
+    expect(secondTextbox).not.toHaveTextContent('in flight')
   })
 
   it('renders HTML and unsafe links only as editable text', async () => {
