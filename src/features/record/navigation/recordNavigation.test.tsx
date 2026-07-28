@@ -11,7 +11,7 @@
 
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clientFailure,
   failed,
@@ -43,12 +43,15 @@ import { useTemporalCursor } from './temporalCursor'
 
 /** The device the panel is read on. Fixed so no assertion depends on today. */
 const DEVICE = createDeviceCalendar({
-  locale: 'en-GB',
   timeZoneId: 'UTC',
   now: () => new Date('2025-06-14T09:00:00Z'),
 })
 
 const FIXTURE_TODAY = '2025-06-14'
+
+beforeEach(() => {
+  localStorage.clear()
+})
 
 const WEEK_OF_FOURTEENTH = [
   '2025-06-09',
@@ -531,6 +534,31 @@ describe('the expandable calendar', () => {
     expect(
       screen.getByRole('button', { name: 'Show the surrounding month' }),
     ).toHaveFocus()
+  })
+})
+
+describe('cursor restoration', () => {
+  it('restores the last selected core-produced scale and anchor after remount', async () => {
+    const user = userEvent.setup()
+    const first = timeStub({})
+    const mounted = renderPanel(first.client)
+    await panelReady()
+
+    await user.click(screen.getByRole('button', { name: 'Month' }))
+    await panelReady()
+    await user.click(screen.getByRole('button', { name: '10 June 2025' }))
+    await panelReady()
+    mounted.unmount()
+
+    const restored = timeStub({})
+    renderPanel(restored.client)
+    await panelReady()
+    expect(restored.window).toHaveBeenCalledWith({
+      scale: 'month',
+      containing: '2025-06-10',
+      timeZoneId: 'UTC',
+      weekRules: DEVICE.weekRules,
+    })
   })
 })
 

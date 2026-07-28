@@ -9,7 +9,11 @@ import {
 } from '../client'
 import packageMetadata from '../../../package.json'
 import { RuntimeLifeArchiveClient } from './RuntimeLifeArchiveClient'
-import { WorkerTransport, WorkerTransportError } from './worker/WorkerTransport'
+import {
+  WorkerTransport,
+  WorkerTransportError,
+  type WorkerRequestOptions,
+} from './worker/WorkerTransport'
 import { FixedWorker } from './worker/fixtures/FixedWorker'
 
 const runtime = {
@@ -121,8 +125,33 @@ async function openClientWithWorker(generation: string) {
 }
 
 describe('RuntimeLifeArchiveClient', () => {
-  it('never dispatches operations outside the approved browser ABI', async () => {
-    const request = vi.fn()
+  it('maps all three Record time operations through the approved browser ABI', async () => {
+    const request = vi.fn(({ operation }: WorkerRequestOptions) =>
+      Promise.resolve({
+        outcome: 'success',
+        result:
+          operation === 'time.calendarContext'
+            ? {
+                focused: testWindow,
+                focusedDate: '2026-07-27',
+                week: [
+                  {
+                    date: '2026-07-27',
+                    window: testWindow,
+                    withinFocusedMonth: true,
+                  },
+                ],
+                month: [
+                  {
+                    date: '2026-07-27',
+                    window: testWindow,
+                    withinFocusedMonth: true,
+                  },
+                ],
+              }
+            : testWindow,
+      }),
+    )
     const client = new RuntimeLifeArchiveClient({
       runtime,
       transport: {
@@ -152,6 +181,13 @@ describe('RuntimeLifeArchiveClient', () => {
         estimate: null,
       },
     })
+    const resolvedWindow = await client.time.window({
+      scale: 'day',
+      containing: civilDate('2026-07-27'),
+      timeZoneId: 'Europe/Copenhagen',
+      weekRules,
+    })
+    expect(resolvedWindow).toEqual({ status: 'ok', value: testWindow })
     await expect(
       client.time.window({
         scale: 'day',
@@ -159,16 +195,10 @@ describe('RuntimeLifeArchiveClient', () => {
         timeZoneId: 'Europe/Copenhagen',
         weekRules,
       }),
-    ).resolves.toMatchObject({
-      status: 'failed',
-      failure: { code: 'unsupportedCapability' },
-    })
+    ).resolves.toEqual({ status: 'ok', value: testWindow })
     await expect(
       client.time.step({ window, step: 'next', weekRules }),
-    ).resolves.toMatchObject({
-      status: 'failed',
-      failure: { code: 'unsupportedCapability' },
-    })
+    ).resolves.toEqual({ status: 'ok', value: testWindow })
     await expect(
       client.time.calendarContext({
         focusedDate: civilDate('2026-07-27'),
@@ -176,10 +206,32 @@ describe('RuntimeLifeArchiveClient', () => {
         weekRules,
       }),
     ).resolves.toMatchObject({
-      status: 'failed',
-      failure: { code: 'unsupportedCapability' },
+      status: 'ok',
+      value: {
+        focusedDate: '2026-07-27',
+        week: [{ date: '2026-07-27' }],
+        month: [{ date: '2026-07-27' }],
+      },
     })
-    expect(request).not.toHaveBeenCalled()
+    expect(request.mock.calls.map(([call]) => call.operation)).toEqual([
+      'time.window',
+      'time.window',
+      'time.step',
+      'time.calendarContext',
+    ])
+    expect(request.mock.calls[0]?.[0]).toMatchObject({
+      payload: {
+        request: {
+          contractVersion: 1,
+          scale: 'day',
+          anchorDate: '2026-07-27',
+          calendarIdentifier: 'gregorian',
+          timeZoneIdentifier: 'Europe/Copenhagen',
+          firstWeekday: 1,
+          minimumDaysInFirstWeek: 4,
+        },
+      },
+    })
   })
 
   it('maps the runtime archive overview vocabulary into ergonomic facts', async () => {

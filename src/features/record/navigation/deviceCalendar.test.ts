@@ -46,20 +46,12 @@ describe('the civil day this device is on', () => {
 })
 
 describe('the week conventions passed to the core', () => {
-  it('takes them from the locale rather than assuming one calendar', () => {
-    const british = createDeviceCalendar({ locale: 'en-GB' }).weekRules
-    const american = createDeviceCalendar({ locale: 'en-US' }).weekRules
-    for (const rules of [british, american]) {
-      expect(Number.isInteger(rules.firstWeekday)).toBe(true)
-      expect(Number.isInteger(rules.minimumDaysInFirstWeek)).toBe(true)
-    }
-    expect(british.firstWeekday).toBe(1)
-  })
-
-  it('states an ISO fallback rather than guessing when the locale is unusable', () => {
-    expect(createDeviceCalendar({ locale: 'not a locale' }).weekRules).toEqual(
-      ISO_WEEK_RULES,
-    )
+  it('uses one ISO identity policy for every archive reader', () => {
+    expect(createDeviceCalendar().weekRules).toBe(ISO_WEEK_RULES)
+    expect(ISO_WEEK_RULES).toEqual({
+      firstWeekday: 2,
+      minimumDaysInFirstWeek: 4,
+    })
   })
 })
 
