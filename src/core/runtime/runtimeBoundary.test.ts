@@ -425,6 +425,81 @@ const cases = {
     expect(mapped.outcome).toBe('updated')
   },
 
+  timeWindow: () => {
+    const request = {
+      scale: 'day' as const,
+      containing: civilDate('2026-07-26'),
+      timeZoneId: 'Europe/Copenhagen',
+      weekRules,
+    }
+    const mapped = exercise(runtimeBoundary.timeWindow, request, window, {
+      operation: 'time.window',
+      request: {
+        contractVersion: 1,
+        scale: 'day',
+        anchorDate: '2026-07-26',
+        calendarIdentifier: 'gregorian',
+        timeZoneIdentifier: 'Europe/Copenhagen',
+        firstWeekday: 2,
+        minimumDaysInFirstWeek: 4,
+      },
+    })
+    expect(mapped).toEqual(window)
+  },
+
+  timeStep: () => {
+    const request = { window, step: 'next' as const, weekRules }
+    const mapped = exercise(runtimeBoundary.timeStep, request, window, {
+      operation: 'time.step',
+      request: {
+        contractVersion: 1,
+        scale: 'day',
+        anchorDate: '2026-07-26',
+        step: 'next',
+        calendarIdentifier: 'gregorian',
+        timeZoneIdentifier: 'Europe/Copenhagen',
+        firstWeekday: 2,
+        minimumDaysInFirstWeek: 4,
+      },
+    })
+    expect(mapped).toEqual(window)
+  },
+
+  timeCalendarContext: () => {
+    const request = {
+      focusedDate: civilDate('2026-07-26'),
+      timeZoneId: 'Europe/Copenhagen',
+      weekRules,
+    }
+    const day = {
+      date: '2026-07-26',
+      window,
+      withinFocusedMonth: true,
+    }
+    const mapped = exercise(
+      runtimeBoundary.timeCalendarContext,
+      request,
+      {
+        focused: window,
+        focusedDate: '2026-07-26',
+        week: [day],
+        month: [day],
+      },
+      {
+        operation: 'time.calendarContext',
+        request: {
+          contractVersion: 1,
+          focusedDate: '2026-07-26',
+          calendarIdentifier: 'gregorian',
+          timeZoneIdentifier: 'Europe/Copenhagen',
+          firstWeekday: 2,
+          minimumDaysInFirstWeek: 4,
+        },
+      },
+    )
+    expect(mapped.week[0]?.window).toEqual(window)
+  },
+
   recordLoad: () => {
     const mapped = exercise(
       runtimeBoundary.recordLoad,

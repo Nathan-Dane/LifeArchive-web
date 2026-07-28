@@ -1,6 +1,7 @@
 import packageMetadata from '../../../package.json'
 import {
   civilDate,
+  coreTimeWindow,
   coreTrackHistoryCursor,
   isCivilDate,
   isRevision,
@@ -22,6 +23,9 @@ import {
   type ArchiveVerification,
   type ArchiveVerifyRequest,
   type BoundaryMarker,
+  type CalendarContext,
+  type CalendarContextRequest,
+  type CalendarDay,
   type InvalidationToken,
   type MediaContent,
   type MediaContentRequest,
@@ -59,6 +63,7 @@ import {
   type StructuredSaveRequest,
   type StructuredSummary,
   type TimeWindow,
+  type TimeWindowRequest,
   type TimelineFocusRequest,
   type TimelineFocusResult,
   type TimelineIndexRequest,
@@ -86,6 +91,7 @@ import {
   type TrackSummary,
   type TrackWithFirstMember,
   type TrackWithFirstMemberRequest,
+  type WindowStepRequest,
 } from '../client'
 
 export interface PreparedRuntimeRequest {
@@ -245,6 +251,59 @@ export const runtimeBoundary = {
         ),
         identity: mapArchiveIdentity(result.identity),
         invalidation: mapInvalidation(result.token),
+      }
+    },
+  ),
+  timeWindow: boundary<TimeWindowRequest, TimeWindow>(
+    'time.window',
+    ({ scale, containing, timeZoneId, weekRules }) =>
+      noTransfers({
+        contractVersion: 1,
+        scale,
+        anchorDate: containing,
+        calendarIdentifier: 'gregorian',
+        timeZoneIdentifier: timeZoneId,
+        firstWeekday: weekRules.firstWeekday,
+        minimumDaysInFirstWeek: weekRules.minimumDaysInFirstWeek,
+      }),
+    (value) => mapTimeWindow(record(value, 'time window result')),
+  ),
+  timeStep: boundary<WindowStepRequest, TimeWindow>(
+    'time.step',
+    ({ window, step, weekRules }) =>
+      noTransfers({
+        contractVersion: 1,
+        scale: window.scale,
+        anchorDate: window.startDate,
+        step,
+        calendarIdentifier: window.calendarId,
+        timeZoneIdentifier: window.timeZoneId,
+        firstWeekday: weekRules.firstWeekday,
+        minimumDaysInFirstWeek: weekRules.minimumDaysInFirstWeek,
+      }),
+    (value) => mapTimeWindow(record(value, 'time step result')),
+  ),
+  timeCalendarContext: boundary<CalendarContextRequest, CalendarContext>(
+    'time.calendarContext',
+    ({ focusedDate, timeZoneId, weekRules }) =>
+      noTransfers({
+        contractVersion: 1,
+        focusedDate,
+        calendarIdentifier: 'gregorian',
+        timeZoneIdentifier: timeZoneId,
+        firstWeekday: weekRules.firstWeekday,
+        minimumDaysInFirstWeek: weekRules.minimumDaysInFirstWeek,
+      }),
+    (value) => {
+      const result = record(value, 'time calendar context result')
+      return {
+        focused: mapTimeWindow(record(result.focused, 'focused time window')),
+        focusedDate: requiredCivilDate(
+          result.focusedDate,
+          'focused civil date',
+        ),
+        week: array(result.week, 'calendar week').map(mapCalendarDay),
+        month: array(result.month, 'calendar month').map(mapCalendarDay),
       }
     },
   ),
@@ -690,6 +749,35 @@ function mapOpenArchive(result: Record<string, unknown>): OpenArchive {
     storeSchemaVersion: string(result.schemaVersion, 'store schema version'),
     rootLayoutVersion: string(result.rootLayoutVersion, 'root layout version'),
     invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapTimeWindow(result: Record<string, unknown>): TimeWindow {
+  return coreTimeWindow({
+    id: string(result.id, 'time window identifier'),
+    scale: literal(
+      result.scale,
+      ['day', 'week', 'month', 'year'] as const,
+      'time window scale',
+    ),
+    startMs: integer(result.startMs, 'time window start'),
+    endMs: integer(result.endMs, 'time window end'),
+    startDate: requiredCivilDate(result.startDate, 'time window start date'),
+    endDate: requiredCivilDate(result.endDate, 'time window end date'),
+    calendarId: string(result.calendarId, 'time window calendar'),
+    timeZoneId: string(result.timeZoneId, 'time window time zone'),
+  })
+}
+
+function mapCalendarDay(value: unknown): CalendarDay {
+  const day = record(value, 'calendar day')
+  return {
+    date: requiredCivilDate(day.date, 'calendar day date'),
+    window: mapTimeWindow(record(day.window, 'calendar day window')),
+    withinFocusedMonth: boolean(
+      day.withinFocusedMonth,
+      'calendar day month membership',
+    ),
   }
 }
 
