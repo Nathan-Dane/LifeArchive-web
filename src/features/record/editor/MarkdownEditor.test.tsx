@@ -433,6 +433,13 @@ describe('MarkdownEditor', () => {
       name: 'Writing editor',
     })
     await screen.findByText('Ready to save.')
+    expect(screen.getByRole('heading', { name: 'Media' })).toBeVisible()
+    expect(
+      screen.getByText(
+        'Add some writing first. You can add media after this Day’s entry is created.',
+      ),
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Add media' })).toBeDisabled()
     expect(save).not.toHaveBeenCalled()
 
     await user.click(textbox)
@@ -440,6 +447,9 @@ describe('MarkdownEditor', () => {
     await screen.findByText('Unsaved changes.')
 
     await screen.findByText('Saved.')
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Add media' })).toBeEnabled(),
+    )
     expect(save).toHaveBeenCalledTimes(1)
     expect(save.mock.calls[0]?.[0]).toMatchObject({
       markdown: 'Café 日本語',

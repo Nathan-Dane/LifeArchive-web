@@ -163,6 +163,86 @@ test.describe('verified local development runtime', () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test('imports and reopens exact Day media through the real runtime', async ({
+    page,
+  }) => {
+    const original = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    )
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator.storage, 'persist', {
+        configurable: true,
+        value: () => Promise.resolve(true),
+      })
+    })
+    await page.goto(LOCAL_RUNTIME_URL)
+    await page.getByRole('button', { name: 'Create archive' }).click()
+
+    const createAnyway = page.getByRole('button', {
+      name: 'Create archive anyway',
+    })
+    const editor = page.getByRole('textbox', { name: 'Writing editor' })
+    await expect(editor.or(createAnyway)).toBeVisible({ timeout: 20_000 })
+    if (await createAnyway.isVisible()) await createAnyway.click()
+    await expect(page.getByRole('heading', { name: 'Media' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add media' })).toBeDisabled()
+    await expect(
+      page.getByText(
+        'Add some writing first. You can add media after this Day’s entry is created.',
+      ),
+    ).toBeVisible()
+    await editor.fill('Day with exact media')
+    await expect(page.getByText('Saved.')).toBeVisible()
+
+    await expect(page.getByRole('heading', { name: 'Media' })).toBeVisible()
+    await page.getByLabel('Choose media files').setInputFiles({
+      name: 'exact-day-media.png',
+      mimeType: 'image/png',
+      buffer: original,
+    })
+    await expect(
+      page.getByText(
+        'The core copied the original bytes into durable archive storage.',
+      ),
+    ).toBeVisible({ timeout: 20_000 })
+    await expect(
+      page.getByRole('button', { name: 'Preview exact-day-media.png' }),
+    ).toBeVisible()
+    await page
+      .getByRole('button', { name: 'Preview exact-day-media.png' })
+      .click()
+    const preview = page.getByRole('img', {
+      name: 'Preview of exact-day-media.png',
+    })
+    await expect(preview).toBeVisible()
+    expect(
+      await preview.evaluate(async (image) => {
+        const response = await fetch((image as HTMLImageElement).src)
+        const bytes = await response.arrayBuffer()
+        return Array.from(new Uint8Array(bytes))
+      }),
+    ).toEqual(Array.from(original))
+
+    await page.reload()
+    const reopened = page.getByRole('button', {
+      name: 'Preview exact-day-media.png',
+    })
+    await expect(reopened).toBeVisible({ timeout: 20_000 })
+    await reopened.click()
+    const reopenedPreview = page.getByRole('img', {
+      name: 'Preview of exact-day-media.png',
+    })
+    await expect(reopenedPreview).toBeVisible()
+    expect(
+      await reopenedPreview.evaluate(async (image) => {
+        const response = await fetch((image as HTMLImageElement).src)
+        const bytes = await response.arrayBuffer()
+        return Array.from(new Uint8Array(bytes))
+      }),
+    ).toEqual(Array.from(original))
+  })
+
   test('preserves ordinary writing through a full browser-process restart', async ({
     browserName,
   }, testInfo) => {

@@ -9,6 +9,7 @@ import {
   type InvalidationToken,
   type LifeArchiveClient,
   type PrivacyLevel,
+  type Revision,
   type RevisionConflict,
   type StableId,
   type StructuredConflictState,
@@ -83,6 +84,7 @@ export interface EventEditor {
   readonly useArchiveVersion: () => void
   readonly changeTrack: (trackId: StableId | null) => Promise<boolean>
   readonly deleteEvent: () => Promise<boolean>
+  readonly adoptMediaRevision: (revision: Revision) => void
 }
 
 interface EventEditorOptions {
@@ -658,6 +660,25 @@ export function useEventEditor(
   )
 
   const displayedView = view?.key === activeKey ? view : null
+  const adoptMediaRevision = useCallback(
+    (revision: Revision) => {
+      const model = activeKey ? models.current.get(activeKey) : null
+      if (
+        !model?.object ||
+        model.object.summary.revision === revision ||
+        model.newObjectId
+      ) {
+        return
+      }
+      model.object = {
+        ...model.object,
+        summary: { ...model.object.summary, revision },
+      }
+      onChanged(model.object.summary)
+      publish(model)
+    },
+    [activeKey, onChanged, publish],
+  )
   return {
     status: displayedView?.status ?? 'idle',
     draft: displayedView?.draft ?? null,
@@ -680,5 +701,6 @@ export function useEventEditor(
     useArchiveVersion,
     changeTrack,
     deleteEvent,
+    adoptMediaRevision,
   }
 }
