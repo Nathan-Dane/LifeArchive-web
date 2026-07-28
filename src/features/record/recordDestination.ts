@@ -19,6 +19,7 @@ import type { LifeArchiveClient } from '../../core/client'
 import type { TemporalCursor } from './navigation/temporalCursor'
 import type { RecordObjects } from './objects/recordObjects'
 import type { EventEditor } from './events'
+import type { SpanEditor } from './spans'
 
 export interface RecordDestination {
   readonly client: LifeArchiveClient
@@ -26,6 +27,7 @@ export interface RecordDestination {
   readonly cursor: TemporalCursor
   readonly objects: RecordObjects
   readonly events: EventEditor
+  readonly spans: SpanEditor
 }
 
 export const RecordDestinationContext = createContext<RecordDestination | null>(

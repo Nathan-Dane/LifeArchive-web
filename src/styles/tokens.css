@@ -32,6 +32,7 @@
   --color-surface: light-dark(#fcfcfc, #191815);
   --color-surface-alt: light-dark(#f6f4f2, #2a2823);
   --color-surface-raised: light-dark(#ebe6dd, #343128);
+  --color-details-panel: light-dark(#fcfcfc, #11100e);
   --color-border: light-dark(#e9e6e0, #201e18);
 
   /* Text. */
@@ -91,6 +92,7 @@
     light-dark(rgb(81 73 58 / 12%), rgb(0 0 0 / 45%));
   --shadow-accent-glow: 0 4px 12px
     color-mix(in srgb, var(--color-accent) 18%, transparent);
+  --shadow-details: 0 16px 38px light-dark(rgb(62 48 25 / 7%), transparent);
 
   /* Spacing. */
   --space-tight: 6px;
@@ -100,11 +102,18 @@
   --space-content: 20px;
   --space-card-padding: 16px;
   --space-control-inline: 10px;
+  --space-details-inset: 18px;
+  --space-details-outer: 24px;
+  --space-details-section: 15px;
+  --space-details-label: 5px;
 
   /* Control sizing. `--size-tap-target` is the floor for anything tappable. */
   --size-tap-target: 44px;
   --size-control-compact: 36px;
   --size-control-featured: 48px;
+  --size-details-switch-width: 35px;
+  --size-details-switch-height: 20px;
+  --size-details-switch-thumb: 16px;
 
   /* Type. Serif for display and reading, the platform sans for controls. */
   --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
@@ -120,6 +129,8 @@
   --text-body: 1rem;
   --text-ui: 0.875rem;
   --text-meta: 0.75rem;
+  --text-details-field: 0.6875rem;
+  --text-details-label: 0.5625rem;
 
   --leading-display: 1.1;
   --leading-title: 1.3;
