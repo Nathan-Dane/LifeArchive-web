@@ -13,11 +13,12 @@
  */
 
 import { useId } from 'react'
-import type { TimeScale, TimeWindow } from '../../../core/client'
+import type { CivilDate, TimeScale, TimeWindow } from '../../../core/client'
 import { useFormat, useLocalisation } from '../../../i18n'
 import { civilLocation } from '../civilLocation'
 import { EventDetails, type EventEditor } from '../events'
 import { SpanDetails, type SpanEditor } from '../spans'
+import { TrackDetails, type Tracks } from '../tracks'
 import { objectWhen } from './objectNames'
 import type { RecordObjects } from './recordObjects'
 
@@ -31,29 +32,42 @@ const SCALE_LABEL = {
 export interface RecordObjectDetailsProps {
   readonly scale: TimeScale
   readonly window: TimeWindow | null
+  readonly date?: CivilDate | null
   readonly objects: RecordObjects
   readonly event?: EventEditor
   readonly span?: SpanEditor
+  readonly tracks?: Tracks
 }
 
 export function RecordObjectDetails({
   scale,
   window,
+  date = null,
   objects,
   event,
   span,
+  tracks,
 }: RecordObjectDetailsProps) {
   const localisation = useLocalisation()
   const t = localisation.t
   const format = useFormat()
   const headingId = useId()
   const selected = objects.state.selected
+  if (tracks?.active) {
+    return (
+      <TrackDetails
+        key={tracks.state.creating ? 'new-track' : tracks.state.selected?.id}
+        tracks={tracks}
+        date={date}
+      />
+    )
+  }
 
   if (event && (event.creating || selected?.placement.kind === 'event')) {
-    return <EventDetails event={event} />
+    return <EventDetails event={event} tracks={tracks} />
   }
   if (span && (span.creating || selected?.placement.kind === 'span')) {
-    return <SpanDetails span={span} />
+    return <SpanDetails span={span} tracks={tracks} />
   }
 
   return (

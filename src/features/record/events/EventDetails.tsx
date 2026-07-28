@@ -1,10 +1,17 @@
 import { useId, useState } from 'react'
-import { isCivilDate, isStableId } from '../../../core/client'
+import { isCivilDate } from '../../../core/client'
 import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
 import { RecordSemanticIcon } from './RecordSemanticIcon'
 import type { EventEditor } from './useEventEditor'
+import { TrackChooser, type Tracks } from '../tracks'
 
-export function EventDetails({ event }: { readonly event: EventEditor }) {
+export function EventDetails({
+  event,
+  tracks,
+}: {
+  readonly event: EventEditor
+  readonly tracks?: Tracks
+}) {
   const t = useTranslate()
   const localisation = useLocalisation()
   const headingId = useId()
@@ -12,12 +19,8 @@ export function EventDetails({ event }: { readonly event: EventEditor }) {
   const draft = event.draft
   if (!draft) return null
 
-  const trackValid = draft.trackId.length === 0 || isStableId(draft.trackId)
   const createReady =
-    draft.title.length > 0 &&
-    draft.iconId.length > 0 &&
-    isCivilDate(draft.date) &&
-    trackValid
+    draft.title.length > 0 && draft.iconId.length > 0 && isCivilDate(draft.date)
 
   return (
     <section className="record-details" aria-labelledby={headingId}>
@@ -82,14 +85,22 @@ export function EventDetails({ event }: { readonly event: EventEditor }) {
         <h3 className="eyebrow">{t('record.details.organisation')}</h3>
         <label className="record-details__field">
           <span className="meta-text">{t('record.event.track')}</span>
-          <input
-            value={draft.trackId}
-            aria-invalid={!trackValid || undefined}
-            placeholder={t('record.event.noTrack')}
-            onChange={(eventValue) =>
-              event.update({ trackId: eventValue.currentTarget.value })
-            }
-          />
+          {tracks ? (
+            <TrackChooser
+              tracks={tracks}
+              value={draft.trackId}
+              disabled={event.status === 'saving'}
+              onChange={(trackId) => {
+                if (event.creating) {
+                  event.update({ trackId: trackId ?? '' })
+                } else {
+                  void event.changeTrack(trackId)
+                }
+              }}
+            />
+          ) : (
+            <span>{t('record.event.noTrack')}</span>
+          )}
         </label>
         <label className="record-details__field">
           <span className="meta-text">{t('record.event.tags')}</span>

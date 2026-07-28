@@ -846,6 +846,7 @@ const cases = {
       newMemberId: objectId,
       track: trackDraft,
       member: structuredDraft,
+      tagStateOmitted: true,
       nowMs: 1_785_139_200_019,
     }
     const mapped = exercise(
@@ -863,7 +864,7 @@ const cases = {
           memberId: objectId,
           track: runtimeTrackDraft,
           member: runtimeStructuredDraft,
-          tagStateOmitted: false,
+          tagStateOmitted: true,
           nowMs: request.nowMs,
         },
       },
@@ -990,6 +991,7 @@ const cases = {
       expectedInvalidation: token,
       newMemberId: objectId,
       member: structuredDraft,
+      tagStateOmitted: true,
       nowMs: 1_785_139_200_022,
     }
     const mapped = exercise(
@@ -1008,7 +1010,7 @@ const cases = {
           expectedToken: token,
           memberId: objectId,
           member: runtimeStructuredDraft,
-          tagStateOmitted: false,
+          tagStateOmitted: true,
           nowMs: request.nowMs,
         },
       },

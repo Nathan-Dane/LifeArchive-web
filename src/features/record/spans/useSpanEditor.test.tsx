@@ -78,6 +78,8 @@ type Overrides = {
   readonly save?: LifeArchiveClient['structured']['save']
   readonly delete?: LifeArchiveClient['structured']['delete']
   readonly convertSpanToEvent?: LifeArchiveClient['structured']['convertSpanToEvent']
+  readonly attachMember?: LifeArchiveClient['tracks']['attachMember']
+  readonly detachMember?: LifeArchiveClient['tracks']['detachMember']
 }
 
 function testClient(overrides: Overrides = {}): LifeArchiveClient {
@@ -108,6 +110,11 @@ function testClient(overrides: Overrides = {}): LifeArchiveClient {
       delete: overrides.delete ?? base.structured.delete,
       convertSpanToEvent:
         overrides.convertSpanToEvent ?? base.structured.convertSpanToEvent,
+    },
+    tracks: {
+      ...base.tracks,
+      attachMember: overrides.attachMember ?? base.tracks.attachMember,
+      detachMember: overrides.detachMember ?? base.tracks.detachMember,
     },
     operations: {
       ...base.operations,
@@ -505,6 +512,82 @@ describe('the revision-safe Span editor', () => {
       endDate: '2025-06-14',
       beginMarkerTitle: 'Exact beginning',
       endMarkerTitle: 'Exact ending',
+    })
+  })
+
+  it('moves membership without changing ongoing dates, writing, tags, privacy, or markers', async () => {
+    const TRACK_ID = stableId('8f1c0a10-0000-4000-8000-000000000710')
+    const original = {
+      ...object(
+        {
+          ...summary({
+            beginTitle: 'Exact beginning',
+            endTitle: 'Exact current edge',
+          }),
+          iconId: 'unknown.span-icon',
+          tags: {
+            ordered: ['home', 'personal'],
+            display: 'personal',
+          },
+        },
+        'Exact ongoing writing  \nkept.',
+      ),
+      privacy: 'sensitive' as const,
+    }
+    const moved = {
+      ...original,
+      summary: {
+        ...original.summary,
+        revision: revision('5'),
+        trackId: TRACK_ID,
+      },
+    }
+    const attachMember = vi.fn(async () =>
+      ok<StructuredMutationResult>({
+        outcome: 'updated',
+        object: moved,
+        invalidation: INVALIDATION,
+      }),
+    )
+    const rendered = editor(
+      testClient({
+        load: async () =>
+          ok({
+            presence: 'present',
+            object: original,
+            invalidation: INVALIDATION,
+          }),
+        attachMember,
+      }),
+      original.summary,
+    )
+    await waitFor(() =>
+      expect(rendered.result.current.object).toEqual(original),
+    )
+
+    await act(() => rendered.result.current.changeTrack(TRACK_ID))
+
+    expect(attachMember).toHaveBeenCalledWith(
+      expect.objectContaining({
+        memberId: SPAN_ID,
+        memberKind: 'span',
+        expectedMemberRevision: revision('4'),
+        trackId: TRACK_ID,
+      }),
+    )
+    expect(rendered.result.current.object).toEqual(moved)
+    expect(rendered.result.current.draft).toMatchObject({
+      markdown: 'Exact ongoing writing  \nkept.',
+      startDate: '2024-08-01',
+      ongoing: true,
+      iconId: 'unknown.span-icon',
+      tagIds: ['home', 'personal'],
+      displayTagId: 'personal',
+      beginMarkerEnabled: true,
+      beginMarkerTitle: 'Exact beginning',
+      endMarkerEnabled: true,
+      endMarkerTitle: 'Exact current edge',
+      privacy: 'sensitive',
     })
   })
 })

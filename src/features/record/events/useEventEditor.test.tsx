@@ -73,6 +73,8 @@ function testClient(
     readonly delete?: (
       request: Parameters<LifeArchiveClient['structured']['delete']>[0],
     ) => Promise<ClientResult<StructuredDeleteResult>>
+    readonly attachMember?: LifeArchiveClient['tracks']['attachMember']
+    readonly detachMember?: LifeArchiveClient['tracks']['detachMember']
   } = {},
 ) {
   const base = new TestLifeArchiveClient({
@@ -100,6 +102,11 @@ function testClient(
       create: overrides.create ?? base.structured.create,
       save: overrides.save ?? base.structured.save,
       delete: overrides.delete ?? base.structured.delete,
+    },
+    tracks: {
+      ...base.tracks,
+      attachMember: overrides.attachMember ?? base.tracks.attachMember,
+      detachMember: overrides.detachMember ?? base.tracks.detachMember,
     },
     operations: {
       ...base.operations,
@@ -200,6 +207,89 @@ describe('the revision-safe Event editor', () => {
     expect(create).not.toHaveBeenCalled()
     expect(rendered.result.current.creating).toBe(false)
     expect(rendered.result.current.draft).toBeNull()
+  })
+
+  it('moves and detaches only Track membership while preserving every Event field', async () => {
+    const TRACK = stableId('7f1c0a10-0000-4000-8000-000000000710')
+    const original = object(
+      {
+        ...summary(),
+        iconId: 'unknown.exact-icon',
+        tags: {
+          ordered: ['personal', 'creative'],
+          display: 'creative',
+        },
+      },
+      'Exact writing  \nwith whitespace.',
+    )
+    const moved = {
+      ...original,
+      summary: { ...original.summary, revision: revision('5'), trackId: TRACK },
+    }
+    const detached = {
+      ...moved,
+      summary: { ...moved.summary, revision: revision('6'), trackId: null },
+    }
+    const attachMember = vi.fn(async () =>
+      ok<StructuredMutationResult>({
+        outcome: 'updated',
+        object: moved,
+        invalidation: INVALIDATION,
+      }),
+    )
+    const detachMember = vi.fn(async () =>
+      ok<StructuredMutationResult>({
+        outcome: 'updated',
+        object: detached,
+        invalidation: INVALIDATION,
+      }),
+    )
+    const rendered = editor(
+      testClient({
+        load: async () =>
+          ok({
+            presence: 'present',
+            object: original,
+            invalidation: INVALIDATION,
+          }),
+        attachMember,
+        detachMember,
+      }),
+      original.summary,
+    )
+    await waitFor(() =>
+      expect(rendered.result.current.object).toEqual(original),
+    )
+
+    await act(() => rendered.result.current.changeTrack(TRACK))
+    expect(attachMember).toHaveBeenCalledWith({
+      memberId: EVENT_A,
+      memberKind: 'event',
+      expectedMemberRevision: revision('4'),
+      expectedInvalidation: INVALIDATION,
+      trackId: TRACK,
+      nowMs: expect.any(Number),
+    })
+    expect(rendered.result.current.object).toEqual(moved)
+    expect(rendered.result.current.draft).toEqual(
+      expect.objectContaining({
+        markdown: original.markdown,
+        date: '2025-06-14',
+        iconId: 'unknown.exact-icon',
+        tagIds: ['personal', 'creative'],
+        displayTagId: 'creative',
+      }),
+    )
+
+    await act(() => rendered.result.current.changeTrack(null))
+    expect(detachMember).toHaveBeenCalledWith(
+      expect.objectContaining({
+        memberId: EVENT_A,
+        memberKind: 'event',
+        expectedMemberRevision: revision('5'),
+      }),
+    )
+    expect(rendered.result.current.object).toEqual(detached)
   })
 
   it('keeps an invalid creation draft when core validation refuses it', async () => {
