@@ -27,14 +27,16 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type {
-  CalendarContext,
-  CivilDate,
-  ClientFailure,
-  LifeArchiveClient,
-  TimeScale,
-  TimeWindow,
-  WindowStep,
+import {
+  civilDate,
+  isCivilDate,
+  type CalendarContext,
+  type CivilDate,
+  type ClientFailure,
+  type LifeArchiveClient,
+  type TimeScale,
+  type TimeWindow,
+  type WindowStep,
 } from '../../../core/client'
 import { deviceCalendar, type DeviceCalendar } from './deviceCalendar'
 
@@ -108,6 +110,34 @@ interface Answer {
 }
 
 const NOTHING_YET: Answer = { to: null, view: null, failure: null }
+const CURSOR_STORAGE_KEY = 'lifearchive:record-time-cursor:v1'
+const TIME_SCALES: readonly TimeScale[] = ['day', 'week', 'month', 'year']
+
+function restoredCursor(): TemporalDestination | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(CURSOR_STORAGE_KEY) ?? 'null')
+    if (
+      typeof value !== 'object' ||
+      value === null ||
+      !TIME_SCALES.includes(value.scale) ||
+      typeof value.anchor !== 'string' ||
+      !isCivilDate(value.anchor)
+    ) {
+      return null
+    }
+    return { scale: value.scale, anchor: civilDate(value.anchor) }
+  } catch {
+    return null
+  }
+}
+
+function rememberCursor(cursor: TemporalDestination): void {
+  try {
+    localStorage.setItem(CURSOR_STORAGE_KEY, JSON.stringify(cursor))
+  } catch {
+    // Navigation remains usable when browser preference storage is unavailable.
+  }
+}
 
 export interface TemporalCursorOptions {
   readonly device?: DeviceCalendar
@@ -123,11 +153,14 @@ export function useTemporalCursor(
   }: TemporalCursorOptions = {},
 ): TemporalCursor {
   const [today, setToday] = useState<CivilDate>(() => device.today())
-  const [target, setTarget] = useState<Target>(() => ({
-    scale: initialScale,
-    anchor: device.today(),
-    load: 0,
-  }))
+  const [target, setTarget] = useState<Target>(() => {
+    const restored = restoredCursor()
+    return {
+      scale: restored?.scale ?? initialScale,
+      anchor: restored?.anchor ?? device.today(),
+      load: 0,
+    }
+  })
   const [answer, setAnswer] = useState<Answer>(NOTHING_YET)
   /**
    * The request a traversal in flight started from. Holding the request rather
@@ -144,6 +177,10 @@ export function useTemporalCursor(
    * exactly as stale as a window that does.
    */
   const generation = useRef(0)
+
+  useEffect(() => {
+    rememberCursor({ scale: target.scale, anchor: target.anchor })
+  }, [target.anchor, target.scale])
 
   useEffect(() => {
     const requested = (generation.current += 1)

@@ -41,6 +41,9 @@
     { "name": "track.history", "version": "2" },
     { "name": "track.attachMember", "version": "1" },
     { "name": "track.detachMember", "version": "1" },
-    { "name": "track.createMember", "version": "1" }
+    { "name": "track.createMember", "version": "1" },
+    { "name": "time.window", "version": "1" },
+    { "name": "time.step", "version": "1" },
+    { "name": "time.calendarContext", "version": "1" }
   ]
 }
