@@ -1,5 +1,6 @@
 /**
- * The row that chooses which object at this location is being worked on.
+ * The navigation menu that chooses which object at this location is being
+ * worked on.
  *
  * At Day scale the ordinary entry is fixed at the leading edge and the objects
  * the core placed follow it, in the core's order, each addressed by its exact

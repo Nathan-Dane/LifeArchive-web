@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test'
 const PORT = 4173
 const BASE_URL = `http://localhost:${PORT}`
 const ADAPTER_HARNESS_PORT = 4187
+const DEVELOPMENT_MOCK_PORT = 4191
 const IS_CI = Boolean(process.env.CI)
 
 /**
@@ -43,6 +44,14 @@ export default defineConfig({
     {
       command: `pnpm dev --port ${ADAPTER_HARNESS_PORT} --strictPort`,
       url: `http://localhost:${ADAPTER_HARNESS_PORT}/e2e/archive-transfer.html`,
+      timeout: 120_000,
+      reuseExistingServer: !IS_CI,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      command: `VITE_LIFEARCHIVE_CLIENT=development-mock pnpm dev --port ${DEVELOPMENT_MOCK_PORT} --strictPort`,
+      url: `http://localhost:${DEVELOPMENT_MOCK_PORT}/record`,
       timeout: 120_000,
       reuseExistingServer: !IS_CI,
       stdout: 'pipe',

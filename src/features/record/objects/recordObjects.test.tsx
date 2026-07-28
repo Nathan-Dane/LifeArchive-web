@@ -269,8 +269,12 @@ describe('the objects a day holds', () => {
       ),
     )
     const rail = await railReady()
+    const navigation = screen.getByRole('complementary', {
+      name: 'Navigation',
+    })
 
     /* The core placed the Spans before the Events. Nothing re-sorted them. */
+    expect(within(navigation).getByRole('group', { name: 'Object' })).toBe(rail)
     expect(railControls(rail)).toEqual([
       'Day entry',
       'Span: Living in Aarhus, 1 August 2024 to Present',
@@ -613,7 +617,7 @@ describe('object selection across the workspace', () => {
 
     act(() => setClientMedia('(max-width: 820px)', '(max-width: 1120px)'))
 
-    /* The row lives in the region that never becomes a drawer. */
+    /* Moving the menu into a drawer does not replace its selection state. */
     expect(tabFor(STUDIO)).toHaveAttribute('aria-pressed', 'true')
     await user.click(screen.getByRole('button', { name: 'Details' }))
     const details = screen.getByRole('dialog', { name: 'Details' })
@@ -627,12 +631,15 @@ describe('object selection across the workspace', () => {
     const user = userEvent.setup()
     const client = openArchive()
     renderRecord(recordClient(client, ...listing(ok(page(overlappingSpans())))))
-    await railReady()
+    await screen.findByRole('heading', { name: 'Record' })
 
-    const navigation = screen.getByRole('button', { name: 'Navigation' })
-    const details = screen.getByRole('button', { name: 'Details' })
+    const navigation = await screen.findByRole('button', {
+      name: 'Navigation',
+    })
+    const details = await screen.findByRole('button', { name: 'Details' })
 
     await user.click(navigation)
+    await railReady()
     expect(navigation).toHaveAttribute('aria-expanded', 'true')
     expect(details).toHaveAttribute('aria-expanded', 'false')
 
