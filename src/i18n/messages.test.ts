@@ -19,6 +19,7 @@ const PHRASES = Object.entries(enMessages).flatMap(
 const RESULT_DERIVED_PERSISTENCE_CLAIM_KEYS = new Set([
   'record.editor.status.saved',
   'record.event.status.saved',
+  'record.span.status.saved',
 ])
 
 describe('the English catalog', () => {

@@ -144,6 +144,58 @@ export const recordMessages = {
   'record.event.status.missing': 'This Event is no longer available.',
   'record.event.status.mock':
     'Development preview. Changes remain in this tab only.',
+
+  /* Span creation, ongoing ranges, derived markers, and conversion. */
+  'record.span.new': 'New Span',
+  'record.span.titleAndIcon': 'Title and icon',
+  'record.span.semanticIcon': 'Semantic icon',
+  'record.span.startDate': 'Start',
+  'record.span.endDate': 'End',
+  'record.span.ongoing': 'Ongoing',
+  'record.span.present': 'Present',
+  'record.span.markers': 'Timeline markers',
+  'record.span.beginMarkerLegend': 'Start marker',
+  'record.span.beginMarkerEnabled': 'Show begin marker',
+  'record.span.endMarkerLegend': 'End marker',
+  'record.span.endMarkerEnabled': 'Show end marker',
+  'record.span.markerTitle': 'Custom title',
+  'record.span.markerAutomatic': 'Automatic title',
+  'record.span.markerReset': 'Use automatic title',
+  'record.span.markerDerived':
+    'Markers are derived from this Span and have no separate writing or identity.',
+  'record.span.create': 'Create Span',
+  'record.span.convert': 'Convert one-day Span to Event',
+  'record.span.convertConfirm':
+    'Choose the Event date for this Span. Its writing and stable identity will be preserved.',
+  'record.span.convertDate': 'Event date',
+  'record.span.confirmConvert': 'Convert to Event',
+  'record.span.delete': 'Delete Span',
+  'record.span.deleteConfirm':
+    'Delete this Span? Its exact stable identity will be soft-deleted. Its markers are derived and will disappear with it.',
+  'record.span.confirmDelete': 'Delete Span',
+  'record.span.movedRange':
+    'The Span moved to its current range. The object list has been refreshed.',
+  'record.span.dismissMovedRange': 'Dismiss',
+  'record.span.saveFailed':
+    'The Span change did not complete. The complete draft remains in this tab. {detail}',
+  'record.span.conflictTitle': 'The Span changed in the archive',
+  'record.span.conflictDetail':
+    'Your complete draft remains here. Choose which version to continue with.',
+  'record.span.conflictSaveMine': 'Save my Span',
+  'record.span.conflictUseArchive': 'Use archive Span',
+  'record.span.status.idle': 'Span editing is unavailable.',
+  'record.span.status.creating': 'Draft Span. Choose Create Span or Cancel.',
+  'record.span.status.loading': 'Reading the selected Span.',
+  'record.span.status.ready': 'Ready to save.',
+  'record.span.status.dirty': 'Unsaved Span changes.',
+  'record.span.status.saving': 'Saving Span…',
+  'record.span.status.saved': 'Saved.',
+  'record.span.status.failed': 'The Span change did not complete.',
+  'record.span.status.conflicted':
+    'The Span change stopped because the archive changed.',
+  'record.span.status.missing': 'This Span is no longer available.',
+  'record.span.status.mock':
+    'Development preview. Changes remain in this tab only.',
   'record.icon.fallbackGlyph': '?',
 
   /* Markdown writing surface. Mock mode never makes a durability claim. */

@@ -31,7 +31,9 @@ export interface RecordObjectSwitcherProps {
   readonly window: TimeWindow | null
   readonly objects: RecordObjects
   readonly creatingEvent: boolean
+  readonly creatingSpan: boolean
   readonly onCreateEvent: () => void
+  readonly onCreateSpan: () => void
 }
 
 export function RecordObjectSwitcher({
@@ -39,7 +41,9 @@ export function RecordObjectSwitcher({
   window,
   objects,
   creatingEvent,
+  creatingSpan,
   onCreateEvent,
+  onCreateSpan,
 }: RecordObjectSwitcherProps) {
   const localisation = useLocalisation()
   const t = localisation.t
@@ -68,7 +72,9 @@ export function RecordObjectSwitcher({
           <button
             type="button"
             className="record-objects__tab record-objects__tab--ordinary ui-text"
-            aria-pressed={state.selected === null && !creatingEvent}
+            aria-pressed={
+              state.selected === null && !creatingEvent && !creatingSpan
+            }
             onClick={objects.selectOrdinary}
           >
             {t(ORDINARY_LABEL[scale])}
@@ -83,7 +89,11 @@ export function RecordObjectSwitcher({
               <ObjectTab
                 key={object.id}
                 object={object}
-                selected={object.id === state.selected?.id && !creatingEvent}
+                selected={
+                  object.id === state.selected?.id &&
+                  !creatingEvent &&
+                  !creatingSpan
+                }
                 onSelect={() => choose(object)}
               />
             ))
@@ -98,7 +108,11 @@ export function RecordObjectSwitcher({
               <ObjectTab
                 key={object.id}
                 object={object}
-                selected={object.id === state.selected?.id && !creatingEvent}
+                selected={
+                  object.id === state.selected?.id &&
+                  !creatingEvent &&
+                  !creatingSpan
+                }
                 onSelect={() => choose(object)}
               />
             ))
@@ -113,6 +127,15 @@ export function RecordObjectSwitcher({
           onClick={onCreateEvent}
         >
           {t('record.event.new')}
+        </button>
+        <button
+          type="button"
+          className="record-objects__add ui-text"
+          aria-pressed={creatingSpan}
+          disabled={!window || state.status === 'failed'}
+          onClick={onCreateSpan}
+        >
+          {t('record.span.new')}
         </button>
       </div>
 
