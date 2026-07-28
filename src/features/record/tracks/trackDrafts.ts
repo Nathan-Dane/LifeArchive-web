@@ -8,6 +8,7 @@ import {
   type Track,
   type TrackDraft,
 } from '../../../core/client'
+import { EVENT_DEFAULT_ICON_ID } from '../metadata/semanticCatalog'
 
 export interface TrackDraftFields {
   readonly name: string
@@ -37,7 +38,7 @@ export interface TrackMemberDraftFields {
 export function emptyTrackDraft(): TrackDraftFields {
   return {
     name: '',
-    iconId: 'life-track',
+    iconId: EVENT_DEFAULT_ICON_ID,
     suggestedTagId: '',
     isArchived: false,
   }

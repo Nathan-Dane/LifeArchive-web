@@ -18,9 +18,9 @@ import {
   type StructuredSummary,
 } from '../../../core/client'
 import type { RecordDraftRegistration } from '../recordDraftSession'
+import { SPAN_DEFAULT_ICON_ID } from '../metadata/semanticCatalog'
 
 const AUTOSAVE_DELAY_MS = 500
-const SPAN_DEFAULT_ICON_ID = 'life-span'
 
 export type SpanEditorStatus =
   | 'idle'
@@ -162,8 +162,8 @@ function newFields(date: CivilDate): SpanDraftFields {
     endMarkerEnabled: false,
     endMarkerTitle: '',
     iconId: SPAN_DEFAULT_ICON_ID,
-    tagIds: [],
-    displayTagId: '',
+    tagIds: ['personal'],
+    displayTagId: 'personal',
     trackId: '',
     privacy: 'normal',
   }

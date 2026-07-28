@@ -319,6 +319,13 @@ describe('the revision-safe Span editor', () => {
     )
     const rendered = editor(testClient({ create }), null)
     act(() => rendered.result.current.startCreate(civilDate('2025-06-14')))
+    expect(rendered.result.current.draft).toEqual(
+      expect.objectContaining({
+        iconId: 'span',
+        tagIds: ['personal'],
+        displayTagId: 'personal',
+      }),
+    )
     act(() =>
       rendered.result.current.update({
         title: 'Reversed but preserved',
@@ -335,6 +342,8 @@ describe('the revision-safe Span editor', () => {
         newObjectId: NEW_SPAN_ID,
         draft: expect.objectContaining({
           markdown: 'Do not lose this buffer.',
+          iconId: 'span',
+          tags: { ordered: ['personal'], display: 'personal' },
           placement: expect.objectContaining({
             startDate: '2025-06-14',
             endDate: '2025-06-13',

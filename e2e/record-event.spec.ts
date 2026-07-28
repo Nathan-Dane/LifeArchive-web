@@ -19,6 +19,52 @@ test.describe('Event editing', () => {
     ).toBeVisible()
   })
 
+  test('loads the selected Material glyph subset without a third-party request', async ({
+    page,
+  }) => {
+    await page.goto(DEVELOPMENT_MOCK_URL)
+
+    const icon = page
+      .locator('[data-semantic-icon-id="swimming"] .material-symbols-rounded')
+      .first()
+    await expect(icon).toHaveText('pool')
+    await expect
+      .poll(() => page.evaluate(() => document.fonts.status))
+      .toBe('loaded')
+    const font = await icon.evaluate((element) => ({
+      family: getComputedStyle(element).fontFamily,
+      status: document.fonts.status,
+    }))
+    expect(font.family).toContain('Material Symbols Rounded')
+    expect(font.status).toBe('loaded')
+    expect(
+      await page.evaluate(() =>
+        [...document.styleSheets].some((sheet) =>
+          [...sheet.cssRules].some(
+            (rule) =>
+              rule.cssText.includes('Material Symbols Rounded') &&
+              rule.cssText.includes('data:font/woff2;base64,'),
+          ),
+        ),
+      ),
+    ).toBe(true)
+
+    const resources = await page.evaluate(() =>
+      performance.getEntriesByType('resource').map((entry) => ({
+        name: entry.name,
+        origin: new URL(entry.name).origin,
+      })),
+    )
+    expect(resources.some(({ origin }) => origin.includes('google'))).toBe(
+      false,
+    )
+    expect(
+      resources.some(({ name }) =>
+        name.includes('material-symbols-rounded-subset'),
+      ),
+    ).toBe(false)
+  })
+
   test('creates or cancels explicitly and confirms deletion', async ({
     page,
   }) => {

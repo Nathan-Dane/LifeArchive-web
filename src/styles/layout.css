@@ -1685,6 +1685,55 @@
   color: currentColor;
 }
 
+.record-display-accent--personal {
+  --record-display-accent: var(--tag-personal-accent);
+}
+
+.record-display-accent--family {
+  --record-display-accent: var(--tag-family-accent);
+}
+
+.record-display-accent--friends {
+  --record-display-accent: var(--tag-friends-accent);
+}
+
+.record-display-accent--work {
+  --record-display-accent: var(--tag-work-accent);
+}
+
+.record-display-accent--education {
+  --record-display-accent: var(--tag-education-accent);
+}
+
+.record-display-accent--travel {
+  --record-display-accent: var(--tag-travel-accent);
+}
+
+.record-display-accent--home {
+  --record-display-accent: var(--tag-home-accent);
+}
+
+.record-display-accent--health {
+  --record-display-accent: var(--tag-health-accent);
+}
+
+.record-display-accent--creative {
+  --record-display-accent: var(--tag-creative-accent);
+}
+
+.record-display-accent--achievement {
+  --record-display-accent: var(--tag-achievement-accent);
+}
+
+.record-display-accent--fallback {
+  --record-display-accent: var(--tag-fallback-accent);
+}
+
+.record-objects__tab[data-display-tag-id] .record-objects__icon {
+  border-color: var(--record-display-accent);
+  background: color-mix(in srgb, var(--record-display-accent) 18%, transparent);
+}
+
 .record-objects__tab-copy {
   display: grid;
   min-width: 0;
@@ -2060,6 +2109,218 @@
   font-size: var(--text-meta);
 }
 
+/* Runtime catalogue metadata. Native buttons provide keyboard grid/list
+   traversal; pressed state and text labels make selection non-colour-only. */
+.record-semantic-icon {
+  display: inline-grid;
+  place-items: center;
+}
+
+.semantic-icon-picker,
+.record-tag-picker {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-standard);
+  padding: var(--space-standard);
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-control);
+  margin: 0;
+}
+
+.semantic-icon-picker > legend,
+.record-tag-picker > legend {
+  padding-inline: var(--space-tight);
+  color: var(--color-text-secondary);
+  font-size: var(--text-meta);
+}
+
+.semantic-icon-picker__unknown {
+  display: flex;
+  align-items: center;
+  gap: var(--space-compact);
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+  font-size: var(--text-meta);
+}
+
+.semantic-icon-picker__category {
+  display: grid;
+  gap: var(--space-tight);
+}
+
+.semantic-icon-picker__category > h4 {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-details-label);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-meta);
+  text-align: start;
+  text-transform: uppercase;
+}
+
+.semantic-icon-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(var(--size-tap-target), 1fr));
+  gap: var(--space-tight);
+}
+
+.semantic-icon-picker__option {
+  display: grid;
+  min-width: var(--size-tap-target);
+  min-height: var(--size-tap-target);
+  place-items: center;
+  padding: 0;
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-alt);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.semantic-icon-picker__option[aria-pressed='true'] {
+  border-color: var(--color-focus-ring);
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+}
+
+.record-tag-ribbon {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  padding-inline: var(--space-tight);
+}
+
+.record-tag-ribbon > .record-tag + .record-tag {
+  margin-inline-start: calc(var(--space-content) * -1);
+}
+
+.record-tag {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  min-height: var(--size-control-compact);
+  align-items: center;
+  gap: var(--space-tight);
+  overflow: hidden;
+  padding: var(--space-tight) var(--space-control-inline);
+  border: 2px solid var(--color-details-panel);
+  border-radius: 999px;
+  background: var(--tag-accent);
+  color: var(--tag-foreground);
+  font-size: var(--text-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-tag[data-display-tag='true'] {
+  z-index: 1;
+  flex: 0 0 auto;
+}
+
+.record-tag__star {
+  font-size: 14px;
+}
+
+.record-tag--personal,
+.record-tag-picker__row--personal {
+  --tag-accent: var(--tag-personal-accent);
+}
+
+.record-tag--family,
+.record-tag-picker__row--family {
+  --tag-accent: var(--tag-family-accent);
+}
+
+.record-tag--friends,
+.record-tag-picker__row--friends {
+  --tag-accent: var(--tag-friends-accent);
+}
+
+.record-tag--work,
+.record-tag-picker__row--work {
+  --tag-accent: var(--tag-work-accent);
+}
+
+.record-tag--education,
+.record-tag-picker__row--education {
+  --tag-accent: var(--tag-education-accent);
+}
+
+.record-tag--travel,
+.record-tag-picker__row--travel {
+  --tag-accent: var(--tag-travel-accent);
+}
+
+.record-tag--home,
+.record-tag-picker__row--home {
+  --tag-accent: var(--tag-home-accent);
+}
+
+.record-tag--health,
+.record-tag-picker__row--health {
+  --tag-accent: var(--tag-health-accent);
+}
+
+.record-tag--creative,
+.record-tag-picker__row--creative {
+  --tag-accent: var(--tag-creative-accent);
+}
+
+.record-tag--achievement,
+.record-tag-picker__row--achievement {
+  --tag-accent: var(--tag-achievement-accent);
+}
+
+.record-tag--fallback,
+.record-tag-picker__row--fallback {
+  --tag-accent: var(--tag-fallback-accent);
+}
+
+.record-tag-picker__list {
+  display: grid;
+  gap: var(--space-tight);
+}
+
+.record-tag-picker__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-tight);
+  align-items: stretch;
+}
+
+.record-tag-picker__select,
+.record-tag-picker__main {
+  display: flex;
+  min-height: var(--size-tap-target);
+  align-items: center;
+  gap: var(--space-tight);
+  padding: 0 var(--space-compact);
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: start;
+}
+
+.record-tag-picker__select[aria-pressed='true'] {
+  border-color: var(--tag-accent);
+  box-shadow: inset 4px 0 var(--tag-accent);
+}
+
+.record-tag-picker__main {
+  font-size: var(--text-meta);
+}
+
+.record-tag-picker__main[aria-pressed='true'] {
+  background: var(--tag-accent);
+  color: var(--tag-foreground);
+}
+
+.record-tag-picker__main:disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
+}
+
 /* Track management stays compact in navigation, while its history occupies
    Record's primary region. Core order is reflected by ordinary block flow. */
 .record-tracks {
@@ -2196,6 +2457,10 @@
   border: var(--border-hairline) solid var(--border-muted);
   border-radius: var(--radius-card);
   background: var(--color-surface);
+}
+
+.record-track-history li[data-display-tag-id] {
+  border-inline-start: 4px solid var(--record-display-accent);
 }
 
 .record-track-history li > span:last-child {

@@ -159,6 +159,13 @@ describe('the revision-safe Event editor', () => {
     const rendered = editor(testClient({ create }), null, callbacks)
 
     act(() => rendered.result.current.startCreate(civilDate('2025-06-14')))
+    expect(rendered.result.current.draft).toEqual(
+      expect.objectContaining({
+        iconId: 'life-event',
+        tagIds: ['personal'],
+        displayTagId: 'personal',
+      }),
+    )
     act(() => {
       rendered.result.current.update({
         title: 'First Event',
