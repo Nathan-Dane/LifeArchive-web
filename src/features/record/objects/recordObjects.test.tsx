@@ -127,7 +127,7 @@ function overlappingSpans(): readonly StructuredSummary[] {
         endMarker: marker,
       },
       iconId: 'icon.tools',
-      tags: { ordered: [], display: null },
+      tags: { ordered: ['home', 'creative'], display: 'creative' },
       trackId: null,
     },
   ]
@@ -603,6 +603,33 @@ describe('stale answers and selections a window does not hold', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('object selection across the workspace', () => {
+  it('uses only the core display tag as the compact object accent', async () => {
+    const client = openArchive()
+    renderRecord(recordClient(client, ...listing(ok(page(overlappingSpans())))))
+    await railReady()
+
+    const compact = tabFor(STUDIO)
+    expect(compact).toHaveAttribute('data-display-tag-id', 'creative')
+    expect(compact).toHaveClass('record-display-accent--creative')
+    expect(compact.querySelectorAll('[data-semantic-tag-id]')).toHaveLength(0)
+    expect({
+      displayTag: compact.dataset.displayTagId,
+      accentClasses: [...compact.classList].filter((name) =>
+        name.startsWith('record-display-accent--'),
+      ),
+      renderedTagBadges: compact.querySelectorAll('[data-semantic-tag-id]')
+        .length,
+    }).toMatchInlineSnapshot(`
+      {
+        "accentClasses": [
+          "record-display-accent--creative",
+        ],
+        "displayTag": "creative",
+        "renderedTagBadges": 0,
+      }
+    `)
+  })
+
   it('keeps the exact object selected when the regions become drawers', async () => {
     const user = userEvent.setup()
     const client = openArchive()

@@ -11,6 +11,15 @@ available at <https://mozilla.org/MPL/2.0/>.
 This covers the application source, tests, tooling, and documentation in this
 repository — including the visual reference in `docs/reference/`.
 
+### Material Symbols
+
+The frontend contains a subset of the Material Symbols Rounded font generated
+through the Google Fonts CSS API. Material Symbols are licensed under the
+Apache License 2.0, available at
+<https://www.apache.org/licenses/LICENSE-2.0>. The subset is checked into this
+repository and served by the application; the deployed frontend makes no
+request to Google Fonts.
+
 ## 2. Compiled LifeArchive runtime — separate proprietary software
 
 The compiled LifeArchive runtime (the Wasm module built from the private

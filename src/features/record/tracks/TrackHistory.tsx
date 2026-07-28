@@ -1,5 +1,6 @@
 import { useFormat, useTranslate } from '../../../i18n'
 import { RecordSemanticIcon } from '../events'
+import { displayAccentClassName, RecordTagBadge } from '../metadata'
 import type { Tracks } from './useTracks'
 
 export function TrackHistory({ tracks }: { readonly tracks: Tracks }) {
@@ -18,7 +19,12 @@ export function TrackHistory({ tracks }: { readonly tracks: Tracks }) {
       ) : (
         <ol>
           {tracks.state.history.map((member) => (
-            <li key={member.id} data-member-kind={member.kind}>
+            <li
+              key={member.id}
+              data-member-kind={member.kind}
+              data-display-tag-id={member.displayTagId ?? undefined}
+              className={displayAccentClassName(member.displayTagId)}
+            >
               <RecordSemanticIcon id={member.iconId} />
               <span>
                 <strong>{member.title}</strong>
@@ -47,6 +53,9 @@ export function TrackHistory({ tracks }: { readonly tracks: Tracks }) {
                         .join(' · '),
                     })}
                   </span>
+                ) : null}
+                {member.displayTagId ? (
+                  <RecordTagBadge id={member.displayTagId} display />
                 ) : null}
               </span>
             </li>

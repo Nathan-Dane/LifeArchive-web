@@ -4,6 +4,7 @@ import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
 import { RecordSemanticIcon } from '../events'
 import type { SpanEditor } from './useSpanEditor'
 import { TrackChooser, type Tracks } from '../tracks'
+import { RecordTagPicker, SemanticIconPicker } from '../metadata'
 
 export function SpanDetails({
   span,
@@ -73,6 +74,11 @@ export function SpanDetails({
             />
           </span>
         </label>
+        <SemanticIconPicker
+          value={draft.iconId}
+          disabled={span.status === 'saving'}
+          onChange={(iconId) => span.update({ iconId })}
+        />
       </section>
 
       <section className="record-details__section">
@@ -145,23 +151,19 @@ export function SpanDetails({
             <span>{t('record.event.noTrack')}</span>
           )}
         </label>
-        <label className="record-details__field">
-          <span className="record-details__label-line meta-text">
-            {t('record.event.tags')}
-          </span>
-          <input
-            value={draft.tagIds.join(', ')}
-            placeholder={t('record.event.noTags')}
-            onChange={(event) =>
-              span.update({
-                tagIds: event.currentTarget.value
-                  .split(',')
-                  .map((tag) => tag.trim())
-                  .filter((tag) => tag.length > 0),
-              })
-            }
-          />
-        </label>
+        <RecordTagPicker
+          tags={{
+            ordered: draft.tagIds,
+            display: draft.displayTagId || null,
+          }}
+          disabled={span.status === 'saving'}
+          onChange={(tags) =>
+            span.update({
+              tagIds: tags.ordered,
+              displayTagId: tags.display ?? '',
+            })
+          }
+        />
       </section>
 
       <section className="record-details__section">

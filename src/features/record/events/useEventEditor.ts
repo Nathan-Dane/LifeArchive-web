@@ -18,15 +18,9 @@ import {
   type StructuredSummary,
 } from '../../../core/client'
 import type { RecordDraftRegistration } from '../recordDraftSession'
+import { EVENT_DEFAULT_ICON_ID } from '../metadata/semanticCatalog'
 
 const AUTOSAVE_DELAY_MS = 500
-
-/*
- * This is a core semantic ID, not a web-icon choice. RecordSemanticIcon is the
- * deliberately separate adapter where the later catalogue-to-glyph mapping
- * belongs.
- */
-const EVENT_DEFAULT_ICON_ID = 'life-event'
 
 export type EventEditorStatus =
   | 'idle'
@@ -122,8 +116,8 @@ function newFields(date: CivilDate): EventDraftFields {
     markdown: '',
     date,
     iconId: EVENT_DEFAULT_ICON_ID,
-    tagIds: [],
-    displayTagId: '',
+    tagIds: ['personal'],
+    displayTagId: 'personal',
     trackId: '',
     privacy: 'normal',
   }

@@ -170,6 +170,30 @@ describe('contrast in both appearances', () => {
     }
   })
 
+  it('keeps every semantic tag badge readable in both appearances', () => {
+    const tags = [
+      'personal',
+      'family',
+      'friends',
+      'work',
+      'education',
+      'travel',
+      'home',
+      'health',
+      'creative',
+      'achievement',
+      'fallback',
+    ]
+    for (const appearance of ['light', 'dark'] as const) {
+      for (const tag of tags) {
+        expect(
+          ratio('--tag-foreground', `--tag-${tag}-accent`, appearance),
+          `${appearance} ${tag} tag`,
+        ).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+
   it('shows the focus ring against every surface', () => {
     for (const appearance of ['light', 'dark'] as const) {
       for (const surface of SURFACES) {
@@ -272,8 +296,13 @@ describe('the responsive breakpoints', () => {
 describe('delivery safety', () => {
   it('asks for no font, image, or stylesheet over the network', () => {
     for (const css of ALL_CSS) {
-      expect(css).not.toContain('@font-face')
       expect(css).not.toMatch(/url\(\s*['"]?(https?:)?\/\//i)
+    }
+    expect(GLOBAL_CSS).toMatch(
+      /@font-face\s*\{[^}]*url\(['"]?data:font\/woff2;base64,/s,
+    )
+    for (const css of [TOKENS_CSS, LAYOUT_CSS, TYPOGRAPHY_CSS]) {
+      expect(css).not.toContain('@font-face')
     }
   })
 
