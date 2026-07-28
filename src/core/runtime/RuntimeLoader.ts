@@ -29,6 +29,11 @@ export interface RuntimeLoaderOptions {
   readonly createWorker?: (manifest: RuntimeManifest) => Worker
   readonly installedBaseUrl?: string
   readonly allowDevelopmentRuntime?: boolean
+  /**
+   * Routes a pinned artifact through the current Vite development origin.
+   * Production never enables this; injected loaders must opt in explicitly.
+   */
+  readonly useDevelopmentArtifactProxy?: boolean
   readonly createObjectUrl?: (blob: Blob) => string
   readonly revokeObjectUrl?: (url: string) => void
   /**
@@ -120,7 +125,15 @@ export class RuntimeLoader {
       })
     }
 
-    const artifactUrl = localArtifactUrl ?? lock.artifactUrl
+    const useDevelopmentArtifactProxy =
+      import.meta.env.DEV &&
+      (this.options.useDevelopmentArtifactProxy ??
+        (!this.options.lock && !this.options.fetch))
+    const artifactUrl =
+      localArtifactUrl ??
+      (useDevelopmentArtifactProxy
+        ? developmentArtifactProxyUrl(lock.artifactUrl, baseUrl)
+        : lock.artifactUrl)
     const cacheKey = `${artifactUrl}\u0000${lock.sha256}`
     let extracted =
       this.verifiedArtifact?.key === cacheKey
@@ -300,6 +313,16 @@ export class RuntimeLoader {
     this.state = state
     return state
   }
+}
+
+function developmentArtifactProxyUrl(
+  artifactUrl: string,
+  installedBaseUrl: string,
+): string {
+  const pinned = new URL(artifactUrl)
+  const local = new URL(pinned.pathname, installedBaseUrl)
+  local.search = pinned.search
+  return local.href
 }
 
 function copyBuffer(bytes: Uint8Array): ArrayBuffer {
