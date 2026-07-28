@@ -39,7 +39,7 @@ describe('the English catalog', () => {
 
   it('namespaces every key under its feature', () => {
     for (const key of Object.keys(enMessages)) {
-      expect(key, key).toMatch(/^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$/)
+      expect(key, key).toMatch(/^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9-]+)+$/)
     }
   })
 

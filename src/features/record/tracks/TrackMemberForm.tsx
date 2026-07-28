@@ -1,5 +1,6 @@
 import { isCivilDate } from '../../../core/client'
 import { useTranslate } from '../../../i18n'
+import { RecordTagPicker, SemanticIconPicker } from '../metadata'
 import type { TrackMemberDraftFields } from './trackDrafts'
 
 export function TrackMemberForm({
@@ -129,33 +130,27 @@ export function TrackMemberForm({
           onChange={(event) => update({ markdown: event.currentTarget.value })}
         />
       </label>
-      <label>
-        <span>{t('record.event.semanticIcon')}</span>
-        <input
-          value={draft.iconId}
-          onChange={(event) => update({ iconId: event.currentTarget.value })}
-        />
-      </label>
-      <label>
-        <span>{t('record.event.tags')}</span>
-        <input
-          value={draft.tagIds.join(', ')}
-          placeholder={
-            draft.tagStateOmitted
-              ? t('record.track.suggestedTagMayApply')
-              : t('record.event.noTags')
-          }
-          onChange={(event) =>
+      <SemanticIconPicker
+        value={draft.iconId}
+        onChange={(iconId) => update({ iconId })}
+      />
+      {draft.tagStateOmitted ? (
+        <p className="meta-text">{t('record.track.suggestedTagMayApply')}</p>
+      ) : (
+        <RecordTagPicker
+          tags={{
+            ordered: draft.tagIds,
+            display: draft.displayTagId || null,
+          }}
+          onChange={(tags) =>
             update({
-              tagIds: event.currentTarget.value
-                .split(',')
-                .map((tag) => tag.trim())
-                .filter(Boolean),
+              tagIds: tags.ordered,
+              displayTagId: tags.display ?? '',
               tagStateOmitted: false,
             })
           }
         />
-      </label>
+      )}
       {draft.tagStateOmitted ? (
         <button
           type="button"

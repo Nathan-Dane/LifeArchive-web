@@ -4,6 +4,7 @@ import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
 import { RecordSemanticIcon } from './RecordSemanticIcon'
 import type { EventEditor } from './useEventEditor'
 import { TrackChooser, type Tracks } from '../tracks'
+import { RecordTagPicker, SemanticIconPicker } from '../metadata'
 
 export function EventDetails({
   event,
@@ -53,15 +54,11 @@ export function EventDetails({
             />
           </span>
         </label>
-        <label className="record-details__field">
-          <span className="meta-text">{t('record.event.semanticIcon')}</span>
-          <input
-            value={draft.iconId}
-            onChange={(eventValue) =>
-              event.update({ iconId: eventValue.currentTarget.value })
-            }
-          />
-        </label>
+        <SemanticIconPicker
+          value={draft.iconId}
+          disabled={event.status === 'saving'}
+          onChange={(iconId) => event.update({ iconId })}
+        />
       </section>
 
       <section className="record-details__section">
@@ -102,21 +99,19 @@ export function EventDetails({
             <span>{t('record.event.noTrack')}</span>
           )}
         </label>
-        <label className="record-details__field">
-          <span className="meta-text">{t('record.event.tags')}</span>
-          <input
-            value={draft.tagIds.join(', ')}
-            placeholder={t('record.event.noTags')}
-            onChange={(eventValue) =>
-              event.update({
-                tagIds: eventValue.currentTarget.value
-                  .split(',')
-                  .map((tag) => tag.trim())
-                  .filter((tag) => tag.length > 0),
-              })
-            }
-          />
-        </label>
+        <RecordTagPicker
+          tags={{
+            ordered: draft.tagIds,
+            display: draft.displayTagId || null,
+          }}
+          disabled={event.status === 'saving'}
+          onChange={(tags) =>
+            event.update({
+              tagIds: tags.ordered,
+              displayTagId: tags.display ?? '',
+            })
+          }
+        />
       </section>
 
       {event.creating ? (

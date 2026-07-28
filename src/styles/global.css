@@ -3,6 +3,7 @@
  * one only prepares the page for them.
  */
 
+@import '../assets/material-symbols-rounded-subset.css';
 @import './tokens.css';
 @import './typography.css';
 @import './layout.css';
@@ -51,6 +52,25 @@ select,
 textarea {
   font: inherit;
   color: inherit;
+}
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  overflow: hidden;
+  width: 1em;
+  direction: ltr;
+  font-size: var(--size-semantic-icon);
+  font-variation-settings:
+    'FILL' 1,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
+  line-height: 1;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
 }
 
 /* One focus treatment for the whole application, and it is always visible. */

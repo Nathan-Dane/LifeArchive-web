@@ -15,6 +15,7 @@ import type {
 } from '../../../core/client'
 import { failureMessage, useFormat, useLocalisation } from '../../../i18n'
 import { RecordSemanticIcon } from '../events'
+import { displayAccentClassName } from '../metadata'
 import { objectName, objectWhen } from './objectNames'
 import type { RecordObjects } from './recordObjects'
 import { RecordObjectNoticeBar } from './RecordObjectNoticeBar'
@@ -204,9 +205,10 @@ function ObjectTab({
   return (
     <button
       type="button"
-      className="record-objects__tab"
+      className={`record-objects__tab ${displayAccentClassName(object.tags.display)}`}
       data-object-id={object.id}
       data-object-kind={object.placement.kind}
+      data-display-tag-id={object.tags.display ?? undefined}
       aria-label={objectName(localisation, format, object)}
       aria-pressed={selected}
       onClick={onSelect}

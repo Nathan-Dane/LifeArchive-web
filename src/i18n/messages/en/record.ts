@@ -2,10 +2,9 @@
  * Record copy.
  *
  * Record owns the presentation names for the semantic icon and tag IDs it
- * displays: the core supplies the ID, this catalog supplies the word. There
- * are no approved semantic IDs in v0.1.0 yet, so nothing here names one; an ID
- * without a name here stays exact on screen and takes the neutral fallback in
- * `semantic.ts`.
+ * displays: the core supplies the ID, the adjacent semantic catalog supplies
+ * the word. An ID without a name stays exact on screen and takes the neutral
+ * fallback in `semantic.ts`.
  *
  * Time navigation says nothing about *when* anything is. Every date, weekday,
  * month, and period a reader sees is spelled by `format.ts` from a value the
@@ -107,6 +106,24 @@ export const recordMessages = {
   'record.details.identity': 'Identity',
   'record.details.time': 'Time',
   'record.details.organisation': 'Organisation',
+
+  'record.icon.pickerLabel': 'Choose an icon',
+  'record.icon.category.life-change': 'Life & Change',
+  'record.icon.category.relationships-people': 'Relationships & People',
+  'record.icon.category.home-possessions': 'Home & Possessions',
+  'record.icon.category.work-money': 'Work & Money',
+  'record.icon.category.learning-growth': 'Learning & Growth',
+  'record.icon.category.travel-places': 'Travel & Places',
+  'record.icon.category.health-wellbeing': 'Health & Wellbeing',
+  'record.icon.category.creativity-projects': 'Creativity & Projects',
+  'record.icon.category.achievement-sport': 'Achievement & Sport',
+  'record.icon.category.hobbies-digital': 'Hobbies & Digital Life',
+  'record.icon.category.nature-animals': 'Nature & Animals',
+  'record.icon.category.occasions-general': 'Occasions & General',
+  'record.tag.pickerLabel': 'Choose tags',
+  'record.tag.main': 'Main',
+  'record.tag.makeMain': 'Make {name} the main tag',
+  'record.tag.mainLabel': '{name}, main tag',
 
   /* Event creation and revision-safe editing. */
   'record.event.new': 'New Event',

@@ -1,7 +1,8 @@
 import { useId, useState } from 'react'
 import type { CivilDate } from '../../../core/client'
-import { failureMessage, useLocalisation } from '../../../i18n'
+import { failureMessage, semanticName, useLocalisation } from '../../../i18n'
 import { RecordSemanticIcon } from '../events'
+import { PREDEFINED_TAG_IDS, SemanticIconPicker } from '../metadata'
 import { TrackMemberForm } from './TrackMemberForm'
 import type { Tracks } from './useTracks'
 
@@ -105,26 +106,43 @@ export function TrackDetails({
             />
           </span>
         </label>
-        <label className="record-details__field">
-          <span>{t('record.track.icon')}</span>
-          <input
-            value={draft.iconId}
-            onChange={(event) =>
-              tracks.updateTrack({ iconId: event.currentTarget.value })
-            }
-          />
-        </label>
+        <SemanticIconPicker
+          value={draft.iconId}
+          disabled={tracks.state.status === 'saving'}
+          onChange={(iconId) => tracks.updateTrack({ iconId })}
+        />
         <label className="record-details__field">
           <span>{t('record.track.suggestedTag')}</span>
-          <input
+          <select
             value={draft.suggestedTagId}
-            placeholder={t('record.track.noSuggestedTag')}
             onChange={(event) =>
               tracks.updateTrack({
                 suggestedTagId: event.currentTarget.value,
               })
             }
-          />
+          >
+            <option value="">{t('record.track.noSuggestedTag')}</option>
+            {draft.suggestedTagId &&
+            !(PREDEFINED_TAG_IDS as readonly string[]).includes(
+              draft.suggestedTagId,
+            ) ? (
+              <option value={draft.suggestedTagId}>
+                {
+                  semanticName(
+                    localisation,
+                    'record',
+                    'tag',
+                    draft.suggestedTagId,
+                  ).text
+                }
+              </option>
+            ) : null}
+            {PREDEFINED_TAG_IDS.map((id) => (
+              <option key={id} value={id}>
+                {semanticName(localisation, 'record', 'tag', id).text}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="record-details__switch-line">
           <span>{t('record.track.archived')}</span>
