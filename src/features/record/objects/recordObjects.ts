@@ -99,6 +99,12 @@ export interface RecordObjects {
   readonly selectObject: (object: StructuredSummary) => void
   /** Moves the cursor to the object's own civil location and selects it. */
   readonly goToObject: (object: StructuredSummary) => void
+  /** Selects a just-created object by its core-returned stable identity. */
+  readonly selectCreated: (object: StructuredSummary) => void
+  /** Replaces the selected/listed summary after a confirmed core mutation. */
+  readonly replaceObject: (object: StructuredSummary) => void
+  /** Removes only the exact core-confirmed soft-delete target. */
+  readonly removeObject: (id: StableId) => void
   readonly dismissNotice: () => void
   readonly retry: () => void
 }
@@ -112,6 +118,9 @@ type Action =
     }
   | { readonly type: 'failed'; readonly failure: ClientFailure }
   | { readonly type: 'select'; readonly object: StructuredSummary }
+  | { readonly type: 'created'; readonly object: StructuredSummary }
+  | { readonly type: 'replace'; readonly object: StructuredSummary }
+  | { readonly type: 'remove'; readonly id: StableId }
   | { readonly type: 'selectOrdinary' }
   | { readonly type: 'notice'; readonly notice: RecordObjectNotice }
   | { readonly type: 'dismiss' }
@@ -174,6 +183,38 @@ function reduce(state: RecordObjectsState, action: Action): RecordObjectsState {
 
     case 'select':
       return { ...state, selected: action.object, notice: null }
+
+    case 'created':
+      return {
+        ...state,
+        objects: state.objects.some((object) => object.id === action.object.id)
+          ? state.objects.map((object) =>
+              object.id === action.object.id ? action.object : object,
+            )
+          : [...state.objects, action.object],
+        selected: action.object,
+        notice: null,
+      }
+
+    case 'replace':
+      return {
+        ...state,
+        objects: state.objects.map((object) =>
+          object.id === action.object.id ? action.object : object,
+        ),
+        selected:
+          state.selected?.id === action.object.id
+            ? action.object
+            : state.selected,
+      }
+
+    case 'remove':
+      return {
+        ...state,
+        objects: state.objects.filter((object) => object.id !== action.id),
+        selected: state.selected?.id === action.id ? null : state.selected,
+        notice: null,
+      }
 
     case 'selectOrdinary':
       return { ...state, selected: null, notice: null }
@@ -326,6 +367,18 @@ export function useRecordObjects(
     selectOrdinary,
     selectObject,
     goToObject,
+    selectCreated: useCallback(
+      (object: StructuredSummary) => dispatch({ type: 'created', object }),
+      [],
+    ),
+    replaceObject: useCallback(
+      (object: StructuredSummary) => dispatch({ type: 'replace', object }),
+      [],
+    ),
+    removeObject: useCallback(
+      (id: StableId) => dispatch({ type: 'remove', id }),
+      [],
+    ),
     dismissNotice: useCallback(() => dispatch({ type: 'dismiss' }), []),
     retry: useCallback(() => setReload((count) => count + 1), []),
   }

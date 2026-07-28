@@ -273,15 +273,15 @@ describe('the objects a day holds', () => {
       name: 'Navigation',
     })
 
-    /* The core placed the Spans before the Events. Nothing re-sorted them. */
+    /* Kinds are grouped; the core order within each kind stays exact. */
     expect(within(navigation).getByRole('group', { name: 'Object' })).toBe(rail)
     expect(railControls(rail)).toEqual([
       'Day entry',
+      'Event: Swim, 14 June 2025',
+      'Event: Swim, 14 June 2025',
       'Span: Living in Aarhus, 1 August 2024 to Present',
       'Span: The studio year, 1 January 2025 to 31 December 2025',
-      'Event: Swim, 14 June 2025',
-      'Event: Swim, 14 June 2025',
-      'Add',
+      'New Event',
     ])
   })
 
@@ -310,8 +310,8 @@ describe('the objects a day holds', () => {
 
     expect(tabFor(EVENING_SWIM)).toHaveAttribute('aria-pressed', 'true')
     expect(tabFor(MORNING_SWIM)).toHaveAttribute('aria-pressed', 'false')
-    /* The identity, not the title, is what the rest of Record is given. */
-    expect(await screen.findByText(EVENING_SWIM)).toBeInTheDocument()
+    /* The identity, not the title, is what the location carries. */
+    await waitFor(() => expect(location).toBe(`?object=${EVENING_SWIM}`))
   })
 
   it('keeps overlapping Spans separate and presents an absent end as Present', async () => {
@@ -335,16 +335,18 @@ describe('the objects a day holds', () => {
     expect(tabFor(AARHUS)).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('offers creation as a control that says it cannot act yet', async () => {
+  it('offers explicit Event creation and cancellation', async () => {
+    const user = userEvent.setup()
     const client = openArchive()
     renderRecord(recordClient(client, ...listing(ok(page([])))))
     await railReady()
 
-    const add = screen.getByRole('button', { name: 'Add' })
-    expect(add).toHaveAttribute('aria-disabled', 'true')
-    expect(add).toHaveAccessibleDescription(
-      'Creating Events and Spans is not available in this version.',
-    )
+    await user.click(screen.getByRole('button', { name: 'New Event' }))
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()
+    expect(screen.getAllByText('No Items')).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('button', { name: 'Create' })).toBeNull()
   })
 
   it('lists nothing it could not read, and offers the retry the core allows', async () => {
@@ -463,7 +465,7 @@ describe('the exact object in the location', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('scales wider than a day', () => {
-  it('offers a count and a grouped picker instead of a tab for everything', async () => {
+  it('keeps the categorized bounded list visible', async () => {
     const user = userEvent.setup()
     const client = openArchive()
     renderRecord(
@@ -478,19 +480,13 @@ describe('scales wider than a day', () => {
     await railReady()
 
     await user.click(screen.getByRole('button', { name: 'Week' }))
-    const picker = await screen.findByRole('button', { name: 'Objects (4)' })
-    expect(picker).toHaveAttribute('aria-expanded', 'false')
-    /* A wide window lists nothing until it is asked to. */
-    expect(screen.queryByRole('heading', { name: 'Events' })).toBeNull()
-    expect(noTabFor(AARHUS)).toBe(true)
-
-    await user.click(picker)
+    await waitFor(() => expect(tabFor(AARHUS)).toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: 'Entry' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Events' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Spans' })).toBeInTheDocument()
     expect(
-      within(screen.getByRole('complementary', { name: 'Details' })).getByRole(
-        'heading',
-        { name: 'Week entry' },
+      within(screen.getByRole('complementary', { name: 'Details' })).getByText(
+        'Week entry',
       ),
     ).toBeInTheDocument()
   })
@@ -507,7 +503,7 @@ describe('scales wider than a day', () => {
     await railReady()
 
     await user.click(screen.getByRole('button', { name: 'Month' }))
-    await user.click(await screen.findByRole('button', { name: 'Objects (2)' }))
+    await waitFor(() => expect(tabFor(STUDIO)).toBeInTheDocument())
     await user.click(tabFor(STUDIO))
 
     /* One move: the scale and the civil location change together. */
@@ -668,6 +664,9 @@ describe('the details region', () => {
       selectOrdinary: () => undefined,
       selectObject: () => undefined,
       goToObject: () => undefined,
+      selectCreated: () => undefined,
+      replaceObject: () => undefined,
+      removeObject: () => undefined,
       dismissNotice: () => undefined,
       retry: () => undefined,
     }
@@ -684,7 +683,7 @@ describe('the details region', () => {
       </I18nProvider>,
     )
 
-    expect(screen.getByRole('heading', { name: 'Week entry' })).toBeVisible()
+    expect(screen.getByText('Week entry')).toBeVisible()
     expect(screen.getByText(/9.*15 June 2025/)).toBeInTheDocument()
   })
 
@@ -700,9 +699,7 @@ describe('the details region', () => {
       </I18nProvider>,
     )
 
-    expect(
-      screen.getByRole('heading', { name: 'The studio year' }),
-    ).toBeVisible()
+    expect(screen.getByText('The studio year')).toBeVisible()
     expect(screen.getByText(/1 January.*31 December 2025/)).toBeInTheDocument()
     /* The exact identifier, as the archive spells it. */
     expect(screen.getByText(STUDIO)).toBeInTheDocument()
