@@ -1,7 +1,7 @@
 /**
- * Record's time navigation. The panel is the only export the application
- * composes; the cursor and the device facts are exported for the tests and for
- * the Record surfaces that will later share one cursor with it.
+ * Record's time navigation. The panel presents one temporal cursor; the cursor
+ * itself and the device facts are exported for the Record surfaces that share
+ * that cursor with it, and for the tests.
  */
 
 export {
@@ -21,6 +21,7 @@ export {
   type TemporalCursor,
   type TemporalCursorOptions,
   type TemporalCursorState,
+  type TemporalDestination,
   type TemporalStatus,
   type TemporalView,
 } from './temporalCursor'

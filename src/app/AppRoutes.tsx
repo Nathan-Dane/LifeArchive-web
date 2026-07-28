@@ -1,6 +1,11 @@
+import type { ReactNode } from 'react'
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
-import { RecordPage } from '../features/record/RecordPage'
-import { RecordNavigationPanel } from '../features/record/navigation'
+import {
+  RecordDestinationProvider,
+  RecordDetailsRegion,
+  RecordNavigationRegion,
+  RecordPage,
+} from '../features/record'
 import { SettingsPage } from '../features/settings/SettingsPage'
 import { ArchiveManagementPage } from '../features/settings/archive'
 import { TimelinePage } from '../features/timeline/TimelinePage'
@@ -9,22 +14,36 @@ import { useTranslate } from '../i18n'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { WorkspaceLayout } from './shell'
 
+/** The flanking regions a route offers, if it offers any. */
+interface WorkspaceRegions {
+  readonly navigation?: ReactNode
+  readonly details?: ReactNode
+}
+
 /**
  * The routes, paired with the catalog key that names them. The path is an
  * identifier and the label is copy; deriving one from the other by capitalising
  * a URL segment is how a navigation item ends up untranslatable.
  *
- * A route may also declare the workspace regions it offers. Which regions
- * exist belongs to the view, not to the shell, so the shell asks the route
- * rather than deciding for it.
+ * A route may also declare the workspace regions it offers, and a `surround`
+ * that wraps every region it occupies. Which regions exist belongs to the
+ * view, not to the shell, and a view whose regions describe one state needs
+ * that state above all of them — Record's flanking regions and its primary
+ * region are three views of one destination.
  */
 const MAIN_ROUTES = [
   {
     path: '/record',
     label: 'app.navigation.record',
     element: () => <RecordPage />,
-    navigation: (client: LifeArchiveClient) => (
-      <RecordNavigationPanel client={client} />
+    regions: (): WorkspaceRegions => ({
+      navigation: <RecordNavigationRegion />,
+      details: <RecordDetailsRegion />,
+    }),
+    surround: (client: LifeArchiveClient, workspace: ReactNode) => (
+      <RecordDestinationProvider client={client}>
+        {workspace}
+      </RecordDestinationProvider>
     ),
   },
   {
@@ -93,11 +112,15 @@ export function AppRoutes({
 }) {
   const { pathname } = useLocation()
   const matched = MAIN_ROUTES.find((route) => route.path === pathname)
-  const navigation =
-    matched && 'navigation' in matched ? matched.navigation(client) : undefined
+  const regions: WorkspaceRegions =
+    matched && 'regions' in matched ? matched.regions() : {}
 
-  return (
-    <WorkspaceLayout inert={inert} navigation={navigation}>
+  const workspace = (
+    <WorkspaceLayout
+      inert={inert}
+      navigation={regions.navigation}
+      details={regions.details}
+    >
       <Routes>
         <Route path="/" element={<Navigate to="/record" replace />} />
         {MAIN_ROUTES.map((route) => (
@@ -115,4 +138,8 @@ export function AppRoutes({
       </Routes>
     </WorkspaceLayout>
   )
+
+  return matched && 'surround' in matched
+    ? matched.surround(client, workspace)
+    : workspace
 }
