@@ -1,5 +1,6 @@
 export type RecordControlIconName =
   | 'add'
+  | 'back'
   | 'calendar'
   | 'check'
   | 'close'
@@ -30,6 +31,7 @@ export function RecordControlIcon({
       focusable="false"
     >
       {name === 'add' ? <path d="M10 4v12M4 10h12" /> : null}
+      {name === 'back' ? <path d="m11.5 4.5-5.5 5.5 5.5 5.5M6 10h8" /> : null}
       {name === 'calendar' ? (
         <>
           <rect x="3.5" y="4.5" width="13" height="12" rx="2" />

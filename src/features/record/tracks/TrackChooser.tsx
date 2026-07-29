@@ -6,11 +6,18 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
-import type { CivilDate, StableId, TrackSummary } from '../../../core/client'
+import type {
+  CivilDate,
+  InvalidationToken,
+  StableId,
+  TrackSummary,
+} from '../../../core/client'
 import { useTranslate } from '../../../i18n'
 import { RecordSemanticIcon } from '../events'
 import { RecordControlIcon, RecordOverlay } from '../overlays'
-import type { Tracks } from './useTracks'
+import { newestRecordInvalidation } from '../recordInvalidation'
+import { TrackDetails } from './TrackDetails'
+import type { CreatedTrack, Tracks } from './useTracks'
 
 export function TrackChooser({
   tracks,
@@ -23,7 +30,10 @@ export function TrackChooser({
   readonly value: string
   readonly date?: CivilDate
   readonly disabled?: boolean
-  readonly onChange: (trackId: StableId | null) => void
+  readonly onChange: (
+    trackId: StableId | null,
+    invalidation?: InvalidationToken,
+  ) => void
 }) {
   const t = useTranslate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -39,6 +49,7 @@ export function TrackChooser({
   const triggerId = useId()
   const managerId = useId()
   const managerHeadingId = useId()
+  const editorHeadingId = useId()
   const available = tracks.state.tracks.filter(
     ({ track }) => !track.isArchived || track.id === value,
   )
@@ -55,7 +66,12 @@ export function TrackChooser({
     }
   }
   const choose = (trackId: StableId | null) => {
-    onChange(trackId)
+    const invalidation = tracks.state.invalidation ?? undefined
+    if (invalidation) {
+      onChange(trackId, invalidation)
+    } else {
+      onChange(trackId)
+    }
     closeMenu(true)
   }
   const moveFocus = (index: number) => {
@@ -87,10 +103,13 @@ export function TrackChooser({
     }
     event.preventDefault()
   }
-  const openManager = () => {
-    closeMenu(false)
-    setManagerTracks(tracks.state.tracks)
-    setManagerOpen(true)
+  const refreshManager = (seed?: TrackSummary) => {
+    const seeded = new Map<StableId, TrackSummary>()
+    for (const summary of tracks.state.tracks) {
+      seeded.set(summary.track.id, summary)
+    }
+    if (seed) seeded.set(seed.track.id, seed)
+    setManagerTracks([...seeded.values()])
     const requested = (managerLoadGeneration.current += 1)
     void tracks.loadManagementList().then((summaries) => {
       if (managerLoadGeneration.current === requested) {
@@ -98,9 +117,39 @@ export function TrackChooser({
       }
     })
   }
-  const closeManager = () => {
+  const openManager = () => {
+    closeMenu(false)
+    setManagerOpen(true)
+    refreshManager()
+  }
+  const closeTrackTask = () => {
     managerLoadGeneration.current += 1
     setManagerOpen(false)
+    if (tracks.state.creating) {
+      tracks.cancelCreate()
+    } else if (tracks.state.selected) {
+      tracks.clearSelection()
+    }
+  }
+  const backToManager = () => {
+    tracks.clearSelection()
+    refreshManager()
+    globalThis.queueMicrotask(() => managerClose.current?.focus())
+  }
+  const finishCreate = (created: CreatedTrack) => {
+    tracks.clearSelection()
+    if (managerOpen) {
+      refreshManager(created.summary)
+      globalThis.queueMicrotask(() => managerClose.current?.focus())
+      return
+    }
+    onChange(
+      created.summary.track.id,
+      newestRecordInvalidation(
+        tracks.state.invalidation,
+        created.invalidation,
+      ) ?? created.invalidation,
+    )
   }
 
   return (
@@ -224,19 +273,48 @@ export function TrackChooser({
           </button>
         </div>
       </RecordOverlay>
-      <TrackManager
+      <RecordOverlay
         id={managerId}
-        headingId={managerHeadingId}
-        open={managerOpen}
-        closeRef={managerClose}
-        triggerRef={trigger}
-        tracks={managerTracks ?? tracks.state.tracks}
-        onClose={closeManager}
-        onSelect={(summary) => {
-          closeManager()
-          globalThis.queueMicrotask(() => tracks.select(summary))
-        }}
-      />
+        open={managerOpen || tracks.active}
+        kind="modal"
+        labelledBy={tracks.active ? editorHeadingId : managerHeadingId}
+        anchorRef={trigger}
+        initialFocusRef={managerClose}
+        onClose={closeTrackTask}
+        className={
+          tracks.active ? 'record-track-editor' : 'record-track-manager'
+        }
+      >
+        {tracks.active ? (
+          <TrackDetails
+            key={
+              tracks.state.creating ? 'new-track' : tracks.state.selected?.id
+            }
+            tracks={tracks}
+            headingId={editorHeadingId}
+            closeRef={managerClose}
+            onBack={managerOpen ? backToManager : undefined}
+            onClose={closeTrackTask}
+            onCreated={finishCreate}
+            onManagementRefresh={managerOpen ? refreshManager : undefined}
+          />
+        ) : (
+          <TrackManager
+            headingId={managerHeadingId}
+            closeRef={managerClose}
+            tracks={managerTracks ?? tracks.state.tracks}
+            canCreate={date !== undefined}
+            onClose={closeTrackTask}
+            onCreate={() => {
+              if (date) tracks.startCreate(date)
+            }}
+            onSelect={(summary) => {
+              tracks.select(summary)
+              globalThis.queueMicrotask(() => managerClose.current?.focus())
+            }}
+          />
+        )}
+      </RecordOverlay>
     </>
   )
 }
@@ -275,38 +353,27 @@ function TrackMenuOption({
 }
 
 function TrackManager({
-  id,
   headingId,
-  open,
   closeRef,
-  triggerRef,
   tracks,
+  canCreate,
   onClose,
+  onCreate,
   onSelect,
 }: {
-  readonly id: string
   readonly headingId: string
-  readonly open: boolean
   readonly closeRef: RefObject<HTMLButtonElement | null>
-  readonly triggerRef: RefObject<HTMLButtonElement | null>
   readonly tracks: readonly TrackSummary[]
+  readonly canCreate: boolean
   readonly onClose: () => void
+  readonly onCreate: () => void
   readonly onSelect: (summary: TrackSummary) => void
 }) {
   const t = useTranslate()
   const active = tracks.filter(({ track }) => !track.isArchived)
   const archived = tracks.filter(({ track }) => track.isArchived)
   return (
-    <RecordOverlay
-      id={id}
-      open={open}
-      kind="modal"
-      labelledBy={headingId}
-      anchorRef={triggerRef}
-      initialFocusRef={closeRef}
-      onClose={onClose}
-      className="record-track-manager"
-    >
+    <>
       <header className="record-overlay__header record-track-manager__header">
         <div>
           <h2 id={headingId} className="ui-heading">
@@ -344,7 +411,18 @@ function TrackManager({
           </p>
         ) : null}
       </div>
-    </RecordOverlay>
+      <footer className="record-overlay__footer record-track-manager__footer">
+        <button
+          type="button"
+          className="button button--primary"
+          disabled={!canCreate}
+          onClick={onCreate}
+        >
+          <RecordControlIcon name="add" />
+          <span>{t('record.track.new')}</span>
+        </button>
+      </footer>
+    </>
   )
 }
 

@@ -526,6 +526,10 @@ describe('the revision-safe Span editor', () => {
 
   it('moves membership without changing ongoing dates, writing, tags, privacy, or markers', async () => {
     const TRACK_ID = stableId('8f1c0a10-0000-4000-8000-000000000710')
+    const trackCreationInvalidation = {
+      ...INVALIDATION,
+      revision: revision('21'),
+    }
     const original = {
       ...object(
         {
@@ -574,13 +578,16 @@ describe('the revision-safe Span editor', () => {
       expect(rendered.result.current.object).toEqual(original),
     )
 
-    await act(() => rendered.result.current.changeTrack(TRACK_ID))
+    await act(() =>
+      rendered.result.current.changeTrack(TRACK_ID, trackCreationInvalidation),
+    )
 
     expect(attachMember).toHaveBeenCalledWith(
       expect.objectContaining({
         memberId: SPAN_ID,
         memberKind: 'span',
         expectedMemberRevision: revision('4'),
+        expectedInvalidation: trackCreationInvalidation,
         trackId: TRACK_ID,
       }),
     )
@@ -598,5 +605,85 @@ describe('the revision-safe Span editor', () => {
       endMarkerTitle: 'Exact current edge',
       privacy: 'sensitive',
     })
+  })
+
+  it('uses a newer Span autosave token when attaching a just-created Track', async () => {
+    const trackId = stableId('8f1c0a10-0000-4000-8000-000000000711')
+    const trackCreationInvalidation = {
+      ...INVALIDATION,
+      revision: revision('21'),
+    }
+    const postSaveInvalidation = {
+      ...INVALIDATION,
+      revision: revision('22'),
+    }
+    const original = object()
+    const saved = {
+      ...original,
+      summary: {
+        ...original.summary,
+        revision: revision('5'),
+        title: 'Edited before choosing a Track',
+      },
+    }
+    const moved = {
+      ...saved,
+      summary: {
+        ...saved.summary,
+        revision: revision('6'),
+        trackId,
+      },
+    }
+    const save = vi.fn(async () =>
+      ok<StructuredMutationResult>({
+        outcome: 'updated',
+        object: saved,
+        invalidation: postSaveInvalidation,
+      }),
+    )
+    const attachMember = vi.fn(async () =>
+      ok<StructuredMutationResult>({
+        outcome: 'updated',
+        object: moved,
+        invalidation: {
+          ...INVALIDATION,
+          revision: revision('23'),
+        },
+      }),
+    )
+    const rendered = editor(
+      testClient({
+        load: async () =>
+          ok({
+            presence: 'present',
+            object: original,
+            invalidation: INVALIDATION,
+          }),
+        save,
+        attachMember,
+      }),
+      original.summary,
+    )
+    await waitFor(() =>
+      expect(rendered.result.current.object).toEqual(original),
+    )
+
+    act(() =>
+      rendered.result.current.update({
+        title: 'Edited before choosing a Track',
+      }),
+    )
+    await act(() =>
+      rendered.result.current.changeTrack(trackId, trackCreationInvalidation),
+    )
+
+    expect(attachMember).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedMemberRevision: revision('5'),
+        expectedInvalidation: postSaveInvalidation,
+        trackId,
+      }),
+    )
+    expect(rendered.result.current.object).toEqual(moved)
   })
 })

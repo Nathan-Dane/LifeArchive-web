@@ -240,7 +240,7 @@ export const recordMessages = {
 
   /* Track management, mixed-member capture, and membership chooser. */
   'record.track.heading': 'Tracks',
-  'record.track.new': 'New track',
+  'record.track.new': 'New Track',
   'record.track.showArchived': 'Show archived Tracks',
   'record.track.empty': 'No Tracks',
   'record.track.memberCount': {
@@ -259,16 +259,22 @@ export const recordMessages = {
   'record.track.activeHeading': 'Tracks',
   'record.track.archivedHeading': 'Archived',
   'record.track.closeManager': 'Close Track management',
+  'record.track.backToManager': 'Back to Manage Tracks',
+  'record.track.closeEditor': 'Close Track editor',
   'record.track.createHeading': 'New Track',
-  'record.track.editHeading': 'Track details',
+  'record.track.createDetail': 'Create a Track for related Events and Spans.',
+  'record.track.editHeading': 'Edit Track',
+  'record.track.editDetail': 'Update this Track’s identity and organisation.',
   'record.track.name': 'Name',
   'record.track.icon': 'Semantic icon',
+  'record.track.titleAndIcon': 'Icon and title',
+  'record.track.defaultTag': 'Default tag',
   'record.track.suggestedTag': 'Tag for new items',
   'record.track.noSuggestedTag': 'No suggested tag',
   'record.track.createWithFirst': 'Create with a first member',
   'record.track.create': 'Create Track',
   'record.track.createAtomically': 'Create Track and member',
-  'record.track.save': 'Save Track',
+  'record.track.save': 'Save',
   'record.track.addMember': 'Create member in this Track',
   'record.track.createMember': 'Create member',
   'record.track.memberDetails': 'New member',
@@ -279,10 +285,14 @@ export const recordMessages = {
     'The Track suggestion will apply unless tag state is supplied',
   'record.track.useNoTags': 'Use no tags',
   'record.track.history': 'Track history',
+  'record.track.contained': 'Contained Events and Spans',
+  'record.track.seeHistory': 'See Track History',
   'record.track.historyEmpty': 'No members in this Track.',
   'record.track.markerPreview': 'Markers: {titles}',
   'record.track.loadMore': 'Load more members',
   'record.track.delete': 'Delete Track',
+  'record.track.archive': 'Archive Track',
+  'record.track.unarchive': 'Restore Track',
   'record.track.deleteEmpty':
     'Delete this empty Track? This does not delete any Event or Span.',
   'record.track.deletePopulated': {
@@ -292,7 +302,7 @@ export const recordMessages = {
   },
   'record.track.detachConfirm':
     'Detach every member without deleting any Event or Span',
-  'record.track.confirmDelete': 'Delete Track',
+  'record.track.confirmDelete': 'Confirm Delete',
   'record.track.failureDraftKept': 'The complete Track draft remains here.',
   'record.track.conflictTitle': 'The Track changed in the archive',
   'record.track.conflictDetail':
