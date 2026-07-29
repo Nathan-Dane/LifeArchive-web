@@ -151,11 +151,11 @@ export function SpanDetails({
                   : undefined
               }
               disabled={span.status === 'saving'}
-              onChange={(trackId) => {
+              onChange={(trackId, invalidation) => {
                 if (span.creating) {
                   span.update({ trackId: trackId ?? '' })
                 } else {
-                  void span.changeTrack(trackId)
+                  void span.changeTrack(trackId, invalidation)
                 }
               }}
             />

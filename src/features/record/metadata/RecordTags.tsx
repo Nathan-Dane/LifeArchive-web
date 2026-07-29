@@ -92,10 +92,12 @@ export function RecordTagPicker({
   tags,
   onChange,
   disabled = false,
+  label,
 }: {
   readonly tags: StructuredTags
   readonly onChange: (tags: StructuredTags) => void
   readonly disabled?: boolean
+  readonly label?: string
 }) {
   const localisation = useLocalisation()
   const [open, setOpen] = useState(false)
@@ -171,7 +173,7 @@ export function RecordTagPicker({
   return (
     <div className="record-tag-picker">
       <span className="record-details__label-line meta-text">
-        {localisation.t('record.event.tags')}
+        {label ?? localisation.t('record.event.tags')}
       </span>
       <span id={menuLabelId} className="visually-hidden">
         {localisation.t('record.tag.pickerLabel')}

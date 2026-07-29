@@ -1,19 +1,33 @@
+import { useId } from 'react'
 import { useFormat, useTranslate } from '../../../i18n'
 import { RecordSemanticIcon } from '../events'
 import { displayAccentClassName, RecordTagBadge } from '../metadata'
 import type { Tracks } from './useTracks'
 
-export function TrackHistory({ tracks }: { readonly tracks: Tracks }) {
+export function TrackHistory({
+  tracks,
+  showHeader = true,
+}: {
+  readonly tracks: Tracks
+  readonly showHeader?: boolean
+}) {
   const t = useTranslate()
   const format = useFormat()
+  const headingId = useId()
   const track = tracks.state.selected
   if (!track) return null
   return (
-    <section className="record-track-history" aria-labelledby="track-history">
-      <header>
-        <h2 id="track-history">{track.name}</h2>
-        <p>{t('record.track.history')}</p>
-      </header>
+    <section
+      className="record-track-history"
+      aria-labelledby={showHeader ? headingId : undefined}
+      aria-label={!showHeader ? t('record.track.contained') : undefined}
+    >
+      {showHeader ? (
+        <header>
+          <h2 id={headingId}>{track.name}</h2>
+          <p>{t('record.track.history')}</p>
+        </header>
+      ) : null}
       {tracks.state.history.length === 0 ? (
         <p>{t('record.track.historyEmpty')}</p>
       ) : (

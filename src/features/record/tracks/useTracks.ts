@@ -56,6 +56,11 @@ export interface TracksState {
   readonly memberConflict: RevisionConflict<StructuredConflictState> | null
 }
 
+export interface CreatedTrack {
+  readonly summary: TrackSummary
+  readonly invalidation: InvalidationToken
+}
+
 export interface Tracks {
   readonly state: TracksState
   readonly active: boolean
@@ -69,7 +74,7 @@ export interface Tracks {
   readonly updateTrack: (change: Partial<TrackDraftFields>) => void
   readonly updateMember: (change: Partial<TrackMemberDraftFields>) => void
   readonly includeFirstMember: (include: boolean, date: CivilDate) => void
-  readonly create: () => Promise<boolean>
+  readonly create: () => Promise<CreatedTrack | null>
   readonly retryCreateWithNewIds: () => Promise<boolean>
   readonly save: () => Promise<boolean>
   readonly useArchiveVersion: () => void
@@ -373,14 +378,14 @@ export function useTracks(
     [client, publish],
   )
 
-  const create = useCallback(async (): Promise<boolean> => {
+  const create = useCallback(async (): Promise<CreatedTrack | null> => {
     const current = model.current
-    if (!current.creating || !current.draft || !current.newTrackId) return false
+    if (!current.creating || !current.draft || !current.newTrackId) return null
     const draft = trackDraft(current.draft)
     const firstMember = current.memberDraft
       ? memberDraft(current.memberDraft)
       : null
-    if (!draft || (current.memberDraft && !firstMember)) return false
+    if (!draft || (current.memberDraft && !firstMember)) return null
     current.status = 'saving'
     current.failure = null
     current.memberConflict = null
@@ -404,18 +409,16 @@ export function useTracks(
       current.failure = result.failure
       current.status = 'failed'
       publish()
-      return false
+      return null
     }
     if ('outcome' in result.value && result.value.outcome === 'conflict') {
       current.conflict = result.value.conflict
       current.status = 'conflicted'
       publish()
-      return false
+      return null
     }
     const createdTrack = result.value.track
-    current.creating = false
-    current.selected = createdTrack
-    current.selectedSummary = {
+    const createdSummary: TrackSummary = {
       track: createdTrack,
       memberCount: 'member' in result.value ? 1 : 0,
       ongoingMemberCount:
@@ -425,6 +428,13 @@ export function useTracks(
           ? 1
           : 0,
     }
+    current.creating = false
+    current.selected = createdTrack
+    current.selectedSummary = createdSummary
+    current.tracks = [
+      ...current.tracks.filter(({ track }) => track.id !== createdTrack.id),
+      createdSummary,
+    ]
     current.invalidation = result.value.invalidation
     current.draft = fieldsFromTrack(createdTrack)
     current.memberDraft = null
@@ -440,7 +450,10 @@ export function useTracks(
     publish()
     refresh()
     void loadHistory(createdTrack, result.value.invalidation, null, false)
-    return true
+    return {
+      summary: createdSummary,
+      invalidation: result.value.invalidation,
+    }
   }, [
     client,
     developmentMock,
@@ -497,7 +510,7 @@ export function useTracks(
     current.conflict = null
     current.status = 'creating'
     publish()
-    return create()
+    return (await create()) !== null
   }, [client, create, publish])
 
   const useArchiveVersion = useCallback(() => {
@@ -549,6 +562,9 @@ export function useTracks(
         publish()
         return false
       }
+      current.tracks = current.tracks.filter(
+        ({ track }) => track.id !== current.selected?.id,
+      )
       clearSelection()
       refresh()
       refreshObjects()
@@ -685,7 +701,6 @@ export function useTracks(
     })
     const current = model.current.tracks
     if (result.status === 'failed') return current
-
     const summaries = new Map<StableId, TrackSummary>()
     for (const summary of current) summaries.set(summary.track.id, summary)
     for (const summary of result.value.tracks) {

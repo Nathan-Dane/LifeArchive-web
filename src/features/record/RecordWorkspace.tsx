@@ -276,7 +276,6 @@ export function RecordDetailsRegion() {
     <RecordObjectDetails
       scale={cursor.state.scale}
       window={cursor.state.view?.window ?? null}
-      date={cursor.state.view?.calendar.focusedDate ?? null}
       objects={objects}
       event={events}
       span={spans}

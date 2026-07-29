@@ -378,6 +378,7 @@ describe('Track management and capture', () => {
   })
 
   it('preserves a Track draft through a revision conflict and detaches only after confirmation', async () => {
+    let deleted = false
     const currentTrack = {
       ...TRACK,
       revision: revision('9'),
@@ -393,15 +394,22 @@ describe('Track management and capture', () => {
         },
       }),
     )
-    const deleteTrack = vi.fn(async () =>
-      ok<TrackMutationResult>({
+    const deleteTrack = vi.fn(async () => {
+      deleted = true
+      return ok<TrackMutationResult>({
         outcome: 'deleted',
         track: currentTrack,
         detachedMemberCount: 2,
         invalidation: INVALIDATION,
+      })
+    })
+    const list = vi.fn(async () =>
+      ok({
+        tracks: deleted ? [] : [SUMMARY],
+        invalidation: INVALIDATION,
       }),
     )
-    const { rendered } = tracks(client({ save, delete: deleteTrack }))
+    const { rendered } = tracks(client({ list, save, delete: deleteTrack }))
     await waitFor(() =>
       expect(rendered.result.current.state.tracks).toHaveLength(1),
     )
@@ -421,6 +429,9 @@ describe('Track management and capture', () => {
         id: TRACK_ID,
         detachMembers: true,
       }),
+    )
+    await expect(rendered.result.current.loadManagementList()).resolves.toEqual(
+      [],
     )
   })
 

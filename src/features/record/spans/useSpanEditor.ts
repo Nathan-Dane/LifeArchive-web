@@ -18,6 +18,7 @@ import {
   type StructuredSummary,
 } from '../../../core/client'
 import type { RecordDraftRegistration } from '../recordDraftSession'
+import { newestRecordInvalidation } from '../recordInvalidation'
 import { SPAN_DEFAULT_ICON_ID } from '../metadata/semanticCatalog'
 
 const AUTOSAVE_DELAY_MS = 500
@@ -86,7 +87,10 @@ export interface SpanEditor {
   readonly retrySave: () => void
   readonly saveMine: () => void
   readonly useArchiveVersion: () => void
-  readonly changeTrack: (trackId: StableId | null) => Promise<boolean>
+  readonly changeTrack: (
+    trackId: StableId | null,
+    invalidation?: InvalidationToken,
+  ) => Promise<boolean>
   readonly convertToEvent: (date: string) => Promise<boolean>
   readonly deleteSpan: () => Promise<boolean>
   readonly adoptMediaRevision: (revision: Revision) => void
@@ -703,7 +707,10 @@ export function useSpanEditor(
   }, [activeKey, client, onDeleted, publish, refreshObjects, saveModel])
 
   const changeTrack = useCallback(
-    async (trackId: StableId | null): Promise<boolean> => {
+    async (
+      trackId: StableId | null,
+      invalidation?: InvalidationToken,
+    ): Promise<boolean> => {
       const model = activeKey ? models.current.get(activeKey) : null
       if (
         !model?.object ||
@@ -713,6 +720,10 @@ export function useSpanEditor(
       ) {
         return model?.object?.summary.trackId === trackId
       }
+      model.invalidation = newestRecordInvalidation(
+        model.invalidation,
+        invalidation,
+      )
       await saveModel(model, true)
       if (
         !model.object ||
@@ -724,6 +735,10 @@ export function useSpanEditor(
         publish(model)
         return false
       }
+      model.invalidation = newestRecordInvalidation(
+        model.invalidation,
+        invalidation,
+      )
       model.status = 'saving'
       model.failure = null
       publish(model)
