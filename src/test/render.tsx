@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { AppBootstrap } from '../core/bootstrap'
 import { AppShell } from '../app/AppShell'
 import { AppStateProvider } from '../app/providers/AppStateProvider'
+import { AppearanceProvider } from '../app/shell'
 import { revision, stableId } from '../core/client'
 import { I18nProvider } from '../i18n'
 import { TestLifeArchiveClient } from './TestLifeArchiveClient'
@@ -45,13 +46,15 @@ export function renderAppAt(
   { locale, within }: RenderAppOptions = {},
 ): RenderResult {
   return render(
-    <I18nProvider locale={locale}>
-      <MemoryRouter initialEntries={[path]}>
-        <AppStateProvider bootstrap={bootstrap}>
-          <AppShell />
-        </AppStateProvider>
-        {within}
-      </MemoryRouter>
-    </I18nProvider>,
+    <AppearanceProvider>
+      <I18nProvider locale={locale}>
+        <MemoryRouter initialEntries={[path]}>
+          <AppStateProvider bootstrap={bootstrap}>
+            <AppShell />
+          </AppStateProvider>
+          {within}
+        </MemoryRouter>
+      </I18nProvider>
+    </AppearanceProvider>,
   )
 }

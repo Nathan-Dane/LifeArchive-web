@@ -35,7 +35,12 @@ import {
 } from '../../../test/timeFixtures'
 import { createDeviceCalendar } from './deviceCalendar'
 import { RecordNavigationPanel } from './RecordNavigationPanel'
-import { useTemporalCursor } from './temporalCursor'
+import {
+  RECORD_CURSOR_STORAGE_KEY,
+  resetRememberedRecordCursor,
+  useTemporalCursor,
+  type TemporalCursorOptions,
+} from './temporalCursor'
 
 /* -------------------------------------------------------------------------- */
 /* Fixtures                                                                   */
@@ -130,15 +135,24 @@ function timeStub(answers: {
  * its three regions; here one holder stands in for that composition, so every
  * assertion below is still about the panel and the core behind it.
  */
-function PanelHolder({ client }: { readonly client: LifeArchiveClient }) {
-  const cursor = useTemporalCursor(client, { device: DEVICE })
+function PanelHolder({
+  client,
+  options,
+}: {
+  readonly client: LifeArchiveClient
+  readonly options?: TemporalCursorOptions
+}) {
+  const cursor = useTemporalCursor(client, { device: DEVICE, ...options })
   return <RecordNavigationPanel cursor={cursor} />
 }
 
-function renderPanel(client: LifeArchiveClient) {
+function renderPanel(
+  client: LifeArchiveClient,
+  options?: TemporalCursorOptions,
+) {
   return render(
     <I18nProvider locale="en-GB">
-      <PanelHolder client={client} />
+      <PanelHolder client={client} options={options} />
     </I18nProvider>,
   )
 }
@@ -761,6 +775,16 @@ describe('the expandable calendar', () => {
 })
 
 describe('cursor restoration', () => {
+  it('resets only the remembered Record cursor', () => {
+    localStorage.setItem(RECORD_CURSOR_STORAGE_KEY, '{}')
+    localStorage.setItem('another.application', 'preserved')
+
+    resetRememberedRecordCursor()
+
+    expect(localStorage.getItem(RECORD_CURSOR_STORAGE_KEY)).toBeNull()
+    expect(localStorage.getItem('another.application')).toBe('preserved')
+  })
+
   it('restores the last selected core-produced scale and anchor after remount', async () => {
     const user = userEvent.setup()
     const first = timeStub({})
@@ -778,6 +802,23 @@ describe('cursor restoration', () => {
     await panelReady()
     expect(restored.window).toHaveBeenCalledWith({
       scale: 'month',
+      containing: '2025-06-10',
+      timeZoneId: 'UTC',
+      weekRules: DEVICE.weekRules,
+    })
+  })
+
+  it('keeps the restored anchor but applies a fixed initial scale', async () => {
+    localStorage.setItem(
+      RECORD_CURSOR_STORAGE_KEY,
+      JSON.stringify({ scale: 'month', anchor: '2025-06-10' }),
+    )
+    const fixed = timeStub({})
+    renderPanel(fixed.client, { initialScale: 'year', restoreScale: false })
+    await panelReady()
+
+    expect(fixed.window).toHaveBeenCalledWith({
+      scale: 'year',
       containing: '2025-06-10',
       timeZoneId: 'UTC',
       weekRules: DEVICE.weekRules,

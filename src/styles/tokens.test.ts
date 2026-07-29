@@ -40,10 +40,23 @@ interface AppearancePair {
 /** Every `--token: light-dark(light, dark)` declaration in `tokens.css`. */
 function colourPairs(): ReadonlyMap<string, AppearancePair> {
   const pairs = new Map<string, AppearancePair>()
+  const root = TOKENS_CSS.slice(
+    TOKENS_CSS.indexOf(':root {'),
+    TOKENS_CSS.indexOf('\n}', TOKENS_CSS.indexOf(':root {')),
+  )
   const declaration =
     /(--[a-z0-9-]+):\s*light-dark\(\s*(#[0-9a-f]{3,8})\s*,\s*(#[0-9a-f]{3,8})\s*\)/g
-  for (const [, token, light, dark] of TOKENS_CSS.matchAll(declaration)) {
+  for (const [, token, light, dark] of root.matchAll(declaration)) {
     pairs.set(token!, { light: light!, dark: dark! })
+  }
+  const aliases = [
+    ...root.matchAll(/(--[a-z0-9-]+):\s*var\((--[a-z0-9-]+)\)/g),
+  ].map(([, token, target]) => [token!, target!] as const)
+  for (let pass = 0; pass < aliases.length; pass += 1) {
+    for (const [token, target] of aliases) {
+      const pair = pairs.get(target)
+      if (pair) pairs.set(token, pair)
+    }
   }
   return pairs
 }
@@ -256,11 +269,18 @@ describe('contrast in both appearances', () => {
   })
 
   it('reads the label on a filled accent control', () => {
+    const accents = ['gold', 'copper', 'sage', 'blue', 'plum']
     for (const appearance of ['light', 'dark'] as const) {
-      expect(
-        ratio('--color-on-accent', '--color-accent', appearance),
-        appearance,
-      ).toBeGreaterThanOrEqual(4.5)
+      for (const accent of accents) {
+        expect(
+          ratio(
+            `--accent-${accent}-on`,
+            `--accent-${accent}-primary`,
+            appearance,
+          ),
+          `${appearance} ${accent}`,
+        ).toBeGreaterThanOrEqual(4.5)
+      }
     }
   })
 
@@ -289,21 +309,37 @@ describe('contrast in both appearances', () => {
   })
 
   it('shows the focus ring against every surface', () => {
+    const focusTokens = [
+      '--accent-gold-glow',
+      '--accent-copper-glow',
+      '--accent-sage-glow',
+      '--accent-blue-glow',
+      '--accent-plum-glow',
+    ]
     for (const appearance of ['light', 'dark'] as const) {
-      for (const surface of SURFACES) {
-        expect(
-          ratio('--color-focus-ring', surface, appearance),
-          `${appearance} focus ring on ${surface}`,
-        ).toBeGreaterThanOrEqual(3)
+      for (const focus of focusTokens) {
+        for (const surface of SURFACES) {
+          expect(
+            ratio(focus, surface, appearance),
+            `${appearance} ${focus} on ${surface}`,
+          ).toBeGreaterThanOrEqual(3)
+        }
       }
     }
     expect(GLOBAL_CSS).toContain('outline: 2px solid var(--color-focus-ring)')
   })
 
   it('keeps meaning colours visible on the page', () => {
+    const accentTokens = [
+      '--accent-gold-primary',
+      '--accent-copper-primary',
+      '--accent-sage-primary',
+      '--accent-blue-primary',
+      '--accent-plum-primary',
+    ]
     for (const appearance of ['light', 'dark'] as const) {
       for (const token of [
-        '--color-accent',
+        ...accentTokens,
         '--color-destructive',
         '--color-success',
         '--color-note',
@@ -326,7 +362,7 @@ describe('contrast in both appearances', () => {
 
   it('uses compliant text tokens for normal Settings copy', () => {
     expect(LAYOUT_CSS).toMatch(
-      /\.archive-health-card__facts dt\s*\{[^}]*color:\s*var\(--color-text-secondary\)/s,
+      /\.settings-value-list dt\s*\{[^}]*color:\s*var\(--color-text-secondary\)/s,
     )
     expect(LAYOUT_CSS).toMatch(
       /\.settings-group__footer\s*\{[^}]*color:\s*var\(--color-text-secondary\)/s,
@@ -385,7 +421,7 @@ describe('the responsive breakpoints', () => {
 
   it('reflows Settings facts and wraps archive actions at compact widths', () => {
     expect(LAYOUT_CSS).toMatch(
-      /@media \(max-width: 680px\)[\s\S]*?\.settings-value-list > div\s*\{[^}]*grid-template-columns:\s*1fr/,
+      /@media \(max-width: 680px\)[\s\S]*?\.settings-value-list > div,\s*\.settings-row\s*\{[^}]*grid-template-columns:\s*1fr/,
     )
     expect(LAYOUT_CSS).toMatch(
       /\.archive-import__actions,\s*\.archive-operation__actions\s*\{[^}]*flex-wrap:\s*wrap/s,
