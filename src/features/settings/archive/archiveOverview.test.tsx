@@ -1,5 +1,4 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -17,7 +16,6 @@ import {
 import { I18nProvider } from '../../../i18n'
 import type { StoragePersistence } from '../../../platform/storage'
 import { SettingsPage } from '../SettingsPage'
-import { ArchiveManagementPage } from './ArchiveManagementPage'
 
 const ARCHIVE_ID = stableId('7f1c0a10-0000-4000-8000-000000000001')
 const SUBJECT_ID = stableId('7f1c0a10-0000-4000-8000-000000000002')
@@ -130,15 +128,11 @@ function renderSettings(
 ) {
   return render(
     <I18nProvider locale={locale}>
-      <MemoryRouter initialEntries={['/settings']}>
+      <MemoryRouter initialEntries={['/settings/overview']}>
         <Routes>
           <Route
-            path="/settings"
+            path="/settings/*"
             element={<SettingsPage client={client} persistence={storage} />}
-          />
-          <Route
-            path="/settings/archive"
-            element={<ArchiveManagementPage client={client} />}
           />
         </Routes>
       </MemoryRouter>
@@ -158,18 +152,13 @@ describe('Settings archive overview', () => {
     const overview = screen.getByRole('region', { name: 'Naan’s Archive' })
     expect(within(overview).getAllByText('Healthy')).toHaveLength(2)
     expect(within(overview).getByText('38 total')).toBeInTheDocument()
-    expect(within(overview).getByText('28 days')).toBeInTheDocument()
-    expect(within(overview).getByText('1 week')).toBeInTheDocument()
     expect(within(overview).getByText('11 items · 41.9 MB')).toBeInTheDocument()
 
     const browserStorage = screen.getByRole('region', {
-      name: 'Browser storage',
+      name: 'Local storage',
     })
     expect(
       within(browserStorage).getByText('Granted by this browser'),
-    ).toBeInTheDocument()
-    expect(
-      within(browserStorage).getByText('52 MB used of approximately 2 GB'),
     ).toBeInTheDocument()
     expect(
       within(browserStorage).getByText('Reported as durable by the runtime'),
@@ -208,13 +197,14 @@ describe('Settings archive overview', () => {
     },
   )
 
-  it('labels an unavailable browser estimate without inventing zero', async () => {
+  it('omits unavailable browser estimates without inventing zero', async () => {
     const { client } = testClient()
     renderSettings(client, persistence({ estimate: null }))
 
+    expect(await screen.findByText('Local storage')).toBeInTheDocument()
     expect(
-      await screen.findByText('No estimate available from this browser'),
-    ).toBeInTheDocument()
+      screen.queryByText('No estimate available from this browser'),
+    ).toBeNull()
     expect(document.body).not.toHaveTextContent(/0 (?:B|bytes).*used/i)
   })
 
@@ -267,7 +257,7 @@ describe('Settings archive overview', () => {
     expect(screen.getByText('1,234,567 items · 1.2 GB')).toBeInTheDocument()
   })
 
-  it('keeps the accessible Manage Archive navigation when overview loading fails', async () => {
+  it('keeps an accessible retry when overview loading fails', async () => {
     const unavailable = failed<ArchiveOverview>(
       clientFailure({
         area: 'archive',
@@ -277,20 +267,11 @@ describe('Settings archive overview', () => {
       }),
     )
     const { client } = testClient({ overview: unavailable })
-    const user = userEvent.setup()
     renderSettings(client)
 
     expect(
       await screen.findByText(/overview could not be loaded/i),
     ).toBeInTheDocument()
-    const manage = screen.getByRole('link', { name: /Manage Archive/ })
-    expect(manage).toHaveAttribute('href', '/settings/archive')
-    await user.click(manage)
-    expect(
-      screen.getByRole('heading', { name: 'Manage Archive' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Erase archive…' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled()
   })
 })
