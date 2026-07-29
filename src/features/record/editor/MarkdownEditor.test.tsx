@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -236,17 +243,30 @@ describe('MarkdownEditor', () => {
 
     selectText(textbox, 0, 5)
     await user.click(screen.getByRole('button', { name: 'Link' }))
+    expect(
+      screen.getByRole('dialog', { name: 'Insert link' }),
+    ).toBeInTheDocument()
     const address = screen.getByRole('textbox', { name: 'Web address' })
+    expect(address).toHaveFocus()
     await user.clear(address)
     await user.type(address, 'https://example.com/writing')
     await user.click(screen.getByRole('button', { name: 'Apply link' }))
     const link = await screen.findByRole('link', { name: 'click' })
     expect(link).toHaveAttribute('href', 'https://example.com/writing')
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Insert link' })).toBeNull(),
+    )
 
     selectText(textbox, 0, 5)
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Text style' }),
-      'headingTwo',
+    await user.click(screen.getByRole('button', { name: 'Text style' }))
+    const blockMenu = screen.getByRole('menu', { name: 'Text style' })
+    const paragraphOption = within(blockMenu).getByRole('menuitemradio', {
+      name: 'Paragraph',
+    })
+    expect(paragraphOption).toHaveAttribute('aria-checked', 'true')
+    expect(paragraphOption).not.toHaveFocus()
+    await user.click(
+      within(blockMenu).getByRole('menuitemradio', { name: 'Heading' }),
     )
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
       'click me',
