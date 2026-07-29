@@ -67,6 +67,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -75,6 +76,7 @@ import {
   type MouseEvent,
 } from 'react'
 import { useTranslate } from '../../../i18n'
+import { RecordControlIcon, RecordOverlay } from '../overlays'
 import { EditorIcon, type EditorIconName } from './EditorIcon'
 
 interface MarkdownWritingSurfaceProps {
@@ -256,10 +258,20 @@ function ToolbarPlugin({ disabled }: { readonly disabled: boolean }) {
   const t = useTranslate()
   const [editor] = useLexicalComposerContext()
   const [state, setState] = useState(EMPTY_TOOLBAR_STATE)
+  const [blockMenuOpen, setBlockMenuOpen] = useState(false)
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('https://')
   const [linkError, setLinkError] = useState(false)
   const linkSelection = useRef<RangeSelection | null>(null)
+  const blockButton = useRef<HTMLButtonElement>(null)
+  const blockOptions = useRef<(HTMLButtonElement | null)[]>([])
+  const linkButton = useRef<HTMLButtonElement>(null)
+  const linkInput = useRef<HTMLInputElement>(null)
+  const linkPanelId = useId()
+  const linkHeadingId = useId()
+  const linkErrorId = useId()
+  const blockMenuId = useId()
+  const blockButtonId = useId()
 
   useEffect(() => {
     let canUndo = false
@@ -352,7 +364,6 @@ function ToolbarPlugin({ disabled }: { readonly disabled: boolean }) {
     })
     setLinkPanelOpen(false)
     setLinkError(false)
-    editor.focus()
   }
 
   useEffect(() => {
@@ -413,6 +424,46 @@ function ToolbarPlugin({ disabled }: { readonly disabled: boolean }) {
     editor.focus()
   }
 
+  const blockStyles: readonly {
+    readonly value: BlockStyle
+    readonly label: string
+  }[] = [
+    { value: 'paragraph', label: t('record.editor.paragraph') },
+    { value: 'headingTwo', label: t('record.editor.headingTwo') },
+    { value: 'headingThree', label: t('record.editor.headingThree') },
+  ]
+  const currentBlockLabel =
+    blockStyles.find(({ value }) => value === state.block)?.label ??
+    blockStyles[0]!.label
+  const closeBlockMenu = (restoreFocus = true) => {
+    setBlockMenuOpen(false)
+    if (restoreFocus) {
+      globalThis.queueMicrotask(() => blockButton.current?.focus())
+    }
+  }
+  const openBlockMenu = (focusSelected: boolean) => {
+    setBlockMenuOpen(true)
+    if (!focusSelected) return
+    const selectedIndex = blockStyles.findIndex(
+      ({ value }) => value === state.block,
+    )
+    globalThis.queueMicrotask(() =>
+      blockOptions.current[Math.max(selectedIndex, 0)]?.focus(),
+    )
+  }
+  const moveBlockFocus = (direction: 1 | -1) => {
+    const current = blockOptions.current.indexOf(
+      document.activeElement as HTMLButtonElement,
+    )
+    const next =
+      current < 0
+        ? direction > 0
+          ? 0
+          : blockStyles.length - 1
+        : (current + direction + blockStyles.length) % blockStyles.length
+    blockOptions.current[next]?.focus()
+  }
+
   function toggleQuote() {
     editor.update(() => {
       const selection = $getSelection()
@@ -428,7 +479,7 @@ function ToolbarPlugin({ disabled }: { readonly disabled: boolean }) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
     const controls = [
       ...event.currentTarget.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), select:not(:disabled)',
+        'button:not(:disabled)',
       ),
     ]
     const current = controls.indexOf(document.activeElement as HTMLElement)
@@ -508,24 +559,76 @@ function ToolbarPlugin({ disabled }: { readonly disabled: boolean }) {
           !state.canRedo,
         )}
         <span className="record-editor__toolbar-separator" aria-hidden="true" />
-        <label className="record-editor__block-style">
-          <span className="visually-hidden">
-            {t('record.editor.blockStyle')}
-          </span>
-          <select
-            value={state.block}
-            disabled={disabled}
-            onChange={(event) =>
-              applyBlock(event.currentTarget.value as BlockStyle)
-            }
+        <button
+          id={blockButtonId}
+          ref={blockButton}
+          type="button"
+          className="record-editor__block-style"
+          aria-label={t('record.editor.blockStyle')}
+          aria-haspopup="menu"
+          aria-expanded={blockMenuOpen}
+          aria-controls={blockMenuId}
+          disabled={disabled}
+          onMouseDown={keepEditorSelection}
+          onClick={(event) =>
+            blockMenuOpen
+              ? closeBlockMenu(false)
+              : openBlockMenu(event.detail === 0)
+          }
+        >
+          <span>{currentBlockLabel}</span>
+          <RecordControlIcon name="expand" />
+        </button>
+        <RecordOverlay
+          id={blockMenuId}
+          open={blockMenuOpen}
+          kind="menu"
+          labelledBy={blockButtonId}
+          anchorRef={blockButton}
+          onClose={closeBlockMenu}
+          className="record-menu record-editor__block-menu"
+        >
+          <div
+            className="record-menu__items record-editor__block-menu-items"
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+                event.preventDefault()
+                moveBlockFocus(1)
+              } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+                event.preventDefault()
+                moveBlockFocus(-1)
+              } else if (event.key === 'Home' || event.key === 'End') {
+                event.preventDefault()
+                const index = event.key === 'Home' ? 0 : blockStyles.length - 1
+                blockOptions.current[index]?.focus()
+              }
+            }}
           >
-            <option value="paragraph">{t('record.editor.paragraph')}</option>
-            <option value="headingTwo">{t('record.editor.headingTwo')}</option>
-            <option value="headingThree">
-              {t('record.editor.headingThree')}
-            </option>
-          </select>
-        </label>
+            {blockStyles.map((option, index) => (
+              <button
+                key={option.value}
+                ref={(element) => {
+                  blockOptions.current[index] = element
+                }}
+                type="button"
+                className="record-menu__item"
+                role="menuitemradio"
+                aria-checked={state.block === option.value}
+                onClick={() => {
+                  setBlockMenuOpen(false)
+                  applyBlock(option.value)
+                }}
+              >
+                <span>{option.label}</span>
+                <span className="record-editor__block-menu-check" aria-hidden>
+                  {state.block === option.value ? (
+                    <RecordControlIcon name="check" />
+                  ) : null}
+                </span>
+              </button>
+            ))}
+          </div>
+        </RecordOverlay>
         <span className="record-editor__toolbar-separator" aria-hidden="true" />
         {toolbarButton(
           'bold',
@@ -581,13 +684,15 @@ function ToolbarPlugin({ disabled }: { readonly disabled: boolean }) {
         )}
         <span className="record-editor__toolbar-separator" aria-hidden="true" />
         <button
+          ref={linkButton}
           type="button"
           aria-label={
             state.link ? t('record.editor.unlink') : t('record.editor.link')
           }
           aria-pressed={state.link}
+          aria-haspopup="dialog"
           aria-expanded={linkPanelOpen}
-          aria-controls="record-editor-link-panel"
+          aria-controls={linkPanelId}
           title={t('record.editor.linkShortcut')}
           disabled={disabled}
           onMouseDown={keepEditorSelection}
@@ -596,30 +701,28 @@ function ToolbarPlugin({ disabled }: { readonly disabled: boolean }) {
           <EditorIcon name="link" />
         </button>
       </div>
-      {linkPanelOpen ? (
-        <form
-          id="record-editor-link-panel"
-          className="record-editor__link-panel"
-          role="dialog"
-          aria-label={t('record.editor.linkDialog')}
-          onSubmit={applyLink}
-          onKeyDown={(event) => {
-            if (event.key !== 'Escape') return
-            event.preventDefault()
-            setLinkPanelOpen(false)
-            editor.focus()
-          }}
-        >
+      <RecordOverlay
+        id={linkPanelId}
+        open={linkPanelOpen}
+        kind="anchored"
+        labelledBy={linkHeadingId}
+        anchorRef={linkButton}
+        initialFocusRef={linkInput}
+        onClose={() => setLinkPanelOpen(false)}
+        className="record-editor__link-popup"
+      >
+        <form className="record-editor__link-panel" onSubmit={applyLink}>
+          <h2 id={linkHeadingId} className="visually-hidden">
+            {t('record.editor.linkDialog')}
+          </h2>
           <label>
             <span>{t('record.editor.linkAddress')}</span>
             <input
-              autoFocus
+              ref={linkInput}
               type="url"
               value={linkUrl}
               aria-invalid={linkError}
-              aria-describedby={
-                linkError ? 'record-editor-link-error' : undefined
-              }
+              aria-describedby={linkError ? linkErrorId : undefined}
               onChange={(event) => {
                 setLinkUrl(event.currentTarget.value)
                 setLinkError(false)
@@ -628,7 +731,7 @@ function ToolbarPlugin({ disabled }: { readonly disabled: boolean }) {
           </label>
           {linkError ? (
             <span
-              id="record-editor-link-error"
+              id={linkErrorId}
               className="record-editor__link-error"
               role="alert"
             >
@@ -642,16 +745,13 @@ function ToolbarPlugin({ disabled }: { readonly disabled: boolean }) {
             <button
               type="button"
               className="button"
-              onClick={() => {
-                setLinkPanelOpen(false)
-                editor.focus()
-              }}
+              onClick={() => setLinkPanelOpen(false)}
             >
               {t('record.editor.linkCancel')}
             </button>
           </div>
         </form>
-      ) : null}
+      </RecordOverlay>
     </>
   )
 }

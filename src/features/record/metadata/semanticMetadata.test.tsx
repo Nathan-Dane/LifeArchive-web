@@ -1,7 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { StructuredTags } from '../../../core/client'
 import { I18nProvider } from '../../../i18n'
 import { RecordSemanticIcon } from '../events'
@@ -24,6 +24,29 @@ import {
 function localised(node: React.ReactNode) {
   return render(<I18nProvider locale="en">{node}</I18nProvider>)
 }
+
+function rect(
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): DOMRect {
+  return {
+    x: left,
+    y: top,
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    toJSON: () => ({}),
+  }
+}
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('the negotiated semantic catalogue adapter', () => {
   it('mirrors catalogue v1 order and defaults with one Material glyph per ID', () => {
@@ -85,10 +108,10 @@ describe('the negotiated semantic catalogue adapter', () => {
       choices[0]?.querySelector('.semantic-icon-picker__selected'),
     ).not.toBeInTheDocument()
 
-    expect(choices[0]).toHaveFocus()
-    await user.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: 'Use icon' })).toHaveFocus()
+    await user.click(choices[0]!)
     await user.click(screen.getByRole('tab', { name: /Life & Change12/ }))
-    expect(screen.getAllByRole('listbox')).toHaveLength(1)
+    await waitFor(() => expect(screen.getAllByRole('listbox')).toHaveLength(1))
     expect(
       document.querySelector('.semantic-icon-picker__name'),
     ).toHaveTextContent('Major event')
@@ -150,7 +173,7 @@ describe('ordered tags and their one display tag', () => {
     ).toHaveAttribute('data-semantic-tag-id', 'future.tag-🌿')
     await user.click(screen.getByRole('button', { name: 'Manage tags' }))
     expect(screen.getAllByText('future.tag-🌿')).toHaveLength(2)
-    expect(screen.getAllByRole('checkbox')).toHaveLength(11)
+    expect(screen.getAllByRole('menuitemcheckbox')).toHaveLength(11)
   })
 
   it('supports keyboard add and explicit Main selection without list reordering', async () => {
@@ -166,37 +189,42 @@ describe('ordered tags and their one display tag', () => {
 
     localised(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Manage tags' }))
-    const dialog = screen.getByRole('dialog', { name: 'Choose tags' })
+    const menu = screen.getByRole('menu', { name: 'Choose tags' })
+    expect(menu).not.toHaveAttribute('aria-modal')
+    expect(menu.querySelectorAll('.record-tag')).toHaveLength(10)
+    const personal = screen.getByRole('menuitemcheckbox', {
+      name: 'Personal',
+    })
+    const family = screen.getByRole('menuitemcheckbox', { name: 'Family' })
+    expect(personal).not.toHaveFocus()
+    expect(menu.querySelector('.record-tag-picker__list')).toHaveAttribute(
+      'data-keyboard-navigation',
+      'false',
+    )
     expect(
-      within(dialog).getByText('Select any number. Mark one as main.'),
-    ).toBeVisible()
-    expect(within(dialog).getByText('0 selected')).toBeVisible()
-    expect(dialog.querySelectorAll('.record-tag')).toHaveLength(10)
-    const personal = screen.getByRole('checkbox', { name: 'Personal' })
-    const family = screen.getByRole('checkbox', { name: 'Family' })
+      screen.queryByRole('menuitem', { name: 'Make Personal the main tag' }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('menuitem', { name: 'Make Family the main tag' }),
+    ).toBeNull()
+    await user.keyboard('{ArrowDown}')
     expect(personal).toHaveFocus()
-    expect(
-      screen.queryByRole('button', { name: 'Make Personal the main tag' }),
-    ).toBeNull()
-    expect(
-      screen.queryByRole('button', { name: 'Make Family the main tag' }),
-    ).toBeNull()
     await user.keyboard('{Enter}')
     expect(
-      screen.getByRole('button', { name: 'Make Personal the main tag' }),
+      screen.getByRole('menuitem', { name: 'Make Personal the main tag' }),
     ).toBeVisible()
     expect(
-      screen.queryByRole('button', { name: 'Make Family the main tag' }),
+      screen.queryByRole('menuitem', { name: 'Make Family the main tag' }),
     ).toBeNull()
     await user.click(family)
     await user.click(
-      screen.getByRole('button', { name: 'Make Family the main tag' }),
+      screen.getByRole('menuitem', { name: 'Make Family the main tag' }),
     )
 
     expect(personal).toHaveAttribute('aria-checked', 'true')
     expect(family).toHaveAttribute('aria-checked', 'true')
     expect(
-      screen.getByRole('button', { name: 'Make Family the main tag' }),
+      screen.getByRole('menuitem', { name: 'Make Family the main tag' }),
     ).toHaveAttribute('aria-pressed', 'true')
     expect(
       document.querySelector(
@@ -205,7 +233,52 @@ describe('ordered tags and their one display tag', () => {
     ).toBeVisible()
     expect(
       document.querySelector('.record-tag-ribbon')?.firstElementChild,
-    ).toHaveAttribute('data-semantic-tag-id', 'family')
-    expect(within(dialog).getByText('2 selected · Family main')).toBeVisible()
+    ).toContainElement(
+      document.querySelector(
+        '.record-tag-ribbon [data-semantic-tag-id="family"]',
+      ),
+    )
+    expect(
+      family.querySelector('.record-tag-picker__check svg'),
+    ).toBeInTheDocument()
+  })
+
+  it('opens from a displayed tag, matches the full tag area, and restores that opener', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function mockBounds(this: HTMLElement) {
+        if (this.classList.contains('record-tag-picker__assigned')) {
+          return rect(72, 120, 412, 29)
+        }
+        if (this.classList.contains('record-tag-menu')) {
+          return rect(0, 0, 412, 404)
+        }
+        return rect(0, 0, 0, 0)
+      },
+    )
+    const user = userEvent.setup()
+
+    localised(
+      <RecordTagPicker
+        tags={{ ordered: ['personal'], display: 'personal' }}
+        onChange={vi.fn()}
+      />,
+    )
+    const displayedTag = screen.getByRole('button', {
+      name: 'Personal, main tag',
+    })
+    const add = screen.getByRole('button', { name: 'Manage tags' })
+
+    await user.click(displayedTag)
+    const menu = screen.getByRole('menu', { name: 'Choose tags' })
+    await waitFor(() => expect(menu).toHaveAttribute('data-ready', 'true'))
+    expect(menu).toHaveStyle({
+      '--record-overlay-left': '72px',
+      '--record-overlay-anchor-width': '412px',
+    })
+    expect(displayedTag).toHaveAttribute('aria-expanded', 'true')
+    expect(add).toHaveAttribute('aria-expanded', 'true')
+
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(displayedTag).toHaveFocus())
   })
 })

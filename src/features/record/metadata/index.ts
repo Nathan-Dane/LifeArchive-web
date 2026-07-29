@@ -15,4 +15,5 @@ export {
   tagPaletteFor,
 } from './semanticCatalog'
 export { SemanticIconPicker } from './SemanticIconPicker'
+export { RecordDatePicker } from './RecordDatePicker'
 export { RecordTagBadge, RecordTagPicker, RecordTagRibbon } from './RecordTags'
