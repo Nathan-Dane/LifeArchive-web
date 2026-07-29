@@ -319,6 +319,9 @@ describe('the objects a day holds', () => {
     expect(screen.getByRole('textbox', { name: 'Writing editor' })).toBe(editor)
 
     await user.click(screen.getByRole('button', { name: 'New event or span' }))
+    expect(
+      screen.getByRole('dialog', { name: 'New event or span' }).parentElement,
+    ).toHaveAttribute('data-placement', 'above')
     expect(screen.getByRole('textbox', { name: 'Writing editor' })).toBe(editor)
     await user.keyboard('{Escape}')
     expect(screen.getByRole('textbox', { name: 'Writing editor' })).toBe(editor)
@@ -355,7 +358,9 @@ describe('the objects a day holds', () => {
     )
 
     await user.click(tabFor(STUDIO))
-    expect(tabFor(STUDIO)).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() =>
+      expect(tabFor(STUDIO)).toHaveAttribute('aria-pressed', 'true'),
+    )
     expect(tabFor(AARHUS)).toHaveAttribute('aria-pressed', 'false')
   })
 

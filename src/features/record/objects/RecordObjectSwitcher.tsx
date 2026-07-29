@@ -7,7 +7,15 @@
  * Entry, Events, and Spans.
  */
 
-import { useId, useRef, useState, type ReactNode } from 'react'
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import type {
   StableId,
   StructuredSummary,
@@ -17,9 +25,13 @@ import type {
 import { failureMessage, useFormat, useLocalisation } from '../../../i18n'
 import { RecordSemanticIcon } from '../events'
 import { displayAccentClassName } from '../metadata'
+import type {
+  TemporalMotion,
+  TemporalStatus,
+} from '../navigation/temporalCursor'
 import { RecordControlIcon, RecordOverlay } from '../overlays'
 import { objectName, objectWhen } from './objectNames'
-import type { RecordObjects } from './recordObjects'
+import type { RecordObjects, RecordObjectsState } from './recordObjects'
 import { RecordObjectNoticeBar } from './RecordObjectNoticeBar'
 
 const ORDINARY_LABEL = {
@@ -30,6 +42,15 @@ const ORDINARY_LABEL = {
 } as const satisfies Record<TimeScale, string>
 
 const EMPTY_MEDIA_COUNTS: ReadonlyMap<StableId, number> = new Map()
+const ROW_TRANSITION_FALLBACK_MS = 300
+const ORDINARY_TRANSITION_FALLBACK_MS = 380
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof globalThis.matchMedia === 'function' &&
+    globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
 
 export interface RecordObjectSwitcherProps {
   readonly scale: TimeScale
@@ -42,9 +63,61 @@ export interface RecordObjectSwitcherProps {
     readonly mediaCount: number | null
   } | null
   readonly structuredMediaCounts?: ReadonlyMap<StableId, number>
+  readonly navigationStatus?: TemporalStatus
+  readonly motion?: TemporalMotion | null
   readonly onCreateEvent: () => void
   readonly onCreateSpan: () => void
   readonly onNavigate?: () => void
+}
+
+interface ObjectGroupsSnapshot {
+  readonly scale: TimeScale
+  readonly state: RecordObjectsState
+  readonly creatingEvent: boolean
+  readonly creatingSpan: boolean
+  readonly ordinarySummary: {
+    readonly text: string
+    readonly mediaCount: number | null
+  } | null
+  readonly structuredMediaCounts: ReadonlyMap<StableId, number>
+}
+
+interface OrdinarySnapshot {
+  readonly scale: TimeScale
+  readonly selected: boolean
+  readonly summary: {
+    readonly text: string
+    readonly mediaCount: number | null
+  } | null
+}
+
+interface OrdinaryTransition {
+  readonly currentId: number
+  readonly outgoing: OrdinarySnapshot | null
+  readonly direction: 'forward' | 'backward'
+}
+
+type ObjectPresence = 'stable' | 'entering' | 'exiting'
+
+type PresentedObjectRow =
+  | {
+      readonly key: string
+      readonly kind: 'empty'
+      readonly presence: ObjectPresence
+    }
+  | {
+      readonly key: string
+      readonly kind: 'object'
+      readonly object: StructuredSummary
+      readonly presence: ObjectPresence
+    }
+
+interface PresentedObjectGroups {
+  readonly events: readonly PresentedObjectRow[]
+  readonly spans: readonly PresentedObjectRow[]
+  readonly motionKind: TemporalMotion['kind'] | 'none'
+  readonly direction: 'forward' | 'backward'
+  readonly transitionId: number
 }
 
 export function RecordObjectSwitcher({
@@ -55,6 +128,8 @@ export function RecordObjectSwitcher({
   creatingSpan,
   ordinarySummary = null,
   structuredMediaCounts = EMPTY_MEDIA_COUNTS,
+  navigationStatus = 'ready',
+  motion = null,
   onCreateEvent,
   onCreateSpan,
   onNavigate,
@@ -62,17 +137,136 @@ export function RecordObjectSwitcher({
   const localisation = useLocalisation()
   const t = localisation.t
   const { state } = objects
-  const events = state.objects.filter(
-    (object) => object.placement.kind === 'event',
-  )
-  const spans = state.objects.filter(
-    (object) => object.placement.kind === 'span',
-  )
   const [creatingMenuOpen, setCreatingMenuOpen] = useState(false)
   const createButton = useRef<HTMLButtonElement>(null)
   const createEventButton = useRef<HTMLButtonElement>(null)
+  const previousNavigationStatus = useRef(navigationStatus)
+  const pendingMotion = useRef<TemporalMotion | null>(null)
+  const pendingOrdinary = useRef<OrdinarySnapshot | null>(null)
+  const transitionGeneration = useRef(0)
+  const transitionTimer = useRef<ReturnType<
+    typeof globalThis.setTimeout
+  > | null>(null)
+  const ordinaryTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(
+    null,
+  )
   const createDialogId = useId()
   const createHeadingId = useId()
+  const currentGroups = useMemo<ObjectGroupsSnapshot>(
+    () => ({
+      scale,
+      state,
+      creatingEvent,
+      creatingSpan,
+      ordinarySummary,
+      structuredMediaCounts,
+    }),
+    [
+      creatingEvent,
+      creatingSpan,
+      ordinarySummary,
+      scale,
+      state,
+      structuredMediaCounts,
+    ],
+  )
+  const desiredRows = useMemo(
+    () => ({
+      events: rowsFor(state.objects, 'event'),
+      spans: rowsFor(state.objects, 'span'),
+    }),
+    [state.objects],
+  )
+  const [presented, setPresented] = useState<PresentedObjectGroups>(() => ({
+    ...desiredRows,
+    motionKind: 'none',
+    direction: 'forward',
+    transitionId: 0,
+  }))
+  const [ordinaryTransition, setOrdinaryTransition] =
+    useState<OrdinaryTransition>({
+      currentId: 0,
+      outgoing: null,
+      direction: 'forward',
+    })
+
+  useLayoutEffect(() => {
+    const previous = previousNavigationStatus.current
+    if (navigationStatus === 'loading' && previous !== 'loading') {
+      pendingMotion.current = motion
+      pendingOrdinary.current = ordinaryFrom(currentGroups)
+    } else if (navigationStatus === 'ready' && previous === 'loading') {
+      const transitionMotion = pendingMotion.current
+      const outgoing = pendingOrdinary.current
+      if (transitionMotion?.kind === 'horizontal' && outgoing) {
+        const currentId = transitionMotion.id
+        setOrdinaryTransition({
+          currentId,
+          outgoing,
+          direction:
+            transitionMotion.direction === 'backward' ? 'backward' : 'forward',
+        })
+        if (ordinaryTimer.current !== null) {
+          globalThis.clearTimeout(ordinaryTimer.current)
+        }
+        ordinaryTimer.current = globalThis.setTimeout(
+          () =>
+            setOrdinaryTransition((current) =>
+              current.currentId === currentId
+                ? { ...current, outgoing: null }
+                : current,
+            ),
+          prefersReducedMotion() ? 0 : ORDINARY_TRANSITION_FALLBACK_MS,
+        )
+      }
+      pendingOrdinary.current = null
+    }
+    previousNavigationStatus.current = navigationStatus
+  }, [currentGroups, motion, navigationStatus])
+
+  useLayoutEffect(() => {
+    if (state.status !== 'ready') return
+    const transitionMotion = pendingMotion.current
+    pendingMotion.current = null
+    const transitionId = (transitionGeneration.current += 1)
+    setPresented((current) => ({
+      events: reconcileRows(current.events, desiredRows.events),
+      spans: reconcileRows(current.spans, desiredRows.spans),
+      motionKind: transitionMotion?.kind ?? 'none',
+      direction:
+        transitionMotion?.direction === 'backward' ? 'backward' : 'forward',
+      transitionId,
+    }))
+
+    if (transitionTimer.current !== null) {
+      globalThis.clearTimeout(transitionTimer.current)
+    }
+    transitionTimer.current = globalThis.setTimeout(
+      () =>
+        setPresented((current) =>
+          current.transitionId === transitionId
+            ? {
+                ...current,
+                events: settleRows(current.events),
+                spans: settleRows(current.spans),
+              }
+            : current,
+        ),
+      prefersReducedMotion() ? 0 : ROW_TRANSITION_FALLBACK_MS,
+    )
+  }, [desiredRows.events, desiredRows.spans, state.status])
+
+  useEffect(
+    () => () => {
+      if (transitionTimer.current !== null) {
+        globalThis.clearTimeout(transitionTimer.current)
+      }
+      if (ordinaryTimer.current !== null) {
+        globalThis.clearTimeout(ordinaryTimer.current)
+      }
+    },
+    [],
+  )
 
   const choose = (object: StructuredSummary) => {
     if (scale === 'day') objects.selectObject(object)
@@ -83,96 +277,23 @@ export function RecordObjectSwitcher({
   return (
     <div className="record-objects">
       <div
-        className="record-objects__groups"
-        role="group"
-        aria-label={t('record.objects.label')}
-        aria-busy={state.status === 'loading' || undefined}
+        className="record-objects__transition-stack"
+        data-status={navigationStatus}
       >
-        <button
-          type="button"
-          className="record-objects__tab record-objects__tab--ordinary ui-text"
-          aria-label={t(ORDINARY_LABEL[scale])}
-          aria-pressed={
-            state.selected === null && !creatingEvent && !creatingSpan
+        <ObjectGroups
+          snapshot={currentGroups}
+          presented={presented}
+          ordinaryTransition={ordinaryTransition}
+          inert={
+            navigationStatus === 'loading' ||
+            currentGroups.state.status === 'loading'
           }
-          onClick={() => {
+          onSelectOrdinary={() => {
             objects.selectOrdinary()
             onNavigate?.()
           }}
-        >
-          <span className="record-objects__ordinary-icon" aria-hidden="true">
-            <RecordSemanticIcon id="writing" decorative />
-          </span>
-          <span className="record-objects__tab-copy">
-            <span className="record-objects__tab-title">
-              {t(ORDINARY_LABEL[scale])}
-            </span>
-            {ordinarySummary?.text || ordinarySummary?.mediaCount ? (
-              <span className="record-objects__tab-meta">
-                {ordinarySummary.text ? (
-                  <span className="record-objects__tab-excerpt">
-                    {ordinarySummary.text}
-                  </span>
-                ) : null}
-                <MediaCount count={ordinarySummary.mediaCount} />
-              </span>
-            ) : null}
-          </span>
-        </button>
-
-        <ObjectGroup
-          heading={t('record.objects.groupEvents')}
-          count={events.length}
-        >
-          {events.length === 0 ? (
-            <EmptyGroup />
-          ) : (
-            events.map((object) => (
-              <ObjectTab
-                key={object.id}
-                object={object}
-                selected={
-                  object.id === state.selected?.id &&
-                  !creatingEvent &&
-                  !creatingSpan
-                }
-                onSelect={() => choose(object)}
-                mediaCount={
-                  object.mediaCount ??
-                  structuredMediaCounts.get(object.id) ??
-                  null
-                }
-              />
-            ))
-          )}
-        </ObjectGroup>
-
-        <ObjectGroup
-          heading={t('record.objects.groupSpans')}
-          count={spans.length}
-        >
-          {spans.length === 0 ? (
-            <EmptyGroup />
-          ) : (
-            spans.map((object) => (
-              <ObjectTab
-                key={object.id}
-                object={object}
-                selected={
-                  object.id === state.selected?.id &&
-                  !creatingEvent &&
-                  !creatingSpan
-                }
-                onSelect={() => choose(object)}
-                mediaCount={
-                  object.mediaCount ??
-                  structuredMediaCounts.get(object.id) ??
-                  null
-                }
-              />
-            ))
-          )}
-        </ObjectGroup>
+          onSelectObject={choose}
+        />
       </div>
 
       {state.status === 'failed' && state.failure ? (
@@ -225,6 +346,7 @@ export function RecordObjectSwitcher({
         kind="anchored"
         labelledBy={createHeadingId}
         anchorRef={createButton}
+        anchorPlacement="above"
         initialFocusRef={createEventButton}
         onClose={() => setCreatingMenuOpen(false)}
         className="record-create-popup"
@@ -266,6 +388,282 @@ export function RecordObjectSwitcher({
           </button>
         </div>
       </RecordOverlay>
+    </div>
+  )
+}
+
+function ObjectGroups({
+  snapshot,
+  presented,
+  ordinaryTransition,
+  inert,
+  onSelectOrdinary,
+  onSelectObject,
+}: {
+  readonly snapshot: ObjectGroupsSnapshot
+  readonly presented: PresentedObjectGroups
+  readonly ordinaryTransition: OrdinaryTransition
+  readonly inert: boolean
+  readonly onSelectOrdinary: () => void
+  readonly onSelectObject: (object: StructuredSummary) => void
+}) {
+  const t = useLocalisation().t
+  const {
+    scale,
+    state,
+    creatingEvent,
+    creatingSpan,
+    ordinarySummary,
+    structuredMediaCounts,
+  } = snapshot
+  return (
+    <div
+      className="record-objects__groups"
+      data-object-status={state.status}
+      role="group"
+      aria-label={t('record.objects.label')}
+      aria-busy={state.status === 'loading' || undefined}
+      aria-hidden={inert || undefined}
+      inert={inert || undefined}
+    >
+      <div
+        className="record-objects__ordinary-stack"
+        data-transition={ordinaryTransition.outgoing ? 'true' : undefined}
+        data-motion-direction={ordinaryTransition.direction}
+      >
+        {ordinaryTransition.outgoing ? (
+          <div
+            key={`ordinary-outgoing:${ordinaryTransition.currentId}`}
+            className="record-objects__ordinary-layer"
+            data-layer="outgoing"
+            aria-hidden="true"
+            inert
+          >
+            <OrdinaryTab
+              snapshot={ordinaryTransition.outgoing}
+              onSelect={() => undefined}
+            />
+          </div>
+        ) : null}
+        <div
+          key={`ordinary-current:${ordinaryTransition.currentId}`}
+          className="record-objects__ordinary-layer"
+          data-layer="current"
+        >
+          <OrdinaryTab
+            snapshot={{
+              scale,
+              selected:
+                state.selected === null && !creatingEvent && !creatingSpan,
+              summary: ordinarySummary,
+            }}
+            onSelect={onSelectOrdinary}
+          />
+        </div>
+      </div>
+
+      <ObjectGroup
+        heading={t('record.objects.groupEvents')}
+        count={presented.events.filter(isPresentObject).length}
+      >
+        {presented.events.map((row) => (
+          <ObjectRowShell
+            key={row.key}
+            row={row}
+            motionKind={presented.motionKind}
+            direction={presented.direction}
+          >
+            {row.kind === 'empty' ? (
+              <EmptyGroup />
+            ) : (
+              <ObjectTab
+                object={row.object}
+                selected={
+                  row.object.id === state.selected?.id &&
+                  !creatingEvent &&
+                  !creatingSpan
+                }
+                onSelect={() => onSelectObject(row.object)}
+                mediaCount={
+                  row.object.mediaCount ??
+                  structuredMediaCounts.get(row.object.id) ??
+                  null
+                }
+              />
+            )}
+          </ObjectRowShell>
+        ))}
+      </ObjectGroup>
+
+      <ObjectGroup
+        heading={t('record.objects.groupSpans')}
+        count={presented.spans.filter(isPresentObject).length}
+      >
+        {presented.spans.map((row) => (
+          <ObjectRowShell
+            key={row.key}
+            row={row}
+            motionKind={presented.motionKind}
+            direction={presented.direction}
+          >
+            {row.kind === 'empty' ? (
+              <EmptyGroup />
+            ) : (
+              <ObjectTab
+                object={row.object}
+                selected={
+                  row.object.id === state.selected?.id &&
+                  !creatingEvent &&
+                  !creatingSpan
+                }
+                onSelect={() => onSelectObject(row.object)}
+                mediaCount={
+                  row.object.mediaCount ??
+                  structuredMediaCounts.get(row.object.id) ??
+                  null
+                }
+              />
+            )}
+          </ObjectRowShell>
+        ))}
+      </ObjectGroup>
+    </div>
+  )
+}
+
+function ordinaryFrom(snapshot: ObjectGroupsSnapshot): OrdinarySnapshot {
+  return {
+    scale: snapshot.scale,
+    selected:
+      snapshot.state.selected === null &&
+      !snapshot.creatingEvent &&
+      !snapshot.creatingSpan,
+    summary: snapshot.ordinarySummary,
+  }
+}
+
+function OrdinaryTab({
+  snapshot,
+  onSelect,
+}: {
+  readonly snapshot: OrdinarySnapshot
+  readonly onSelect: () => void
+}) {
+  const t = useLocalisation().t
+  return (
+    <button
+      type="button"
+      className="record-objects__tab record-objects__tab--ordinary ui-text"
+      aria-label={t(ORDINARY_LABEL[snapshot.scale])}
+      aria-pressed={snapshot.selected}
+      onClick={onSelect}
+    >
+      <span className="record-objects__ordinary-icon" aria-hidden="true">
+        <RecordSemanticIcon id="writing" decorative />
+      </span>
+      <span className="record-objects__tab-copy">
+        <span className="record-objects__tab-title">
+          {t(ORDINARY_LABEL[snapshot.scale])}
+        </span>
+        {snapshot.summary?.text || snapshot.summary?.mediaCount ? (
+          <span className="record-objects__tab-meta">
+            {snapshot.summary.text ? (
+              <span className="record-objects__tab-excerpt">
+                {snapshot.summary.text}
+              </span>
+            ) : null}
+            <MediaCount count={snapshot.summary.mediaCount} />
+          </span>
+        ) : null}
+      </span>
+    </button>
+  )
+}
+
+function rowsFor(
+  objects: readonly StructuredSummary[],
+  kind: 'event' | 'span',
+): readonly PresentedObjectRow[] {
+  const matching = objects.filter((object) => object.placement.kind === kind)
+  return matching.length > 0
+    ? matching.map((object) => ({
+        key: object.id,
+        kind: 'object' as const,
+        object,
+        presence: 'stable' as const,
+      }))
+    : [
+        {
+          key: `${kind}:empty`,
+          kind: 'empty',
+          presence: 'stable',
+        },
+      ]
+}
+
+function reconcileRows(
+  previous: readonly PresentedObjectRow[],
+  desired: readonly PresentedObjectRow[],
+): readonly PresentedObjectRow[] {
+  const desiredByKey = new Map(desired.map((row) => [row.key, row]))
+  const rows = previous.map<PresentedObjectRow>((row) => {
+    const next = desiredByKey.get(row.key)
+    return next
+      ? { ...next, presence: 'stable' as const }
+      : { ...row, presence: 'exiting' as const }
+  })
+  const existing = new Set(rows.map((row) => row.key))
+
+  desired.forEach((row, index) => {
+    if (existing.has(row.key)) return
+    const following = desired
+      .slice(index + 1)
+      .find((candidate) => existing.has(candidate.key))
+    const insertion = following
+      ? rows.findIndex((candidate) => candidate.key === following.key)
+      : rows.length
+    rows.splice(insertion, 0, { ...row, presence: 'entering' })
+    existing.add(row.key)
+  })
+  return rows
+}
+
+function settleRows(
+  rows: readonly PresentedObjectRow[],
+): readonly PresentedObjectRow[] {
+  return rows
+    .filter((row) => row.presence !== 'exiting')
+    .map((row) => ({ ...row, presence: 'stable' }))
+}
+
+function isPresentObject(
+  row: PresentedObjectRow,
+): row is Extract<PresentedObjectRow, { kind: 'object' }> {
+  return row.kind === 'object' && row.presence !== 'exiting'
+}
+
+function ObjectRowShell({
+  row,
+  motionKind,
+  direction,
+  children,
+}: {
+  readonly row: PresentedObjectRow
+  readonly motionKind: PresentedObjectGroups['motionKind']
+  readonly direction: PresentedObjectGroups['direction']
+  readonly children: ReactNode
+}) {
+  return (
+    <div
+      className="record-objects__item-shell"
+      data-object-key={row.key}
+      data-presence={row.presence}
+      data-motion-kind={motionKind}
+      data-motion-direction={direction}
+      aria-hidden={row.presence === 'exiting' || undefined}
+      inert={row.presence === 'exiting' || undefined}
+    >
+      <div className="record-objects__item-shell-inner">{children}</div>
     </div>
   )
 }
