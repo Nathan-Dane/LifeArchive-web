@@ -11,7 +11,8 @@ import {
   useLocalisation,
   useTranslate,
 } from '../../../i18n'
-import { RecordControlIcon } from '../overlays'
+import { RecordControlIcon, RecordOverlay } from '../overlays'
+import { safePreviewKind } from './previewUrlManager'
 import { useRecordMedia } from './useRecordMedia'
 
 export interface RecordMediaProps {
@@ -38,10 +39,17 @@ export function RecordMedia({
   const previewHeadingId = useId()
   const picker = useRef<HTMLInputElement>(null)
   const addButton = useRef<HTMLButtonElement>(null)
+  const previewCloseButton = useRef<HTMLButtonElement>(null)
+  const previewReturnFocus = useRef<HTMLButtonElement | null>(null)
   const cancelDeleteButton = useRef<HTMLButtonElement>(null)
   const deleteReturnFocus = useRef<HTMLButtonElement | null>(null)
   const [deleting, setDeleting] = useState<MediaItem | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [failedPreviewImage, setFailedPreviewImage] = useState<StableId | null>(
+    null,
+  )
   const media = useRecordMedia(client, { ownerId, onParentRevision })
+  const displayedPreview = media.preview
   useEffect(() => {
     if (
       ownerId !== null &&
@@ -184,92 +192,105 @@ export function RecordMedia({
           aria-label={t('record.media.gallery')}
         >
           {media.listing.items.map((item) => (
-            <li key={item.id} className="record-media__card">
-              <button
-                type="button"
-                className="record-media__preview-action"
-                aria-label={t('record.media.previewAction', {
-                  fileName: item.fileName,
-                })}
-                onClick={() => void media.previewItem(item)}
-              >
-                <MediaGlyph item={item} />
-                <span className="record-media__metadata">
-                  <strong>{item.fileName}</strong>
-                  <span className="meta-text">
-                    {t('record.media.itemMetadata', {
-                      kind: t(`record.media.kind.${item.kind}`),
-                      size: format.byteSize(item.byteSize),
-                    })}
-                  </span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className="record-media__delete"
-                aria-label={t('record.media.deleteAction', {
-                  fileName: item.fileName,
-                })}
-                onClick={(event) => {
-                  deleteReturnFocus.current = event.currentTarget
-                  setDeleting(item)
-                }}
-              >
-                <RecordControlIcon name="close" />
-              </button>
-            </li>
+            <RecordMediaCard
+              key={item.id}
+              client={client}
+              item={item}
+              metadata={t('record.media.itemMetadata', {
+                kind: t(`record.media.kind.${item.kind}`),
+                size: format.byteSize(item.byteSize),
+              })}
+              previewLabel={t('record.media.previewAction', {
+                fileName: item.fileName,
+              })}
+              deleteLabel={t('record.media.deleteAction', {
+                fileName: item.fileName,
+              })}
+              onPreview={(opener) => {
+                previewReturnFocus.current = opener
+                setPreviewOpen(true)
+                void media.previewItem(item)
+              }}
+              onDelete={(opener) => {
+                deleteReturnFocus.current = opener
+                setDeleting(item)
+              }}
+            />
           ))}
         </ul>
       )}
 
-      {media.preview ? (
-        <div
-          className="record-media__preview"
-          role="region"
-          aria-labelledby={previewHeadingId}
-        >
-          <header>
-            <div>
-              <h3 id={previewHeadingId}>{media.preview.item.fileName}</h3>
-              <p className="meta-text">
-                {t('record.media.previewMetadata', {
-                  mimeType: media.preview.item.mimeType,
-                  size: format.byteSize(media.preview.item.byteSize),
-                })}
-              </p>
+      <RecordOverlay
+        open={previewOpen && media.preview !== null}
+        kind="modal"
+        modalPlacement="center"
+        labelledBy={previewHeadingId}
+        anchorRef={previewReturnFocus}
+        initialFocusRef={previewCloseButton}
+        onClose={() => setPreviewOpen(false)}
+        onClosed={media.closePreview}
+        className="record-media__preview"
+      >
+        {displayedPreview ? (
+          <>
+            <header className="record-overlay__header record-media__preview-header">
+              <div>
+                <h3 id={previewHeadingId}>{displayedPreview.item.fileName}</h3>
+                <p className="meta-text">
+                  {t('record.media.previewMetadata', {
+                    mimeType: displayedPreview.item.mimeType,
+                    size: format.byteSize(displayedPreview.item.byteSize),
+                  })}
+                </p>
+              </div>
+              <button
+                ref={previewCloseButton}
+                type="button"
+                className="record-overlay__close"
+                aria-label={t('record.media.closePreview')}
+                onClick={() => setPreviewOpen(false)}
+              >
+                <RecordControlIcon name="close" />
+              </button>
+            </header>
+            <div className="record-media__preview-body">
+              {displayedPreview.status === 'loading' ? (
+                <p role="status">{t('record.media.previewLoading')}</p>
+              ) : displayedPreview.status === 'failed' &&
+                displayedPreview.failure ? (
+                <p role="alert">
+                  {t('record.media.previewFailed', {
+                    detail: failureMessage(
+                      localisation,
+                      displayedPreview.failure,
+                    ),
+                  })}
+                </p>
+              ) : displayedPreview.status === 'unsupported' ? (
+                <p>{t('record.media.previewUnsupported')}</p>
+              ) : displayedPreview.url &&
+                displayedPreview.kind === 'image' &&
+                failedPreviewImage !== displayedPreview.item.id ? (
+                <img
+                  src={displayedPreview.url}
+                  alt={t('record.media.previewAlt', {
+                    fileName: displayedPreview.item.fileName,
+                  })}
+                  onError={() =>
+                    setFailedPreviewImage(displayedPreview.item.id)
+                  }
+                />
+              ) : displayedPreview.kind === 'image' ? (
+                <p>{t('record.media.previewUnsupported')}</p>
+              ) : displayedPreview.url && displayedPreview.kind === 'video' ? (
+                <video src={displayedPreview.url} controls />
+              ) : displayedPreview.url && displayedPreview.kind === 'audio' ? (
+                <audio src={displayedPreview.url} controls />
+              ) : null}
             </div>
-            <button
-              type="button"
-              className="button button--secondary"
-              onClick={media.closePreview}
-            >
-              {t('record.media.closePreview')}
-            </button>
-          </header>
-          {media.preview.status === 'loading' ? (
-            <p role="status">{t('record.media.previewLoading')}</p>
-          ) : media.preview.status === 'failed' && media.preview.failure ? (
-            <p role="alert">
-              {t('record.media.previewFailed', {
-                detail: failureMessage(localisation, media.preview.failure),
-              })}
-            </p>
-          ) : media.preview.status === 'unsupported' ? (
-            <p>{t('record.media.previewUnsupported')}</p>
-          ) : media.preview.url && media.preview.kind === 'image' ? (
-            <img
-              src={media.preview.url}
-              alt={t('record.media.previewAlt', {
-                fileName: media.preview.item.fileName,
-              })}
-            />
-          ) : media.preview.url && media.preview.kind === 'video' ? (
-            <video src={media.preview.url} controls />
-          ) : media.preview.url && media.preview.kind === 'audio' ? (
-            <audio src={media.preview.url} controls />
-          ) : null}
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </RecordOverlay>
 
       {deletingForOwner ? (
         <div className="record-media__confirm" role="alert">
@@ -307,6 +328,100 @@ export function RecordMedia({
       ) : null}
     </section>
   )
+}
+
+function RecordMediaCard({
+  client,
+  item,
+  metadata,
+  previewLabel,
+  deleteLabel,
+  onPreview,
+  onDelete,
+}: {
+  readonly client: LifeArchiveClient
+  readonly item: MediaItem
+  readonly metadata: string
+  readonly previewLabel: string
+  readonly deleteLabel: string
+  readonly onPreview: (opener: HTMLButtonElement) => void
+  readonly onDelete: (opener: HTMLButtonElement) => void
+}) {
+  const imageUrl = useInlineImage(client, item)
+  const [imageFailed, setImageFailed] = useState(false)
+  return (
+    <li className="record-media__card">
+      <button
+        type="button"
+        className="record-media__preview-action"
+        aria-label={previewLabel}
+        onClick={(event) => onPreview(event.currentTarget)}
+      >
+        <span className="record-media__visual">
+          {imageUrl && !imageFailed ? (
+            <img
+              className="record-media__thumbnail"
+              src={imageUrl}
+              alt=""
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <MediaGlyph item={item} />
+          )}
+        </span>
+        <span className="record-media__metadata">
+          <strong>{item.fileName}</strong>
+          <span className="meta-text">{metadata}</span>
+        </span>
+      </button>
+      <button
+        type="button"
+        className="record-media__delete"
+        aria-label={deleteLabel}
+        onClick={(event) => onDelete(event.currentTarget)}
+      >
+        <RecordControlIcon name="close" />
+      </button>
+    </li>
+  )
+}
+
+function useInlineImage(
+  client: LifeArchiveClient,
+  item: MediaItem,
+): string | null {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    let active = true
+    let objectUrl: string | null = null
+    if (item.kind !== 'image' || safePreviewKind(item.mimeType) !== 'image') {
+      return () => {
+        active = false
+      }
+    }
+
+    void client.media.content({ mediaId: item.id }).then((result) => {
+      if (
+        !active ||
+        result.status === 'failed' ||
+        result.value.mediaId !== item.id ||
+        result.value.byteSize !== result.value.bytes.byteLength
+      ) {
+        return
+      }
+      const copy = new Uint8Array(result.value.bytes)
+      objectUrl = URL.createObjectURL(
+        new Blob([copy.buffer], { type: item.mimeType }),
+      )
+      setUrl(objectUrl)
+    })
+
+    return () => {
+      active = false
+      if (objectUrl !== null) URL.revokeObjectURL(objectUrl)
+    }
+  }, [client, item.id, item.kind, item.mimeType])
+  return url
 }
 
 function MediaGlyph({ item }: { readonly item: MediaItem }) {
