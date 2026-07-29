@@ -1,5 +1,13 @@
 export type RecordControlIconName =
-  'add' | 'check' | 'close' | 'expand' | 'media' | 'none'
+  | 'add'
+  | 'calendar'
+  | 'check'
+  | 'close'
+  | 'expand'
+  | 'manage'
+  | 'media'
+  | 'next'
+  | 'none'
 
 /** Small non-semantic controls shared by Record popups and compact actions. */
 export function RecordControlIcon({
@@ -22,9 +30,24 @@ export function RecordControlIcon({
       focusable="false"
     >
       {name === 'add' ? <path d="M10 4v12M4 10h12" /> : null}
+      {name === 'calendar' ? (
+        <>
+          <rect x="3.5" y="4.5" width="13" height="12" rx="2" />
+          <path d="M6.5 3.5v3M13.5 3.5v3M3.5 8h13" />
+        </>
+      ) : null}
       {name === 'check' ? <path d="m4.5 10.5 3.4 3.4 7.6-7.8" /> : null}
       {name === 'close' ? <path d="m5 5 10 10M15 5 5 15" /> : null}
       {name === 'expand' ? <path d="m5 7.5 5 5 5-5" /> : null}
+      {name === 'manage' ? (
+        <>
+          <rect x="4" y="4" width="3" height="3" rx="0.5" />
+          <rect x="4" y="8.5" width="3" height="3" rx="0.5" />
+          <rect x="4" y="13" width="3" height="3" rx="0.5" />
+          <path d="M9.5 5.5h6M9.5 10h6M9.5 14.5h6" />
+        </>
+      ) : null}
+      {name === 'next' ? <path d="m7.5 4.5 5.5 5.5-5.5 5.5" /> : null}
       {name === 'media' ? (
         <>
           <rect x="3.5" y="4.5" width="13" height="11" rx="1.5" />

@@ -12,6 +12,7 @@ const FOCUSABLE = [
   'input:not([disabled])',
   'select:not([disabled])',
   'textarea:not([disabled])',
+  '[contenteditable="true"]',
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
@@ -138,8 +139,16 @@ export function useFocusTrap(
       const stackIndex = focusTrapStack.lastIndexOf(surface)
       if (stackIndex >= 0) focusTrapStack.splice(stackIndex, 1)
       const focusTarget = returnFocus.current
-      if (restoreFocus && focusTarget) {
-        queueMicrotask(() => focusTarget.focus())
+      if (
+        restoreFocus &&
+        focusTarget?.isConnected &&
+        !focusTarget.closest('[inert]')
+      ) {
+        queueMicrotask(() => {
+          if (focusTarget.isConnected && !focusTarget.closest('[inert]')) {
+            focusTarget.focus()
+          }
+        })
       }
       returnFocus.current = null
     }

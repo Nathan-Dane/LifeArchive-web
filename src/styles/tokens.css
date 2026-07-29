@@ -27,25 +27,30 @@
 
   /* Ground and surfaces. Dark is the home appearance; light keeps the warm
      archival character rather than turning clinical white. */
-  --color-page: light-dark(#f6f4f2, #0e0d0c);
-  --color-page-warm: light-dark(#f0f0ec, #13120f);
-  --color-surface: light-dark(#fcfcfc, #191815);
-  --color-surface-alt: light-dark(#f9f8f7, #2a2823);
-  --color-surface-raised: light-dark(#ebe6dd, #343128);
-  --color-details-panel: light-dark(#fcfcfc, #11100e);
-  --color-border: light-dark(#e9e6e0, #201e18);
+  --color-page: light-dark(#f5f1e9, #0e0d0c);
+  --color-page-warm: light-dark(#e9e2d7, #171510);
+  --color-surface: light-dark(#fffdf8, #201e19);
+  --color-surface-alt: light-dark(#f7f2e9, #28251f);
+  --color-surface-raised: light-dark(#e5dccd, #3a352b);
+  --color-dropdown-selected: color-mix(
+    in srgb,
+    var(--color-accent) 10%,
+    var(--color-page-warm)
+  );
+  --color-details-panel: light-dark(#faf7f1, #15130f);
+  --color-border: light-dark(#cec4b5, #4a4438);
 
   /* Text. */
-  --color-text-primary: light-dark(#1d1c18, #f4efe4);
-  --color-text-secondary: light-dark(#57544b, #b8b0a2);
-  --color-text-tertiary: light-dark(#8b877c, #7e7669);
-  --color-text-inverted: light-dark(#fbfaf7, #1b1710);
+  --color-text-primary: light-dark(#24211c, #f6f0e6);
+  --color-text-secondary: light-dark(#5f594f, #c1b7a8);
+  --color-text-tertiary: light-dark(#847d72, #8f8576);
+  --color-text-inverted: light-dark(#fffdf8, #1b1710);
 
   /* Accent. Restrained: current and selected state, primary action, focus. */
-  --color-accent: light-dark(#cb9c1a, #f6b935);
-  --color-accent-muted: light-dark(#d9b959, #9d7726);
-  --color-accent-glow: light-dark(#e1ae23, #ffd66b);
-  --color-on-accent: light-dark(#1b1710, #1b1710);
+  --color-accent: light-dark(#805900, #f0bb4a);
+  --color-accent-muted: light-dark(#6e5222, #c99b43);
+  --color-accent-glow: light-dark(#b98210, #ffd66b);
+  --color-on-accent: light-dark(#fffdf8, #1b1710);
 
   /*
    * The focus ring. Dark reuses the accent glow, which is exactly what that
@@ -55,12 +60,12 @@
    * the same gold, and it is the only colour here that the native palette does
    * not already name.
    */
-  --color-focus-ring: light-dark(#8a6a10, #ffd66b);
+  --color-focus-ring: light-dark(#76540a, #ffd66b);
 
   /* Meaning. Never the only cue for a state. */
-  --color-destructive: light-dark(#e54d2e, #b85c4a);
-  --color-success: light-dark(#50a14f, #8ea66b);
-  --color-note: light-dark(#4c6e8f, #7e9cb8);
+  --color-destructive: light-dark(#a83220, #e98773);
+  --color-success: light-dark(#2f6e35, #9fbe7f);
+  --color-note: light-dark(#3d617c, #8cacca);
 
   /* Semantic tag accents. Each keeps a named badge as the non-colour cue. */
   --tag-personal-accent: light-dark(#3d668c, #86b0d1);
@@ -163,6 +168,7 @@
   --space-details-outer: 24px;
   --space-details-section: 15px;
   --space-details-label: 5px;
+  --space-record-paragraph: 1.15em;
 
   /* Control sizing. `--size-tap-target` is the floor for anything tappable. */
   --size-tap-target: 44px;
@@ -175,10 +181,16 @@
   --size-record-scale: 29px;
   --size-record-command: 35px;
   --size-record-day: 40px;
+  --size-record-anchor: 25px;
   --size-record-row: 45px;
   --size-record-list-icon: 30px;
+  --size-record-ordinary-row: 64px;
+  --size-record-ordinary-icon: 38px;
+  --size-record-menu-icon: 24px;
+  --size-record-menu-check: 20px;
   --size-popup-close: 29px;
   --size-popup-option: 62px;
+  --ratio-media-thumbnail: 4 / 3;
 
   /*
    * The three configurable font roles. Settings can later replace these
@@ -240,17 +252,24 @@
   --leading-record-content: var(--leading-reading);
   --leading-record-heading: var(--leading-title);
   --leading-record-ui: var(--leading-ui);
+  --leading-record-meta: var(--leading-ui);
   --tracking-meta: 0.08em;
+  --tracking-record-label: 0.13em;
 
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
 
   /* Motion. Movement through time, never decoration. */
-  --motion-quick: 200ms;
+  --motion-instant: 100ms;
+  --motion-quick: 220ms;
   --motion-panel: 250ms;
-  --motion-overlay: 140ms;
+  --motion-expand: 280ms;
+  --motion-overlay: var(--motion-expand);
+  --motion-horizontal: 340ms;
+  --motion-scale: 460ms;
   --motion-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Shell geometry. */
   --layout-topbar-height: 64px;
@@ -264,6 +283,10 @@
   /* Blocking Record task surfaces. */
   --overlay-viewport-gutter: 20px;
   --overlay-popup-min-width: 280px;
+  --overlay-menu-min-height: 126px;
+  --overlay-link-width: 420px;
+  --overlay-manager-width: 480px;
+  --overlay-manager-height: 620px;
   --overlay-track-width: clamp(290px, 26vw, 350px);
   --overlay-tag-width: clamp(380px, 34vw, 440px);
   --overlay-task-width: 900px;

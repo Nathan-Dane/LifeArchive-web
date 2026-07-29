@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -12,12 +13,23 @@ import { createPortal } from 'react-dom'
 import { useFocusTrap } from '../../../accessibility'
 
 const DEFAULT_VIEWPORT_GUTTER = 20
+const EXIT_FALLBACK_MS = 320
+
+type OverlayPhase = 'opening' | 'open' | 'closing'
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof globalThis.matchMedia === 'function' &&
+    globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
 
 interface AnchoredPosition {
   readonly left: number
   readonly top: number
   readonly maxWidth: number
   readonly maxHeight: number
+  readonly anchorWidth: number
   readonly ready: boolean
 }
 
@@ -26,19 +38,25 @@ const INITIAL_POSITION: AnchoredPosition = {
   top: 0,
   maxWidth: 0,
   maxHeight: 0,
+  anchorWidth: 0,
   ready: false,
 }
 
 export interface RecordOverlayProps {
   readonly id?: string
   readonly open: boolean
-  readonly kind: 'anchored' | 'modal'
+  readonly kind: 'menu' | 'anchored' | 'modal'
   readonly labelledBy: string
   readonly onClose: () => void
+  readonly onClosed?: () => void
   readonly children: ReactNode
   readonly anchorRef?: RefObject<HTMLElement | null>
+  readonly widthRef?: RefObject<HTMLElement | null>
   readonly initialFocusRef?: RefObject<HTMLElement | null>
   readonly className?: string
+  readonly surfaceRole?: 'dialog' | 'menu'
+  readonly anchorPlacement?: 'responsive' | 'above'
+  readonly modalPlacement?: 'responsive' | 'center'
 }
 
 /**
@@ -48,6 +66,8 @@ export interface RecordOverlayProps {
  * inward to the tokenised viewport gutter. The same layer owns dismissal,
  * focus trapping, focus restoration, viewport collision, and the stronger
  * backdrop so individual pickers cannot drift into separate behaviours.
+ * Footer actions can request an above-anchor placement while retaining the
+ * shell's shared collision and fixed-after-opening behaviour.
  */
 export function RecordOverlay({
   id,
@@ -55,26 +75,89 @@ export function RecordOverlay({
   kind,
   labelledBy,
   onClose,
+  onClosed,
   children,
   anchorRef,
+  widthRef,
   initialFocusRef,
   className,
+  surfaceRole,
+  anchorPlacement = 'responsive',
+  modalPlacement = 'responsive',
 }: RecordOverlayProps) {
   const surfaceRef = useRef<HTMLElement>(null)
+  const exitTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(
+    null,
+  )
+  const [mounted, setMounted] = useState(open)
+  const [observedOpen, setObservedOpen] = useState(open)
+  const [phase, setPhase] = useState<OverlayPhase>(open ? 'opening' : 'closing')
   const [position, setPosition] = useState<AnchoredPosition>(INITIAL_POSITION)
 
+  if (open !== observedOpen) {
+    setObservedOpen(open)
+    if (open) {
+      setPosition(INITIAL_POSITION)
+      setMounted(true)
+      setPhase('opening')
+    } else if (mounted) {
+      setPhase('closing')
+    }
+  }
+
   useFocusTrap(surfaceRef, {
-    active: open,
+    active: mounted && kind !== 'menu',
     onEscape: onClose,
     initialFocusRef,
     returnFocusRef: anchorRef,
   })
 
+  const finishClosing = useCallback(() => {
+    if (exitTimer.current !== null) {
+      globalThis.clearTimeout(exitTimer.current)
+      exitTimer.current = null
+    }
+    setMounted(false)
+    onClosed?.()
+  }, [onClosed])
+
+  useEffect(() => {
+    if (!mounted) return
+    if (open && phase === 'opening') {
+      const frame = globalThis.requestAnimationFrame(() => setPhase('open'))
+      return () => globalThis.cancelAnimationFrame(frame)
+    }
+    if (!open && phase === 'closing') {
+      exitTimer.current = globalThis.setTimeout(
+        finishClosing,
+        prefersReducedMotion() ? 0 : EXIT_FALLBACK_MS,
+      )
+      return () => {
+        if (exitTimer.current !== null) {
+          globalThis.clearTimeout(exitTimer.current)
+          exitTimer.current = null
+        }
+      }
+    }
+  }, [finishClosing, mounted, open, phase])
+
+  useEffect(() => {
+    if (kind !== 'menu' || !mounted || phase === 'closing') return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      onClose()
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [kind, mounted, onClose, phase])
+
   const updatePosition = useCallback(() => {
-    if (!open || kind !== 'anchored') return
+    if (!open || !mounted || kind === 'modal') return
     const anchor = anchorRef?.current
+    const widthReference = widthRef?.current ?? anchor
     const surface = surfaceRef.current
-    if (!anchor?.isConnected || !surface) {
+    if (!anchor?.isConnected || !widthReference?.isConnected || !surface) {
       onClose()
       return
     }
@@ -94,39 +177,71 @@ export function RecordOverlay({
     const maxWidth = Math.max(0, viewportWidth - gutter * 2)
     const maxHeight = Math.max(0, viewportHeight - gutter * 2)
     const anchorBounds = anchor.getBoundingClientRect()
+    const widthBounds = widthReference.getBoundingClientRect()
     const surfaceBounds = surface.getBoundingClientRect()
-    const width = Math.min(surfaceBounds.width, maxWidth)
-    const height = Math.min(surfaceBounds.height, maxHeight)
+    const surfaceStyle = globalThis.getComputedStyle(surface)
+    const borderHeight =
+      Number.parseFloat(surfaceStyle.borderTopWidth) +
+      Number.parseFloat(surfaceStyle.borderBottomWidth)
+    const tokenMenuMinHeight = Number.parseFloat(
+      rootStyle.getPropertyValue('--overlay-menu-min-height'),
+    )
+    const menuMinHeight = Number.isFinite(tokenMenuMinHeight)
+      ? tokenMenuMinHeight
+      : 0
+    const naturalSurfaceHeight = Math.max(
+      surfaceBounds.height,
+      surface.scrollHeight + (Number.isFinite(borderHeight) ? borderHeight : 0),
+    )
+    const width = Math.min(
+      kind === 'menu' ? widthBounds.width : surfaceBounds.width,
+      maxWidth,
+    )
+    const height = Math.min(
+      kind === 'menu'
+        ? Math.max(naturalSurfaceHeight, menuMinHeight)
+        : naturalSurfaceHeight,
+      maxHeight,
+    )
     const minimumLeft = viewportLeft + gutter
     const minimumTop = viewportTop + gutter
     const maximumLeft = viewportLeft + viewportWidth - gutter - width
     const maximumTop = viewportTop + viewportHeight - gutter - height
     const idealLeft =
-      anchorBounds.left + anchorBounds.width / 2 - surfaceBounds.width / 2
+      kind === 'menu'
+        ? anchorBounds.left
+        : anchorBounds.left + anchorBounds.width / 2 - width / 2
     const idealTop =
-      anchorBounds.top + anchorBounds.height / 2 - surfaceBounds.height / 2
+      kind === 'menu'
+        ? Math.min(
+            anchorBounds.bottom + gutter / 2,
+            viewportTop + viewportHeight - gutter - height,
+          )
+        : anchorPlacement === 'above'
+          ? anchorBounds.top - height - gutter / 2
+          : anchorBounds.top + anchorBounds.height / 2 - height / 2
 
     setPosition((current) => {
       /*
-       * Opening establishes the popup's location. Changes inside the owning
-       * control (for example, tags wrapping beside its add button) must not
-       * drag an already-open dialog around the viewport. Later observations
-       * only clamp that established location if the viewport itself can no
-       * longer contain it.
+       * Opening establishes the popup's final location. Menus measure their
+       * complete scroll height before becoming visible, prefer the space below
+       * their trigger, and use any shortfall above it while preserving the
+       * bottom gutter. Later observations may update available dimensions but
+       * never move a view that is already open.
        */
-      const left = Math.min(
-        Math.max(current.ready ? current.left : idealLeft, minimumLeft),
-        maximumLeft,
-      )
-      const top = Math.min(
-        Math.max(current.ready ? current.top : idealTop, minimumTop),
-        maximumTop,
-      )
+      const preserveEstablishedPosition = current.ready
+      const left = preserveEstablishedPosition
+        ? current.left
+        : Math.min(Math.max(idealLeft, minimumLeft), maximumLeft)
+      const top = preserveEstablishedPosition
+        ? current.top
+        : Math.min(Math.max(idealTop, minimumTop), maximumTop)
       const next = {
         left,
         top,
         maxWidth,
         maxHeight,
+        anchorWidth: widthBounds.width,
         ready: true,
       }
       return Object.entries(next).every(
@@ -135,19 +250,23 @@ export function RecordOverlay({
         ? current
         : next
     })
-  }, [anchorRef, kind, onClose, open])
+  }, [anchorPlacement, anchorRef, kind, mounted, onClose, open, widthRef])
 
   useLayoutEffect(() => {
-    if (!open || kind !== 'anchored') return
+    if (!open || !mounted || kind === 'modal') return
     updatePosition()
     const surface = surfaceRef.current
     const anchor = anchorRef?.current
+    const widthReference = widthRef?.current
     const resizeObserver =
       typeof ResizeObserver === 'undefined'
         ? null
         : new ResizeObserver(updatePosition)
     if (surface) resizeObserver?.observe(surface)
     if (anchor) resizeObserver?.observe(anchor)
+    if (widthReference && widthReference !== anchor) {
+      resizeObserver?.observe(widthReference)
+    }
     globalThis.addEventListener('resize', updatePosition)
     globalThis.addEventListener('scroll', updatePosition, true)
     globalThis.visualViewport?.addEventListener('resize', updatePosition)
@@ -159,17 +278,18 @@ export function RecordOverlay({
       globalThis.visualViewport?.removeEventListener('resize', updatePosition)
       globalThis.visualViewport?.removeEventListener('scroll', updatePosition)
     }
-  }, [anchorRef, kind, open, updatePosition])
+  }, [anchorRef, kind, mounted, open, updatePosition, widthRef])
 
-  if (!open) return null
+  if (!mounted) return null
 
   const style =
-    kind === 'anchored'
+    kind !== 'modal'
       ? ({
           '--record-overlay-left': `${position.left}px`,
           '--record-overlay-top': `${position.top}px`,
           '--record-overlay-max-width': `${position.maxWidth}px`,
           '--record-overlay-max-height': `${position.maxHeight}px`,
+          '--record-overlay-anchor-width': `${position.anchorWidth}px`,
         } as CSSProperties)
       : undefined
 
@@ -181,15 +301,30 @@ export function RecordOverlay({
     <div
       className="record-overlay"
       data-kind={kind}
+      data-placement={
+        kind === 'modal'
+          ? modalPlacement
+          : kind === 'anchored'
+            ? anchorPlacement
+            : undefined
+      }
+      data-phase={phase}
+      aria-hidden={phase === 'closing' && kind === 'menu' ? 'true' : undefined}
+      inert={phase === 'closing' && kind === 'menu' ? true : undefined}
       onMouseDown={closeFromBackdrop}
+      onTransitionEnd={(event) => {
+        if (phase === 'closing' && event.target === event.currentTarget) {
+          finishClosing()
+        }
+      }}
     >
       <section
         id={id}
         ref={surfaceRef}
         className={`record-overlay__surface ${className ?? ''}`}
         data-ready={kind === 'modal' || position.ready ? 'true' : 'false'}
-        role="dialog"
-        aria-modal="true"
+        role={surfaceRole ?? (kind === 'menu' ? 'menu' : 'dialog')}
+        aria-modal={kind === 'menu' ? undefined : 'true'}
         aria-labelledby={labelledBy}
         tabIndex={-1}
         style={style}
