@@ -8,7 +8,6 @@ import { EventWritingEditor } from './events'
 import { useRecordDestination } from './recordDestination'
 import { SpanWritingEditor } from './spans'
 import { RecordMedia } from './media'
-import { TrackHistory } from './tracks'
 
 const ORDINARY_TITLE = {
   day: 'record.objects.ordinaryDay',
@@ -32,7 +31,6 @@ export function RecordPage() {
     objects,
     events,
     spans,
-    tracks,
     developmentMock,
     navigationSummary,
   } = useRecordDestination()
@@ -41,8 +39,7 @@ export function RecordPage() {
     events.creating || objects.state.selected?.placement.kind === 'event'
   const spanActive =
     spans.creating || objects.state.selected?.placement.kind === 'span'
-  const trackActive = tracks.active
-  const structuredActive = eventActive || spanActive || trackActive
+  const structuredActive = eventActive || spanActive
   const selected = objects.state.selected
   const eventTitle =
     events.draft?.title.trim() ||
@@ -52,13 +49,11 @@ export function RecordPage() {
     spans.draft?.title.trim() ||
     (selected?.placement.kind === 'span' ? selected.title : '') ||
     t('record.span.new')
-  const pageTitle = trackActive
-    ? (tracks.state.selected?.name ?? t('record.track.heading'))
-    : eventActive
-      ? eventTitle
-      : spanActive
-        ? spanTitle
-        : t(ORDINARY_TITLE[cursor.state.scale])
+  const pageTitle = eventActive
+    ? eventTitle
+    : spanActive
+      ? spanTitle
+      : t(ORDINARY_TITLE[cursor.state.scale])
   return (
     <div className="record-page">
       <header className="record-page__header">
@@ -88,7 +83,7 @@ export function RecordPage() {
           allowMedia={cursor.state.scale === 'day'}
         />
       </div>
-      <div hidden={!eventActive || trackActive}>
+      <div hidden={!eventActive}>
         <EventWritingEditor event={events} />
         <RecordMedia
           client={client}
@@ -98,7 +93,7 @@ export function RecordPage() {
           onCountChange={navigationSummary.reportMediaCount}
         />
       </div>
-      <div hidden={!spanActive || trackActive}>
+      <div hidden={!spanActive}>
         <SpanWritingEditor span={spans} />
         <RecordMedia
           client={client}
@@ -107,9 +102,6 @@ export function RecordPage() {
           onParentRevision={spans.adoptMediaRevision}
           onCountChange={navigationSummary.reportMediaCount}
         />
-      </div>
-      <div hidden={!trackActive}>
-        <TrackHistory tracks={tracks} />
       </div>
     </div>
   )

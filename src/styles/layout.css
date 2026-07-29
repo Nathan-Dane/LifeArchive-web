@@ -4217,6 +4217,40 @@
   height: 13px;
 }
 
+.record-overlay__back {
+  display: grid;
+  width: var(--size-popup-close);
+  min-width: var(--size-popup-close);
+  min-height: var(--size-popup-close);
+  place-items: center;
+  padding: 0;
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    border-color var(--motion-instant) var(--motion-ease),
+    background-color var(--motion-instant) var(--motion-ease),
+    color var(--motion-instant) var(--motion-ease),
+    transform var(--motion-instant) var(--motion-ease);
+}
+
+.record-overlay__back:hover {
+  border-color: var(--border-strong);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
+.record-overlay__back:active {
+  transform: scale(0.95);
+}
+
+.record-overlay__back .record-control-icon {
+  width: 15px;
+  height: 15px;
+}
+
 .record-overlay__footer {
   display: flex;
   flex-wrap: wrap;
@@ -5012,7 +5046,7 @@
   opacity: var(--opacity-disabled);
 }
 
-/* Track assignment stays inline; only its management action opens a task. */
+/* Track assignment stays inline; Track creation and management open a task. */
 .record-track-chooser {
   display: grid;
   width: 100%;
@@ -5260,6 +5294,126 @@
   text-align: center;
 }
 
+.record-track-manager__footer > button {
+  gap: var(--space-xs);
+}
+
+.record-track-editor {
+  display: flex;
+  overflow: hidden;
+  width: min(620px, calc(100vw - var(--overlay-viewport-gutter) * 2));
+  max-height: min(
+    var(--overlay-manager-height),
+    calc(100dvh - var(--overlay-viewport-gutter) * 2)
+  );
+  flex-direction: column;
+}
+
+.record-track-editor__header {
+  align-items: center;
+}
+
+.record-track-editor__header > div {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: var(--space-2xs);
+}
+
+.record-track-editor__header :is(h2, p) {
+  margin: 0;
+}
+
+.record-track-editor__body {
+  display: grid;
+  overflow-y: auto;
+  align-content: start;
+  gap: var(--space-section);
+  padding: var(--space-lg) var(--space-details-inset);
+}
+
+.record-track-editor__identity {
+  display: grid;
+  gap: var(--space-section);
+}
+
+.record-track-editor__members {
+  overflow: hidden;
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.record-track-editor__members-toggle {
+  display: grid;
+  width: 100%;
+  min-height: var(--size-control-featured);
+  align-items: center;
+  gap: var(--space-standard);
+  padding: var(--space-standard);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font: inherit;
+  grid-template-columns: minmax(0, 1fr) auto;
+  text-align: start;
+  transition: background-color var(--motion-instant) var(--motion-ease);
+}
+
+.record-track-editor__members-toggle:hover {
+  background: var(--color-surface-raised);
+}
+
+.record-track-editor__members-toggle > span:first-child {
+  display: grid;
+}
+
+.record-track-editor__members-toggle > span:last-child {
+  display: grid;
+  color: var(--color-text-secondary);
+  place-items: center;
+  transition: transform var(--motion-quick) var(--motion-ease-emphasized);
+}
+
+.record-track-editor__members-toggle[aria-expanded='true'] > span:last-child {
+  transform: rotate(180deg);
+}
+
+.record-track-editor__members > div:not([hidden]) {
+  display: block;
+  padding: 0 var(--space-standard) var(--space-standard);
+  border-top: var(--border-hairline) solid var(--border-subtle);
+}
+
+.record-track-editor__members .record-track-history {
+  padding-top: var(--space-standard);
+}
+
+.record-track-editor__secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-compact);
+}
+
+.record-track-editor__secondary-actions .button[aria-pressed='true'] {
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 46%,
+    var(--border-strong)
+  );
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.record-track-editor__footer {
+  margin-top: auto;
+}
+
+.record-track-editor__delete {
+  margin-inline-end: auto;
+}
+
 @media (max-width: 680px) {
   .record-overlay:is(
     [data-kind='anchored'][data-placement='responsive'],
@@ -5280,7 +5434,8 @@
     border-radius: var(--radius-task);
   }
 
-  .record-track-manager {
+  .record-track-manager,
+  .record-track-editor {
     width: calc(100vw - var(--space-details-outer));
     max-height: calc(100dvh - var(--space-details-outer));
     margin-top: auto;
@@ -5542,6 +5697,12 @@
 
 .button:hover {
   border-color: var(--border-muted);
+}
+
+.button:disabled,
+.record-details__delete:disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
 }
 
 .button--destructive {

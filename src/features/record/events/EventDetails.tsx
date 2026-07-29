@@ -91,11 +91,11 @@ export function EventDetails({
               value={draft.trackId}
               date={isCivilDate(draft.date) ? civilDate(draft.date) : undefined}
               disabled={event.status === 'saving'}
-              onChange={(trackId) => {
+              onChange={(trackId, invalidation) => {
                 if (event.creating) {
                   event.update({ trackId: trackId ?? '' })
                 } else {
-                  void event.changeTrack(trackId)
+                  void event.changeTrack(trackId, invalidation)
                 }
               }}
             />
