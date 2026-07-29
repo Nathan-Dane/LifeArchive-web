@@ -42,6 +42,16 @@ const SUMMARY = {
   memberCount: 2,
   ongoingMemberCount: 1,
 }
+const ARCHIVED_SUMMARY = {
+  track: {
+    ...TRACK,
+    id: stableId('8f1c0a10-0000-4000-8000-000000000806'),
+    name: 'Archived chapter',
+    isArchived: true,
+  },
+  memberCount: 1,
+  ongoingMemberCount: 0,
+}
 function client(
   overrides: Partial<LifeArchiveClient['tracks']> = {},
   ids = [TRACK_ID, MEMBER_ID],
@@ -101,6 +111,33 @@ function tracks(testClient: LifeArchiveClient) {
 }
 
 describe('Track management and capture', () => {
+  it('loads management Tracks without replacing the chooser list or filter', async () => {
+    const list = vi.fn<LifeArchiveClient['tracks']['list']>(
+      async ({ includeArchived }) =>
+        ok({
+          tracks: includeArchived ? [ARCHIVED_SUMMARY] : [SUMMARY],
+          invalidation: INVALIDATION,
+        }),
+    )
+    const { rendered } = tracks(client({ list }))
+    await waitFor(() =>
+      expect(rendered.result.current.state.tracks).toEqual([SUMMARY]),
+    )
+
+    let managementTracks: readonly (typeof SUMMARY)[] = []
+    await act(async () => {
+      managementTracks = await rendered.result.current.loadManagementList()
+    })
+
+    expect(managementTracks).toEqual([SUMMARY, ARCHIVED_SUMMARY])
+    expect(rendered.result.current.state.includeArchived).toBe(false)
+    expect(rendered.result.current.state.tracks).toEqual([SUMMARY])
+    expect(list).toHaveBeenLastCalledWith({
+      includeArchived: true,
+      limit: 100,
+    })
+  })
+
   it('cancels a complete Track draft without making a mutation', async () => {
     const create = vi.fn()
     const { rendered } = tracks(client({ create }))
