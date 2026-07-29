@@ -24,6 +24,8 @@ import { useFormat } from '../../../i18n'
 export interface RecordCalendarCellsProps {
   readonly id?: string
   readonly days: readonly CalendarDay[]
+  /** The core-returned week that remains present in both calendar states. */
+  readonly selectedWeek: readonly CalendarDay[]
   /** How many cells make one row. Taken from the week the core returned. */
   readonly columns: number
   /** The accessible name of this collection of cells. */
@@ -32,8 +34,8 @@ export interface RecordCalendarCellsProps {
   readonly focusedDate: CivilDate
   /** The device's civil day. Marks the current cell. */
   readonly today: CivilDate
-  /** Whether each cell also names its weekday, as the week strip does. */
-  readonly showWeekday?: boolean
+  /** Surrounding rows are visible only while the calendar is expanded. */
+  readonly expanded: boolean
   readonly onSelect: (date: CivilDate) => void
 }
 
@@ -46,17 +48,24 @@ interface Roving {
 export function RecordCalendarCells({
   id,
   days,
+  selectedWeek,
   columns,
   label,
   focusedDate,
   today,
-  showWeekday,
+  expanded,
   onSelect,
 }: RecordCalendarCellsProps) {
   const format = useFormat()
   const cells = useRef<(HTMLButtonElement | null)[]>([])
+  const selectedWeekDates = new Set(selectedWeek.map((day) => day.date))
+  const visible = days
+    .map((day, index) =>
+      expanded || selectedWeekDates.has(day.date) ? index : null,
+    )
+    .filter((index): index is number => index !== null)
   const selected = days.findIndex((day) => day.date === focusedDate)
-  const start = selected < 0 ? 0 : selected
+  const start = visible.includes(selected) ? selected : (visible[0] ?? 0)
   const [roving, setRoving] = useState<Roving>({ from: start, index: start })
 
   /*
@@ -65,10 +74,9 @@ export function RecordCalendarCells({
    * a frame.
    */
   if (roving.from !== start) setRoving({ from: start, index: start })
-  const active = Math.min(
-    Math.max(roving.index, 0),
-    Math.max(days.length - 1, 0),
-  )
+  const active = visible.includes(roving.index)
+    ? roving.index
+    : (visible[0] ?? 0)
 
   const rove = (to: number) => {
     setRoving((current) =>
@@ -77,12 +85,18 @@ export function RecordCalendarCells({
   }
 
   const move = (to: number) => {
-    const clamped = Math.min(Math.max(to, 0), days.length - 1)
-    rove(clamped)
-    cells.current[clamped]?.focus()
+    const activePosition = Math.max(visible.indexOf(active), 0)
+    const clampedPosition = Math.min(
+      Math.max(to, 0),
+      Math.max(visible.length - 1, 0),
+    )
+    const index = visible[clampedPosition] ?? visible[activePosition] ?? 0
+    rove(index)
+    cells.current[index]?.focus()
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const activePosition = Math.max(visible.indexOf(active), 0)
     const step = {
       ArrowRight: 1,
       ArrowLeft: -1,
@@ -90,11 +104,11 @@ export function RecordCalendarCells({
       ArrowUp: -columns,
     }[event.key]
     if (step !== undefined) {
-      move(active + step)
+      move(activePosition + step)
     } else if (event.key === 'Home') {
       move(0)
     } else if (event.key === 'End') {
-      move(days.length - 1)
+      move(visible.length - 1)
     } else {
       return
     }
@@ -118,7 +132,11 @@ export function RecordCalendarCells({
           }}
           type="button"
           className="record-calendar__day"
+          data-selected-week={
+            selectedWeekDates.has(day.date) ? 'true' : undefined
+          }
           data-outside={day.withinFocusedMonth ? undefined : 'true'}
+          hidden={!expanded && !selectedWeekDates.has(day.date)}
           aria-label={format.civilDate(day.date)}
           aria-pressed={day.date === focusedDate}
           aria-current={day.date === today ? 'date' : undefined}
@@ -126,7 +144,7 @@ export function RecordCalendarCells({
           onFocus={() => rove(index)}
           onClick={() => onSelect(day.date)}
         >
-          {showWeekday ? (
+          {selectedWeekDates.has(day.date) ? (
             <span className="record-calendar__weekday" aria-hidden="true">
               {format.civilWeekday(day.date, 'narrow')}
             </span>

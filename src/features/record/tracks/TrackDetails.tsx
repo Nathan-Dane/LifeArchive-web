@@ -1,7 +1,6 @@
 import { useId, useState } from 'react'
 import type { CivilDate } from '../../../core/client'
 import { failureMessage, semanticName, useLocalisation } from '../../../i18n'
-import { RecordSemanticIcon } from '../events'
 import { PREDEFINED_TAG_IDS, SemanticIconPicker } from '../metadata'
 import { TrackMemberForm } from './TrackMemberForm'
 import type { Tracks } from './useTracks'
@@ -16,6 +15,7 @@ export function TrackDetails({
   const localisation = useLocalisation()
   const t = localisation.t
   const headingId = useId()
+  const nameId = useId()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [detachMembers, setDetachMembers] = useState(false)
   const draft = tracks.state.draft
@@ -28,7 +28,7 @@ export function TrackDetails({
   return (
     <section className="record-details" aria-labelledby={headingId}>
       <header className="record-details__head">
-        <h2 id={headingId} className="title">
+        <h2 id={headingId} className="ui-heading">
           {t(
             tracks.state.creating
               ? 'record.track.createHeading'
@@ -91,26 +91,23 @@ export function TrackDetails({
       ) : null}
       <section className="record-details__section">
         <h3 className="eyebrow">{t('record.details.identity')}</h3>
-        <label className="record-details__field">
-          <span>{t('record.track.name')}</span>
-          <span className="record-details__identity">
-            <RecordSemanticIcon
-              id={draft.iconId}
-              className="record-details__icon"
+        <div className="record-details__field">
+          <label htmlFor={nameId}>{t('record.track.name')}</label>
+          <div className="record-details__identity">
+            <SemanticIconPicker
+              value={draft.iconId}
+              disabled={tracks.state.status === 'saving'}
+              onChange={(iconId) => tracks.updateTrack({ iconId })}
             />
             <input
+              id={nameId}
               value={draft.name}
               onChange={(event) =>
                 tracks.updateTrack({ name: event.currentTarget.value })
               }
             />
-          </span>
-        </label>
-        <SemanticIconPicker
-          value={draft.iconId}
-          disabled={tracks.state.status === 'saving'}
-          onChange={(iconId) => tracks.updateTrack({ iconId })}
-        />
+          </div>
+        </div>
         <label className="record-details__field">
           <span>{t('record.track.suggestedTag')}</span>
           <select

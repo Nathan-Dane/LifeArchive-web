@@ -61,6 +61,12 @@ export interface TemporalCursorState {
    * cannot answer at all.
    */
   readonly view: TemporalView | null
+  /**
+   * The core-returned period before and after the settled window. Broader
+   * scale strips render these around the current window without calculating
+   * any neighbouring boundary in the browser.
+   */
+  readonly periods: readonly TimeWindow[]
   readonly failure: ClientFailure | null
   readonly expanded: boolean
 }
@@ -109,7 +115,13 @@ interface Answer {
   readonly failure: ClientFailure | null
 }
 
+interface PeriodAnswer {
+  readonly toWindowId: string | null
+  readonly periods: readonly TimeWindow[]
+}
+
 const NOTHING_YET: Answer = { to: null, view: null, failure: null }
+const NO_PERIODS: PeriodAnswer = { toWindowId: null, periods: [] }
 const CURSOR_STORAGE_KEY = 'lifearchive:record-time-cursor:v1'
 const TIME_SCALES: readonly TimeScale[] = ['day', 'week', 'month', 'year']
 
@@ -170,6 +182,7 @@ export function useTemporalCursor(
    */
   const [steppingFrom, setSteppingFrom] = useState<Target | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const [periodAnswer, setPeriodAnswer] = useState<PeriodAnswer>(NO_PERIODS)
 
   /*
    * The generation every in-flight request carries. A step and a load share
@@ -177,6 +190,7 @@ export function useTemporalCursor(
    * exactly as stale as a window that does.
    */
   const generation = useRef(0)
+  const periodGeneration = useRef(0)
 
   useEffect(() => {
     rememberCursor({ scale: target.scale, anchor: target.anchor })
@@ -252,6 +266,40 @@ export function useTemporalCursor(
   const settled = answer.to === target
   const window = answer.view?.window ?? null
 
+  useEffect(() => {
+    const requested = (periodGeneration.current += 1)
+    if (
+      !settled ||
+      !window ||
+      target.scale === 'day' ||
+      window.scale !== target.scale
+    ) {
+      return
+    }
+
+    void Promise.all([
+      client.time.step({
+        window,
+        step: 'previous',
+        weekRules: device.weekRules,
+      }),
+      client.time.step({
+        window,
+        step: 'next',
+        weekRules: device.weekRules,
+      }),
+    ]).then(([previous, next]) => {
+      if (requested !== periodGeneration.current) return
+      setPeriodAnswer({
+        toWindowId: window.id,
+        periods:
+          previous.status === 'ok' && next.status === 'ok'
+            ? [previous.value, window, next.value]
+            : [],
+      })
+    })
+  }, [client, device, settled, target.scale, window])
+
   const step = useCallback(
     (direction: WindowStep) => {
       if (!window) return
@@ -284,6 +332,10 @@ export function useTemporalCursor(
   const stepping = steppingFrom === target
   const status: TemporalStatus =
     stepping || !settled ? 'loading' : answer.failure ? 'failed' : 'ready'
+  const periods =
+    settled && window && periodAnswer.toWindowId === window.id
+      ? periodAnswer.periods
+      : []
 
   return {
     state: {
@@ -292,6 +344,7 @@ export function useTemporalCursor(
       today,
       status,
       view: answer.view,
+      periods,
       failure: status === 'failed' ? answer.failure : null,
       expanded,
     },

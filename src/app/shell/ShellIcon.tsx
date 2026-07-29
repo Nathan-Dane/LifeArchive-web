@@ -10,6 +10,9 @@
 export type ShellIconName =
   | 'navigation'
   | 'details'
+  | 'record'
+  | 'timeline'
+  | 'settings'
   | 'appearance-system'
   | 'appearance-light'
   | 'appearance-dark'
@@ -26,6 +29,24 @@ const PATHS: Record<ShellIconName, React.ReactNode> = {
     <>
       <rect x="2.5" y="3.5" width="15" height="13" rx="2.5" />
       <path d="M12.5 3.5v13" />
+    </>
+  ),
+  record: (
+    <>
+      <rect x="4" y="3.5" width="12" height="13" rx="1.75" />
+      <path d="M7 7h6M7 10h6M7 13h4" />
+    </>
+  ),
+  timeline: (
+    <>
+      <circle cx="10" cy="10" r="6.25" />
+      <path d="M10 6.5V10l2.5 1.5" />
+    </>
+  ),
+  settings: (
+    <>
+      <circle cx="10" cy="10" r="2.25" />
+      <path d="M10 3.25v1.5M10 15.25v1.5M3.25 10h1.5M15.25 10h1.5M5.25 5.25l1.05 1.05M13.7 13.7l1.05 1.05M14.75 5.25 13.7 6.3M6.3 13.7l-1.05 1.05" />
     </>
   ),
   'appearance-system': (

@@ -64,6 +64,7 @@ import type {
   StructuredObject,
   StructuredObjectState,
   StructuredSummary,
+  TimeScale,
   TimeWindow,
   TimelineFocusResult,
   TimelinePage,
@@ -75,6 +76,7 @@ import type {
   TrackMutationResult,
   TrackState,
   TrackWithFirstMember,
+  WindowStep,
 } from '../client'
 import { DEVELOPMENT_MOCK_MARKER } from './developmentOnly'
 
@@ -235,6 +237,73 @@ const WEEK_WINDOW = coreTimeWindow({
   timeZoneId: 'UTC',
 })
 
+function fixedPeriodWindow(
+  id: string,
+  scale: Exclude<TimeScale, 'day'>,
+  startDate: string,
+  endDate: string,
+): TimeWindow {
+  return coreTimeWindow({
+    id,
+    scale,
+    startMs: 0,
+    endMs: 0,
+    startDate: civilDate(startDate),
+    endDate: civilDate(endDate),
+    calendarId: 'gregory',
+    timeZoneId: 'UTC',
+  })
+}
+
+const WEEK_PREVIOUS = fixedPeriodWindow(
+  'week:2025-W23',
+  'week',
+  '2025-06-02',
+  '2025-06-08',
+)
+const WEEK_NEXT = fixedPeriodWindow(
+  'week:2025-W25',
+  'week',
+  '2025-06-16',
+  '2025-06-22',
+)
+const MONTH_WINDOW = fixedPeriodWindow(
+  'month:2025-06',
+  'month',
+  '2025-06-01',
+  '2025-06-30',
+)
+const MONTH_PREVIOUS = fixedPeriodWindow(
+  'month:2025-05',
+  'month',
+  '2025-05-01',
+  '2025-05-31',
+)
+const MONTH_NEXT = fixedPeriodWindow(
+  'month:2025-07',
+  'month',
+  '2025-07-01',
+  '2025-07-31',
+)
+const YEAR_WINDOW = fixedPeriodWindow(
+  'year:2025',
+  'year',
+  '2025-01-01',
+  '2025-12-31',
+)
+const YEAR_PREVIOUS = fixedPeriodWindow(
+  'year:2024',
+  'year',
+  '2024-01-01',
+  '2024-12-31',
+)
+const YEAR_NEXT = fixedPeriodWindow(
+  'year:2026',
+  'year',
+  '2026-01-01',
+  '2026-12-31',
+)
+
 /* -------------------------------------------------------------------------- */
 /* Record fixtures                                                            */
 /* -------------------------------------------------------------------------- */
@@ -319,6 +388,7 @@ const EVENT_SUMMARY: StructuredSummary = {
   iconId: 'swimming',
   tags: { ordered: ['personal', 'health'], display: 'health' },
   trackId: null,
+  mediaCount: 1,
 }
 
 const SPAN_SUMMARY: StructuredSummary = {
@@ -335,6 +405,7 @@ const SPAN_SUMMARY: StructuredSummary = {
   iconId: 'home',
   tags: { ordered: ['home'], display: 'home' },
   trackId: TRACK_ID,
+  mediaCount: 0,
 }
 
 const EVENT_OBJECT: StructuredObject = {
@@ -507,6 +578,17 @@ export interface MockScenario {
   /** Handed out in order and then cycled. Never generated. */
   readonly mintedStableIds: readonly StableId[]
   readonly mintedOperationIds: readonly OperationId[]
+  /**
+   * Fixed scale-specific time answers used only to make every navigation
+   * presentation reachable. These are literal windows, not browser-computed
+   * calendar values.
+   */
+  readonly timeNavigation?: {
+    readonly windows: Readonly<Record<TimeScale, TimeWindow>>
+    readonly steps: Readonly<
+      Record<TimeScale, Readonly<Record<WindowStep, TimeWindow>>>
+    >
+  }
   readonly results: MockResults
 }
 
@@ -827,6 +909,20 @@ export const DEVELOPMENT_MOCK_SCENARIO: MockScenario = {
   archiveSession: { state: 'open', archive: OPEN_ARCHIVE },
   mintedStableIds: MINTED_STABLE_IDS,
   mintedOperationIds: MINTED_OPERATION_IDS,
+  timeNavigation: {
+    windows: {
+      day: FOCUSED_WINDOW,
+      week: WEEK_WINDOW,
+      month: MONTH_WINDOW,
+      year: YEAR_WINDOW,
+    },
+    steps: {
+      day: { previous: NEIGHBOUR_WINDOW, next: NEIGHBOUR_WINDOW },
+      week: { previous: WEEK_PREVIOUS, next: WEEK_NEXT },
+      month: { previous: MONTH_PREVIOUS, next: MONTH_NEXT },
+      year: { previous: YEAR_PREVIOUS, next: YEAR_NEXT },
+    },
+  },
   results: RESULTS,
 }
 
@@ -846,6 +942,8 @@ export const MOCK_FIXTURES = {
   focusedWindow: FOCUSED_WINDOW,
   neighbourWindow: NEIGHBOUR_WINDOW,
   weekWindow: WEEK_WINDOW,
+  monthWindow: MONTH_WINDOW,
+  yearWindow: YEAR_WINDOW,
   invalidation: INVALIDATION,
   entry: ENTRY,
   entryPresent: ENTRY_PRESENT,

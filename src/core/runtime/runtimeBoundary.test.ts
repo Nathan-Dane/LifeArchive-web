@@ -105,6 +105,7 @@ const runtimeStructuredSummary = {
   title: 'Runtime event',
   metadata: runtimeStructuredMetadata,
   mutationRevision: '4',
+  attachmentCount: 2,
 }
 
 const runtimeStructuredSnapshot = {
@@ -592,6 +593,7 @@ const cases = {
       },
     )
     expect(mapped.objects).toHaveLength(1)
+    expect(mapped.objects[0]?.mediaCount).toBe(2)
   },
 
   structuredLoad: () => {
