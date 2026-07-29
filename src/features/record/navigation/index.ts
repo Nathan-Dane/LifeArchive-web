@@ -17,6 +17,8 @@ export {
   type RecordNavigationPanelProps,
 } from './RecordNavigationPanel'
 export {
+  RECORD_CURSOR_STORAGE_KEY,
+  resetRememberedRecordCursor,
   useTemporalCursor,
   type TemporalCursor,
   type TemporalCursorOptions,

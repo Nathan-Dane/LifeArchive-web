@@ -130,12 +130,14 @@ interface PeriodAnswer {
 
 const NOTHING_YET: Answer = { to: null, view: null, failure: null }
 const NO_PERIODS: PeriodAnswer = { toWindowId: null, periods: [] }
-const CURSOR_STORAGE_KEY = 'lifearchive:record-time-cursor:v1'
+export const RECORD_CURSOR_STORAGE_KEY = 'lifearchive:record-time-cursor:v1'
 const TIME_SCALES: readonly TimeScale[] = ['day', 'week', 'month', 'year']
 
 function restoredCursor(): TemporalDestination | null {
   try {
-    const value = JSON.parse(localStorage.getItem(CURSOR_STORAGE_KEY) ?? 'null')
+    const value = JSON.parse(
+      localStorage.getItem(RECORD_CURSOR_STORAGE_KEY) ?? 'null',
+    )
     if (
       typeof value !== 'object' ||
       value === null ||
@@ -153,7 +155,7 @@ function restoredCursor(): TemporalDestination | null {
 
 function rememberCursor(cursor: TemporalDestination): void {
   try {
-    localStorage.setItem(CURSOR_STORAGE_KEY, JSON.stringify(cursor))
+    localStorage.setItem(RECORD_CURSOR_STORAGE_KEY, JSON.stringify(cursor))
   } catch {
     // Navigation remains usable when browser preference storage is unavailable.
   }
@@ -163,6 +165,16 @@ export interface TemporalCursorOptions {
   readonly device?: DeviceCalendar
   /** The scale a fresh Record opens at. */
   readonly initialScale?: TimeScale
+  /** Whether a previously used scale takes precedence over `initialScale`. */
+  readonly restoreScale?: boolean
+}
+
+export function resetRememberedRecordCursor(): void {
+  try {
+    localStorage.removeItem(RECORD_CURSOR_STORAGE_KEY)
+  } catch {
+    // The active cursor remains usable when browser storage is unavailable.
+  }
 }
 
 export function useTemporalCursor(
@@ -170,13 +182,14 @@ export function useTemporalCursor(
   {
     device = deviceCalendar(),
     initialScale = 'day',
+    restoreScale = true,
   }: TemporalCursorOptions = {},
 ): TemporalCursor {
   const [today, setToday] = useState<CivilDate>(() => device.today())
   const [target, setTarget] = useState<Target>(() => {
     const restored = restoredCursor()
     return {
-      scale: restored?.scale ?? initialScale,
+      scale: restoreScale ? (restored?.scale ?? initialScale) : initialScale,
       anchor: restored?.anchor ?? device.today(),
       load: 0,
     }

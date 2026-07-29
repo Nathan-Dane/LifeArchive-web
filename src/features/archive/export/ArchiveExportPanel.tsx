@@ -8,8 +8,10 @@ import { useArchiveExport } from './exportController'
 
 export function ArchiveExportPanel({
   client,
+  compact = false,
 }: {
   readonly client: LifeArchiveClient
+  readonly compact?: boolean
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
@@ -22,19 +24,29 @@ export function ArchiveExportPanel({
 
   return (
     <section
-      className="archive-operation"
+      className={
+        compact
+          ? 'archive-operation archive-operation--compact'
+          : 'archive-operation'
+      }
       aria-labelledby="archive-export-title"
       aria-busy={busy || undefined}
     >
       <div className="archive-operation__heading">
         <div>
-          <p className="eyebrow">{t('archive.export.eyebrow')}</p>
+          {!compact ? (
+            <p className="eyebrow">{t('archive.export.eyebrow')}</p>
+          ) : null}
           <h2 id="archive-export-title" className="display">
-            {t('archive.export.title')}
+            {t(
+              compact ? 'archive.export.compactTitle' : 'archive.export.title',
+            )}
           </h2>
         </div>
         <p className="archive-operation__detail">
-          {t('archive.export.detail')}
+          {t(
+            compact ? 'archive.export.compactDetail' : 'archive.export.detail',
+          )}
         </p>
       </div>
 

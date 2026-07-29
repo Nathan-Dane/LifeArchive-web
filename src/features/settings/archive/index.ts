@@ -1,5 +1,7 @@
 export { ArchiveManagementPage } from './ArchiveManagementPage'
 export { ArchiveOverviewCards } from './ArchiveOverviewCards'
+export { ArchiveOverviewProvider } from './ArchiveOverviewProvider'
+export { useSharedArchiveOverview } from './archiveOverviewContext'
 export {
   useArchiveOverview,
   type ArchiveFact,

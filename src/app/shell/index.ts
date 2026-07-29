@@ -4,7 +4,6 @@
  */
 
 export { AppFrame, type AppFrameProps } from './AppFrame'
-export { AppearanceControl } from './AppearanceControl'
 export {
   AppearanceProvider,
   type AppearanceProviderProps,
