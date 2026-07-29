@@ -17,9 +17,18 @@
  * calendar comes back to where the reader was rather than to its first day.
  */
 
-import { useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react'
 import type { CalendarDay, CivilDate } from '../../../core/client'
 import { useFormat } from '../../../i18n'
+import type { TemporalMotion } from './temporalCursor'
+
+const CALENDAR_TRANSITION_FALLBACK_MS = 380
 
 export interface RecordCalendarCellsProps {
   readonly id?: string
@@ -39,10 +48,111 @@ export interface RecordCalendarCellsProps {
   readonly onSelect: (date: CivilDate) => void
 }
 
+interface CalendarPage extends RecordCalendarCellsProps {
+  readonly pageKey: string
+}
+
+interface CalendarStage {
+  readonly current: CalendarPage
+  readonly signature: string
+  readonly motionId: number | null
+  readonly outgoing: CalendarPage | null
+  readonly transitionId: string | null
+  readonly direction: 'forward' | 'backward'
+}
+
 /** The roving tab stop, and the focused date it was last synchronised with. */
 interface Roving {
   readonly from: number
   readonly index: number
+}
+
+/**
+ * Keeps one calendar page stable while its focused cell changes.
+ *
+ * A page is the core-returned selected week while collapsed and the
+ * core-returned surrounding month while expanded. Moving inside that page
+ * only changes the selected cell. Crossing its boundary retains the previous
+ * page just long enough for the two pages to slide past each other.
+ */
+export function RecordCalendarCarousel({
+  motion,
+  ...props
+}: RecordCalendarCellsProps & {
+  readonly motion: TemporalMotion | null
+}) {
+  const visibleDays = props.expanded ? props.days : props.selectedWeek
+  const pageKey = `${props.expanded ? 'month' : 'week'}:${visibleDays
+    .map((day) => day.date)
+    .join('|')}`
+  const signature = `${pageKey}:${props.focusedDate}:${props.today}`
+  const page: CalendarPage = { ...props, pageKey }
+  const [stage, setStage] = useState<CalendarStage>(() => ({
+    current: page,
+    signature,
+    motionId: motion?.id ?? null,
+    outgoing: null,
+    transitionId: null,
+    direction: 'forward',
+  }))
+
+  if (stage.signature !== signature) {
+    const crossesPage = stage.current.pageKey !== pageKey
+    const direction = motion?.direction === 'backward' ? 'backward' : 'forward'
+    const shouldSlide =
+      crossesPage &&
+      stage.current.expanded === page.expanded &&
+      motion?.kind === 'horizontal' &&
+      motion.id !== stage.motionId
+    setStage({
+      current: page,
+      signature,
+      motionId: motion?.id ?? stage.motionId,
+      outgoing: shouldSlide ? stage.current : null,
+      transitionId: shouldSlide ? `${motion.id}:${pageKey}` : null,
+      direction,
+    })
+  }
+
+  useEffect(() => {
+    if (!stage.outgoing || !stage.transitionId) return
+    const transitionId = stage.transitionId
+    const timer = globalThis.setTimeout(() => {
+      setStage((current) =>
+        current.transitionId === transitionId
+          ? { ...current, outgoing: null, transitionId: null }
+          : current,
+      )
+    }, CALENDAR_TRANSITION_FALLBACK_MS)
+    return () => globalThis.clearTimeout(timer)
+  }, [stage.outgoing, stage.transitionId])
+
+  return (
+    <div
+      className="record-calendar__page-stack"
+      data-direction={stage.direction}
+      data-transition={stage.outgoing ? 'true' : undefined}
+    >
+      {stage.outgoing ? (
+        <div
+          key={`outgoing:${stage.transitionId}`}
+          className="record-calendar__page"
+          data-layer="outgoing"
+          aria-hidden="true"
+          inert
+        >
+          <RecordCalendarCells
+            {...stage.outgoing}
+            id={undefined}
+            onSelect={() => undefined}
+          />
+        </div>
+      ) : null}
+      <div key="current" className="record-calendar__page" data-layer="current">
+        <RecordCalendarCells {...stage.current} />
+      </div>
+    </div>
+  )
 }
 
 export function RecordCalendarCells({
@@ -124,36 +234,41 @@ export function RecordCalendarCells({
       style={{ '--record-calendar-columns': columns } as CSSProperties}
       onKeyDown={onKeyDown}
     >
-      {days.map((day, index) => (
-        <button
-          key={day.date}
-          ref={(element) => {
-            cells.current[index] = element
-          }}
-          type="button"
-          className="record-calendar__day"
-          data-selected-week={
-            selectedWeekDates.has(day.date) ? 'true' : undefined
-          }
-          data-outside={day.withinFocusedMonth ? undefined : 'true'}
-          hidden={!expanded && !selectedWeekDates.has(day.date)}
-          aria-label={format.civilDate(day.date)}
-          aria-pressed={day.date === focusedDate}
-          aria-current={day.date === today ? 'date' : undefined}
-          tabIndex={index === active ? 0 : -1}
-          onFocus={() => rove(index)}
-          onClick={() => onSelect(day.date)}
-        >
-          {selectedWeekDates.has(day.date) ? (
-            <span className="record-calendar__weekday" aria-hidden="true">
-              {format.civilWeekday(day.date, 'narrow')}
+      {days.map((day, index) => {
+        const collapsed = !expanded && !selectedWeekDates.has(day.date)
+        return (
+          <button
+            key={day.date}
+            ref={(element) => {
+              cells.current[index] = element
+            }}
+            type="button"
+            className="record-calendar__day"
+            data-selected-week={
+              selectedWeekDates.has(day.date) ? 'true' : undefined
+            }
+            data-collapsed={collapsed ? 'true' : undefined}
+            data-outside={day.withinFocusedMonth ? undefined : 'true'}
+            aria-hidden={collapsed || undefined}
+            inert={collapsed || undefined}
+            aria-label={format.civilDate(day.date)}
+            aria-pressed={day.date === focusedDate}
+            aria-current={day.date === today ? 'date' : undefined}
+            tabIndex={!collapsed && index === active ? 0 : -1}
+            onFocus={() => rove(index)}
+            onClick={() => onSelect(day.date)}
+          >
+            {selectedWeekDates.has(day.date) ? (
+              <span className="record-calendar__weekday" aria-hidden="true">
+                {format.civilWeekday(day.date, 'narrow')}
+              </span>
+            ) : null}
+            <span className="record-calendar__number" aria-hidden="true">
+              {format.civilDayOfMonth(day.date)}
             </span>
-          ) : null}
-          <span className="record-calendar__number" aria-hidden="true">
-            {format.civilDayOfMonth(day.date)}
-          </span>
-        </button>
-      ))}
+          </button>
+        )
+      })}
     </div>
   )
 }

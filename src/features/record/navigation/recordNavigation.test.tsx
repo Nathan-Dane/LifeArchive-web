@@ -63,6 +63,16 @@ const WEEK_OF_FOURTEENTH = [
   '2025-06-15',
 ]
 
+const WEEK_AFTER_FOURTEENTH = [
+  '2025-06-16',
+  '2025-06-17',
+  '2025-06-18',
+  '2025-06-19',
+  '2025-06-20',
+  '2025-06-21',
+  '2025-06-22',
+]
+
 const UNAVAILABLE = clientFailure({
   area: 'compatibility',
   code: 'unsupportedCapability',
@@ -344,6 +354,64 @@ describe('the civil location and the cells', () => {
       weekRules: DEVICE.weekRules,
     })
   })
+
+  it('shifts a broader period carousel by one card to centre its neighbour', async () => {
+    const user = userEvent.setup()
+    const may = coreWindow('month', '2025-05-01', '2025-05-31')
+    const june = coreWindow('month', '2025-06-01', '2025-06-30')
+    const july = coreWindow('month', '2025-07-01', '2025-07-31')
+    const august = coreWindow('month', '2025-08-01', '2025-08-31')
+    const byStart = new Map([
+      [may.startDate, may],
+      [june.startDate, june],
+      [july.startDate, july],
+      [august.startDate, august],
+    ])
+    const stub = timeStub({
+      window: async (request) =>
+        ok(
+          request.scale === 'month'
+            ? (byStart.get(request.containing) ?? june)
+            : coreWindow('day', request.containing),
+        ),
+      step: async ({ window, step }) => {
+        const neighbours =
+          window.id === june.id
+            ? { previous: may, next: july }
+            : { previous: june, next: august }
+        return ok(neighbours[step])
+      },
+      calendarContext: async (request) =>
+        ok(coreCalendarContext(request.focusedDate, WEEK_OF_FOURTEENTH)),
+    })
+    const { container } = renderPanel(stub.client)
+    await panelReady()
+    await user.click(screen.getByRole('button', { name: 'Month' }))
+    await panelReady()
+
+    const carousel = await screen.findByRole('group', {
+      name: 'Periods around the selected period',
+    })
+    await user.click(
+      within(carousel).getByRole('button', { name: 'July 2025' }),
+    )
+    await panelReady()
+
+    await waitFor(() =>
+      expect(carousel).toHaveAttribute('data-transition', 'true'),
+    )
+    expect(
+      within(carousel)
+        .getAllByRole('button')
+        .map((period) => period.getAttribute('aria-label')),
+    ).toEqual(['May 2025', 'June 2025', 'July 2025', 'August 2025'])
+    expect(
+      within(carousel).getByRole('button', { name: 'July 2025' }),
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      container.querySelector('.record-navigation__time-stage'),
+    ).not.toHaveAttribute('data-motion-kind')
+  })
 })
 
 /* -------------------------------------------------------------------------- */
@@ -436,6 +504,110 @@ describe('moving the cursor', () => {
       timeZoneId: 'UTC',
       weekRules: DEVICE.weekRules,
     })
+  })
+
+  it('moves the day selection in place and slides only at a week boundary', async () => {
+    const user = userEvent.setup()
+    const stub = timeStub({
+      window: async (request) => ok(coreWindow('day', request.containing)),
+      step: async () => ok(coreWindow('day', '2025-06-16')),
+      calendarContext: async (request) =>
+        ok(
+          coreCalendarContext(
+            request.focusedDate,
+            request.focusedDate === '2025-06-16'
+              ? WEEK_AFTER_FOURTEENTH
+              : WEEK_OF_FOURTEENTH,
+          ),
+        ),
+    })
+    const { container } = renderPanel(stub.client)
+    await panelReady()
+
+    await user.click(
+      within(weekCells()).getByRole('button', { name: '15 June 2025' }),
+    )
+    await panelReady()
+    expect(
+      within(weekCells()).getByRole('button', { name: '15 June 2025' }),
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      container.querySelector('.record-calendar__page[data-layer="outgoing"]'),
+    ).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Next day' }))
+    await panelReady()
+    const calendarStack = container.querySelector(
+      '.record-calendar__page-stack',
+    )
+    expect(calendarStack).toHaveAttribute('data-transition', 'true')
+    expect(calendarStack).toHaveAttribute('data-direction', 'forward')
+    expect(container.querySelectorAll('.record-calendar__page')).toHaveLength(2)
+    expect(
+      container.querySelector('.record-navigation__time-stage'),
+    ).not.toHaveAttribute('data-motion-kind')
+  })
+
+  it('uses the surrounding month as the boundary while expanded', async () => {
+    const user = userEvent.setup()
+    const juneMonth = [...WEEK_OF_FOURTEENTH, '2025-06-30']
+    const endOfJuneWeek = [
+      '2025-06-30',
+      '2025-07-01',
+      '2025-07-02',
+      '2025-07-03',
+      '2025-07-04',
+      '2025-07-05',
+      '2025-07-06',
+    ]
+    const julyMonth = [
+      '2025-06-30',
+      '2025-07-01',
+      '2025-07-02',
+      '2025-07-03',
+      '2025-07-04',
+      '2025-07-05',
+      '2025-07-06',
+      '2025-07-07',
+    ]
+    const stub = timeStub({
+      window: async (request) => ok(coreWindow('day', request.containing)),
+      step: async () => ok(coreWindow('day', '2025-07-01')),
+      calendarContext: async (request) =>
+        ok(
+          request.focusedDate === '2025-07-01'
+            ? coreCalendarContext('2025-07-01', endOfJuneWeek, julyMonth)
+            : coreCalendarContext(
+                request.focusedDate,
+                request.focusedDate === '2025-06-30'
+                  ? endOfJuneWeek
+                  : WEEK_OF_FOURTEENTH,
+                juneMonth,
+              ),
+        ),
+    })
+    const { container } = renderPanel(stub.client)
+    await panelReady()
+    await user.click(
+      screen.getByRole('button', { name: 'Show the surrounding month' }),
+    )
+    await user.click(
+      within(monthCells()).getByRole('button', { name: '30 June 2025' }),
+    )
+    await panelReady()
+    expect(
+      container.querySelector('.record-calendar__page[data-layer="outgoing"]'),
+    ).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Next day' }))
+    await panelReady()
+    const calendarStack = container.querySelector(
+      '.record-calendar__page-stack',
+    )
+    expect(calendarStack).toHaveAttribute('data-transition', 'true')
+    expect(
+      within(monthCells()).getByRole('button', { name: '1 July 2025' }),
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('re-reads the device s civil day when Today is chosen', async () => {

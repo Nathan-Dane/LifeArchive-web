@@ -12,7 +12,7 @@
  * gesture alone.
  */
 
-import { useId, useRef, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { LiveStatus } from '../../../accessibility'
 import type { TimeScale, TimeWindow } from '../../../core/client'
 import {
@@ -22,9 +22,14 @@ import {
   type Formatters,
 } from '../../../i18n'
 import { civilLocation } from '../civilLocation'
-import { RecordCalendarCells, RecordCalendarHeadings } from './RecordCalendar'
+import {
+  RecordCalendarCarousel,
+  RecordCalendarHeadings,
+} from './RecordCalendar'
 import { StepIcon } from './StepIcon'
-import type { TemporalCursor } from './temporalCursor'
+import type { TemporalCursor, TemporalMotion } from './temporalCursor'
+
+const PERIOD_TRANSITION_FALLBACK_MS = 380
 
 const SCALES: readonly TimeScale[] = ['day', 'week', 'month', 'year']
 
@@ -112,153 +117,167 @@ export function RecordNavigationPanel({ cursor }: RecordNavigationPanelProps) {
         ))}
       </div>
 
-      <div className="record-navigation__cursor" data-scale={state.scale}>
-        <button
-          type="button"
-          className="record-navigation__step"
-          aria-label={t(PREVIOUS_LABEL[state.scale])}
-          disabled={!view || state.status === 'loading'}
-          onClick={() => cursor.step('previous')}
-        >
-          <StepIcon name="previous" />
-        </button>
-        <p className="record-navigation__location">{commandLocation}</p>
-        {view && state.scale === 'day' ? (
-          <button
-            ref={toggle}
-            type="button"
-            className="record-navigation__calendar-toggle"
-            aria-label={t(
-              state.expanded
-                ? 'record.navigation.collapseCalendar'
-                : 'record.navigation.expandCalendar',
-            )}
-            aria-expanded={state.expanded}
-            aria-controls={monthId}
-            onClick={() => cursor.setExpanded(!state.expanded)}
-          >
-            <CalendarIcon />
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className="record-navigation__step"
-          aria-label={t(NEXT_LABEL[state.scale])}
-          disabled={!view || state.status === 'loading'}
-          onClick={() => cursor.step('next')}
-        >
-          <StepIcon name="next" />
-        </button>
-      </div>
-
-      {state.status === 'failed' && state.failure ? (
-        <div className="record-navigation__unavailable">
-          <h2 className="ui-heading">
-            {t('record.navigation.unavailableTitle')}
-          </h2>
-          <p role="alert" className="record-navigation__message">
-            {failureMessage(localisation, state.failure)}
-          </p>
-          <p className="record-navigation__message">
-            {t('record.navigation.unavailableDetail')}
-          </p>
-          {state.failure.retryable ? (
-            <button
-              type="button"
-              className="button ui-text"
-              onClick={cursor.retry}
-            >
-              {t('app.action.retry')}
-            </button>
-          ) : null}
+      <div className="record-navigation__time-stage" data-status={state.status}>
+        <div className="record-navigation__cursor" data-scale={state.scale}>
+          {view ? (
+            <>
+              <button
+                type="button"
+                className="record-navigation__step"
+                aria-label={t(PREVIOUS_LABEL[state.scale])}
+                disabled={state.status === 'loading'}
+                onClick={() => cursor.step('previous')}
+              >
+                <StepIcon name="previous" />
+              </button>
+              <p className="record-navigation__location">{commandLocation}</p>
+              {state.scale === 'day' ? (
+                <button
+                  ref={toggle}
+                  type="button"
+                  className="record-navigation__calendar-toggle"
+                  aria-label={t(
+                    state.expanded
+                      ? 'record.navigation.collapseCalendar'
+                      : 'record.navigation.expandCalendar',
+                  )}
+                  aria-expanded={state.expanded}
+                  aria-controls={monthId}
+                  onClick={() => cursor.setExpanded(!state.expanded)}
+                >
+                  <CalendarIcon />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="record-navigation__step"
+                aria-label={t(NEXT_LABEL[state.scale])}
+                disabled={state.status === 'loading'}
+                onClick={() => cursor.step('next')}
+              >
+                <StepIcon name="next" />
+              </button>
+            </>
+          ) : (
+            <span className="record-navigation__location" aria-hidden="true" />
+          )}
         </div>
-      ) : null}
 
-      {view && state.scale === 'day' ? (
-        <div
-          id={monthId}
-          className="record-calendar"
-          data-expanded={state.expanded ? 'true' : 'false'}
-          onKeyDown={onCalendarKeyDown}
-        >
-          <div
-            className="record-navigation__anchor record-navigation__anchor--expanded"
-            hidden={!state.expanded}
-          >
-            <p className="record-navigation__period">
-              {format.civilMonthAndYear(view.calendar.focusedDate)}
+        {state.status === 'failed' && state.failure ? (
+          <div className="record-navigation__unavailable">
+            <h2 className="ui-heading">
+              {t('record.navigation.unavailableTitle')}
+            </h2>
+            <p role="alert" className="record-navigation__message">
+              {failureMessage(localisation, state.failure)}
             </p>
-            <button
-              type="button"
-              className="record-navigation__today"
-              onClick={cursor.goToToday}
-            >
-              {t('record.navigation.today')}
-            </button>
+            <p className="record-navigation__message">
+              {t('record.navigation.unavailableDetail')}
+            </p>
+            {state.failure.retryable ? (
+              <button
+                type="button"
+                className="button ui-text"
+                onClick={cursor.retry}
+              >
+                {t('app.action.retry')}
+              </button>
+            ) : null}
           </div>
-          <div className="record-calendar__headings" hidden={!state.expanded}>
-            <RecordCalendarHeadings week={view.calendar.week} />
-          </div>
-          <RecordCalendarCells
-            days={
-              view.calendar.month.length > 0
-                ? view.calendar.month
-                : view.calendar.week
-            }
-            selectedWeek={view.calendar.week}
-            columns={view.calendar.week.length}
-            label={t(
-              state.expanded
-                ? 'record.navigation.monthCells'
-                : 'record.navigation.weekCells',
-            )}
-            focusedDate={view.calendar.focusedDate}
-            today={state.today}
-            expanded={state.expanded}
-            onSelect={cursor.selectDate}
-          />
-        </div>
-      ) : null}
+        ) : null}
 
-      {view && state.scale !== 'day' && state.periods.length === 3 ? (
-        <div
-          className="record-navigation__period-strip"
-          role="group"
-          aria-label={t('record.navigation.periodStrip')}
-        >
-          {state.periods.map((period) => (
-            <button
-              key={period.id}
-              type="button"
-              aria-label={fullPeriodLabel(format, period)}
-              aria-pressed={period.id === view.window.id}
-              onClick={() =>
-                cursor.goTo({
-                  scale: state.scale,
-                  anchor: period.startDate,
-                })
+        {view && state.scale === 'day' ? (
+          <div
+            id={monthId}
+            className="record-calendar"
+            data-expanded={state.expanded ? 'true' : 'false'}
+            onKeyDown={onCalendarKeyDown}
+          >
+            <div
+              className="record-navigation__anchor record-navigation__anchor--expanded"
+              data-visible={state.expanded ? 'true' : 'false'}
+              aria-hidden={!state.expanded || undefined}
+              inert={!state.expanded || undefined}
+            >
+              <p className="record-navigation__period">
+                {format.civilMonthAndYear(view.calendar.focusedDate)}
+              </p>
+              <button
+                type="button"
+                className="record-navigation__today"
+                onClick={cursor.goToToday}
+              >
+                {t('record.navigation.today')}
+              </button>
+            </div>
+            <div
+              className="record-calendar__headings"
+              data-visible={state.expanded ? 'true' : 'false'}
+              aria-hidden={!state.expanded || undefined}
+            >
+              <RecordCalendarHeadings week={view.calendar.week} />
+            </div>
+            <RecordCalendarCarousel
+              days={
+                view.calendar.month.length > 0
+                  ? view.calendar.month
+                  : view.calendar.week
               }
-            >
-              {shortPeriodLabel(format, period)}
-            </button>
-          ))}
-        </div>
-      ) : null}
+              selectedWeek={view.calendar.week}
+              columns={view.calendar.week.length}
+              label={t(
+                state.expanded
+                  ? 'record.navigation.monthCells'
+                  : 'record.navigation.weekCells',
+              )}
+              focusedDate={view.calendar.focusedDate}
+              today={state.today}
+              expanded={state.expanded}
+              onSelect={cursor.selectDate}
+              motion={state.motion}
+            />
+          </div>
+        ) : null}
 
-      <div
-        className="record-navigation__anchor"
-        hidden={!view || (state.scale === 'day' && state.expanded)}
-      >
-        <p className="record-navigation__period">
-          {view ? anchorPeriodLabel(format, view.window) : ''}
-        </p>
-        <button
-          type="button"
-          className="record-navigation__today"
-          onClick={cursor.goToToday}
+        {view && state.scale !== 'day' ? (
+          <PeriodCarousel
+            window={view.window}
+            periods={state.periods}
+            motion={state.motion}
+            onSelect={(period) =>
+              cursor.goTo({
+                scale: state.scale,
+                anchor: period.startDate,
+              })
+            }
+          />
+        ) : null}
+
+        <div
+          className="record-navigation__anchor"
+          data-visible={
+            view && !(state.scale === 'day' && state.expanded)
+              ? 'true'
+              : 'false'
+          }
+          aria-hidden={
+            !view || (state.scale === 'day' && state.expanded) || undefined
+          }
+          inert={
+            !view || (state.scale === 'day' && state.expanded) || undefined
+          }
         >
-          {t('record.navigation.today')}
-        </button>
+          <p className="record-navigation__period">
+            {view ? anchorPeriodLabel(format, view.window) : ''}
+          </p>
+          <button
+            type="button"
+            className="record-navigation__today"
+            onClick={cursor.goToToday}
+          >
+            {t('record.navigation.today')}
+          </button>
+        </div>
       </div>
 
       {/*
@@ -272,6 +291,133 @@ export function RecordNavigationPanel({ cursor }: RecordNavigationPanelProps) {
       </LiveStatus>
     </nav>
   )
+}
+
+interface PeriodStage {
+  readonly current: readonly TimeWindow[]
+  readonly selectedId: string
+  readonly signature: string
+  readonly transitionPeriods: readonly TimeWindow[] | null
+  readonly transitionId: string | null
+  readonly direction: 'forward' | 'backward'
+}
+
+function PeriodCarousel({
+  window,
+  periods,
+  motion,
+  onSelect,
+}: {
+  readonly window: TimeWindow
+  readonly periods: readonly TimeWindow[]
+  readonly motion: TemporalMotion | null
+  readonly onSelect: (period: TimeWindow) => void
+}) {
+  const t = useLocalisation().t
+  const format = useFormat()
+  const complete = periods.length === 3 ? periods : null
+  const signature = complete
+    ? `${window.id}:${complete.map((period) => period.id).join('|')}`
+    : null
+  const [stage, setStage] = useState<PeriodStage | null>(() =>
+    complete && signature
+      ? {
+          current: complete,
+          selectedId: window.id,
+          signature,
+          transitionPeriods: null,
+          transitionId: null,
+          direction: 'forward',
+        }
+      : null,
+  )
+
+  if (complete && signature && stage?.signature !== signature) {
+    const direction = motion?.direction === 'backward' ? 'backward' : 'forward'
+    const adjacentIndex =
+      stage?.current.findIndex((period) => period.id === window.id) ?? -1
+    const shouldSlide =
+      stage !== null &&
+      stage.current[0]?.scale === window.scale &&
+      motion?.kind === 'horizontal' &&
+      ((direction === 'forward' && adjacentIndex === 2) ||
+        (direction === 'backward' && adjacentIndex === 0))
+    setStage({
+      current: complete,
+      selectedId: window.id,
+      signature,
+      transitionPeriods: shouldSlide
+        ? mergePeriodWindows(stage.current, complete, direction)
+        : null,
+      transitionId: shouldSlide ? `${motion.id}:${signature}` : null,
+      direction,
+    })
+  }
+
+  useEffect(() => {
+    if (!stage?.transitionPeriods || !stage.transitionId) return
+    const transitionId = stage.transitionId
+    const timer = globalThis.setTimeout(() => {
+      setStage((current) =>
+        current?.transitionId === transitionId
+          ? { ...current, transitionPeriods: null, transitionId: null }
+          : current,
+      )
+    }, PERIOD_TRANSITION_FALLBACK_MS)
+    return () => globalThis.clearTimeout(timer)
+  }, [stage?.transitionId, stage?.transitionPeriods])
+
+  if (!stage || stage.current[0]?.scale !== window.scale) {
+    return (
+      <div
+        className="record-navigation__period-carousel record-navigation__period-carousel--placeholder"
+        aria-hidden="true"
+      />
+    )
+  }
+
+  const displayedPeriods = stage.transitionPeriods ?? stage.current
+
+  return (
+    <div
+      className="record-navigation__period-carousel"
+      role="group"
+      aria-label={t('record.navigation.periodStrip')}
+      data-direction={stage.direction}
+      data-transition={stage.transitionPeriods ? 'true' : undefined}
+      aria-busy={stage.transitionPeriods ? 'true' : undefined}
+    >
+      <div
+        key={stage.transitionId ?? stage.signature}
+        className="record-navigation__period-strip"
+        data-transition-track={stage.transitionPeriods ? 'true' : undefined}
+      >
+        {displayedPeriods.map((period) => (
+          <button
+            key={period.id}
+            type="button"
+            aria-label={fullPeriodLabel(format, period)}
+            aria-pressed={period.id === stage.selectedId}
+            onClick={() => onSelect(period)}
+          >
+            {shortPeriodLabel(format, period)}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function mergePeriodWindows(
+  previous: readonly TimeWindow[],
+  next: readonly TimeWindow[],
+  direction: 'forward' | 'backward',
+): readonly TimeWindow[] {
+  const ordered =
+    direction === 'forward' ? [...previous, ...next] : [...next, ...previous]
+  const unique = new Map<string, TimeWindow>()
+  for (const period of ordered) unique.set(period.id, period)
+  return [...unique.values()]
 }
 
 function CalendarIcon() {
