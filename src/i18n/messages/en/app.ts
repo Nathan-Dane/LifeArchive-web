@@ -9,6 +9,7 @@
  */
 export const appMessages = {
   'app.name': 'LifeArchive',
+  'app.archive.local': 'Local-first',
 
   'app.navigation.main': 'Main',
   'app.navigation.record': 'Record',

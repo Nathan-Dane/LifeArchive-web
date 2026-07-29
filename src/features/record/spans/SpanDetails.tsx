@@ -1,7 +1,6 @@
 import { useId, useState } from 'react'
-import { isCivilDate } from '../../../core/client'
+import { civilDate, isCivilDate } from '../../../core/client'
 import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
-import { RecordSemanticIcon } from '../events'
 import type { SpanEditor } from './useSpanEditor'
 import { TrackChooser, type Tracks } from '../tracks'
 import { RecordTagPicker, SemanticIconPicker } from '../metadata'
@@ -16,6 +15,8 @@ export function SpanDetails({
   const t = useTranslate()
   const localisation = useLocalisation()
   const headingId = useId()
+  const titleId = useId()
+  const endDateId = useId()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [confirmingConversion, setConfirmingConversion] = useState(false)
   const [conversionDate, setConversionDate] = useState('')
@@ -32,7 +33,7 @@ export function SpanDetails({
   return (
     <section className="record-details" aria-labelledby={headingId}>
       <header className="record-details__head">
-        <h2 id={headingId} className="title">
+        <h2 id={headingId} className="ui-heading">
           {t('record.details.title')}
         </h2>
       </header>
@@ -57,28 +58,28 @@ export function SpanDetails({
 
       <section className="record-details__section">
         <h3 className="eyebrow">{t('record.details.identity')}</h3>
-        <label className="record-details__field">
-          <span className="record-details__label-line meta-text">
+        <div className="record-details__field">
+          <label
+            className="record-details__label-line meta-text"
+            htmlFor={titleId}
+          >
             {t('record.span.titleAndIcon')}
-          </span>
-          <span className="record-details__identity">
-            <RecordSemanticIcon
-              id={draft.iconId}
-              className="record-details__icon"
+          </label>
+          <div className="record-details__identity">
+            <SemanticIconPicker
+              value={draft.iconId}
+              disabled={span.status === 'saving'}
+              onChange={(iconId) => span.update({ iconId })}
             />
             <input
+              id={titleId}
               value={draft.title}
               onChange={(event) =>
                 span.update({ title: event.currentTarget.value })
               }
             />
-          </span>
-        </label>
-        <SemanticIconPicker
-          value={draft.iconId}
-          disabled={span.status === 'saving'}
-          onChange={(iconId) => span.update({ iconId })}
-        />
+          </div>
+        </div>
       </section>
 
       <section className="record-details__section">
@@ -98,7 +99,7 @@ export function SpanDetails({
           </label>
           <div className="record-details__field">
             <span className="record-details__label-line meta-text">
-              <span>{t('record.span.endDate')}</span>
+              <label htmlFor={endDateId}>{t('record.span.endDate')}</label>
               <button
                 type="button"
                 className="record-details__ongoing"
@@ -117,6 +118,7 @@ export function SpanDetails({
               </div>
             ) : (
               <input
+                id={endDateId}
                 type="date"
                 value={draft.endDate}
                 onChange={(event) =>
@@ -138,6 +140,11 @@ export function SpanDetails({
             <TrackChooser
               tracks={tracks}
               value={draft.trackId}
+              date={
+                isCivilDate(draft.startDate)
+                  ? civilDate(draft.startDate)
+                  : undefined
+              }
               disabled={span.status === 'saving'}
               onChange={(trackId) => {
                 if (span.creating) {

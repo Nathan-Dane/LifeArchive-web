@@ -27,6 +27,10 @@ const LAYOUT_CSS = styles('layout.css')
 const TYPOGRAPHY_CSS = styles('typography.css')
 const GLOBAL_CSS = styles('global.css')
 const ALL_CSS = [TOKENS_CSS, LAYOUT_CSS, TYPOGRAPHY_CSS, GLOBAL_CSS]
+const RECORD_CSS = LAYOUT_CSS.slice(
+  LAYOUT_CSS.indexOf('Record time navigation.'),
+  LAYOUT_CSS.indexOf('.app-notice'),
+)
 
 interface AppearancePair {
   readonly light: string
@@ -121,6 +125,62 @@ describe('the colour tokens', () => {
     for (const css of [LAYOUT_CSS, TYPOGRAPHY_CSS]) {
       expect(css).not.toMatch(/:\s*#[0-9a-f]{3,8}\b/i)
       expect(css).not.toMatch(/\b(rgb|hsl)a?\(/i)
+    }
+  })
+})
+
+describe('the Record style system', () => {
+  it('routes text through exactly three configurable font roles', () => {
+    for (const token of [
+      '--font-title',
+      '--font-body-content',
+      '--font-interface',
+    ]) {
+      expect(TOKENS_CSS).toContain(`${token}:`)
+    }
+
+    const families = new Set(
+      [...RECORD_CSS.matchAll(/font-family:\s*var\((--[a-z-]+)\)/g)].map(
+        (match) => match[1],
+      ),
+    )
+    expect(families).toEqual(
+      new Set(['--font-title', '--font-body-content', '--font-interface']),
+    )
+  })
+
+  it('uses the consolidated Record type scale without literal text sizes', () => {
+    for (const token of [
+      '--text-record-title',
+      '--text-record-content',
+      '--text-record-heading',
+      '--text-record-ui',
+      '--text-record-meta',
+    ]) {
+      expect(TOKENS_CSS).toContain(`${token}:`)
+      expect(RECORD_CSS).toContain(`var(${token})`)
+    }
+
+    expect(RECORD_CSS).not.toMatch(/font-size:\s*\d/)
+    expect(RECORD_CSS).not.toMatch(
+      /--text-(?:details|popup|record-(?:control|date|list))/,
+    )
+  })
+
+  it('uses spacing tokens for Record gaps and padding', () => {
+    expect(RECORD_CSS).not.toMatch(
+      /(?:gap|padding(?:-[a-z]+)?):[^;]*\b[1-9]\d*px/,
+    )
+  })
+
+  it('uses the accessible foreground token on accent fills', () => {
+    expect(RECORD_CSS).not.toMatch(/color:\s*var\(--color-page\)/)
+    for (const rule of [
+      /\.semantic-icon-dialog__use\s*\{[^}]*color:\s*var\(--color-on-accent\)/s,
+      /\.semantic-icon-picker__option\[aria-selected='true'\]\s*\{[^}]*color:\s*var\(--color-on-accent\)/s,
+      /\.record-tag-dialog \.record-overlay__footer > \.button\s*\{[^}]*color:\s*var\(--color-on-accent\)/s,
+    ]) {
+      expect(RECORD_CSS).toMatch(rule)
     }
   })
 })

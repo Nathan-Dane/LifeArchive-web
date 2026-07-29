@@ -23,7 +23,9 @@ export function EventWritingEditor({ event }: { readonly event: EventEditor }) {
   return (
     <section className="record-editor" aria-label={t('record.editor.label')}>
       <header className="record-editor__header">
-        <h2 className="title">{t('record.editor.heading')}</h2>
+        <h2 className="record-editor__entry-kind">
+          {t('record.editor.entryKind.event')}
+        </h2>
         <div
           className="record-editor__status meta-text"
           role="status"

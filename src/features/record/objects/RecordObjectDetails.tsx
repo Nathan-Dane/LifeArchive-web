@@ -73,7 +73,7 @@ export function RecordObjectDetails({
   return (
     <section className="record-details" aria-labelledby={headingId}>
       <header className="record-details__head">
-        <h2 id={headingId} className="title">
+        <h2 id={headingId} className="ui-heading">
           {t('record.details.title')}
         </h2>
       </header>

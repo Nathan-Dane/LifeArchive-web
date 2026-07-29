@@ -24,7 +24,7 @@ body {
   min-width: 0;
   background: var(--color-page);
   color: var(--color-text-primary);
-  font-family: var(--font-ui);
+  font-family: var(--font-interface);
   font-size: var(--text-body);
   line-height: var(--leading-ui);
   -webkit-font-smoothing: antialiased;

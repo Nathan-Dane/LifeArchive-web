@@ -48,8 +48,8 @@ function createMock(recorder?: MockCallRecorder): MockLifeArchiveClient {
 
 /**
  * Calls every method on the surface with a placeholder request. The mock
- * answers from fixtures and never inspects a request, so a placeholder is
- * enough to prove the method exists and settles.
+ * answers from fixed fixtures, so a placeholder is enough to prove the method
+ * exists and settles.
  */
 const SYNCHRONOUS_METHODS = new Set([
   'runtime.status',
@@ -196,6 +196,35 @@ describe('fixed answers', () => {
     expect(previous).toEqual(next)
     if (!isOk(previous)) throw new Error('expected a window')
     expect(previous.value).toEqual(MOCK_FIXTURES.neighbourWindow)
+  })
+
+  it('exposes fixed centred neighbours for broader navigation scales', async () => {
+    const mock = createMock()
+    const weekRules = { firstWeekday: 1, minimumDaysInFirstWeek: 4 }
+    const month = await mock.time.window({
+      scale: 'month',
+      containing: MOCK_FIXTURES.focusedDate,
+      timeZoneId: 'UTC',
+      weekRules,
+    })
+    if (!isOk(month)) throw new Error('expected a month window')
+
+    expect(month.value).toEqual(MOCK_FIXTURES.monthWindow)
+    const previous = await mock.time.step({
+      window: month.value,
+      step: 'previous',
+      weekRules,
+    })
+    const next = await mock.time.step({
+      window: month.value,
+      step: 'next',
+      weekRules,
+    })
+    if (!isOk(previous) || !isOk(next)) {
+      throw new Error('expected fixed month neighbours')
+    }
+    expect(previous.value.startDate).toBe('2025-05-01')
+    expect(next.value.startDate).toBe('2025-07-01')
   })
 
   it('echoes the caller operation identifier when cancelling', async () => {

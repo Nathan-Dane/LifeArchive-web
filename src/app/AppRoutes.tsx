@@ -13,6 +13,7 @@ import type { LifeArchiveClient } from '../core/client'
 import { useTranslate } from '../i18n'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { WorkspaceLayout } from './shell'
+import { ShellIcon, type ShellIconName } from './shell/ShellIcon'
 
 /** The flanking regions a route offers, if it offers any. */
 interface WorkspaceRegions {
@@ -35,6 +36,7 @@ const MAIN_ROUTES = [
   {
     path: '/record',
     label: 'app.navigation.record',
+    icon: 'record',
     element: () => <RecordPage />,
     regions: (): WorkspaceRegions => ({
       navigation: <RecordNavigationRegion />,
@@ -56,14 +58,27 @@ const MAIN_ROUTES = [
   {
     path: '/timeline',
     label: 'app.navigation.timeline',
+    icon: 'timeline',
     element: () => <TimelinePage />,
   },
   {
     path: '/settings',
     label: 'app.navigation.settings',
+    icon: 'settings',
     element: (client: LifeArchiveClient) => <SettingsPage client={client} />,
   },
-] as const
+] as const satisfies readonly {
+  readonly path: string
+  readonly label: string
+  readonly icon: ShellIconName
+  readonly element: (client: LifeArchiveClient) => ReactNode
+  readonly regions?: () => WorkspaceRegions
+  readonly surround?: (
+    client: LifeArchiveClient,
+    workspace: ReactNode,
+    developmentMock: boolean,
+  ) => ReactNode
+}[]
 
 /**
  * `NavLink` marks the current section with `aria-current`, which is what the
@@ -89,6 +104,7 @@ export function MainNavigation({
               <span className="shell-nav__link">{t(route.label)}</span>
             ) : (
               <NavLink to={route.path} className="shell-nav__link">
+                <ShellIcon name={route.icon} />
                 {t(route.label)}
               </NavLink>
             )}

@@ -45,6 +45,12 @@ describe('civil dates', () => {
     expect(range).toContain('9')
     expect(range).toContain('12 March 2024')
     expect(range).not.toBe('9 March 2024 12 March 2024')
+    expect(
+      createFormatters('en-GB').civilCompactDateRange(
+        MARCH_NINTH,
+        MARCH_TWELFTH,
+      ),
+    ).toMatch(/^9.*12 Mar$/)
   })
 
   it('refuses malformed date text instead of guessing', () => {
@@ -72,18 +78,25 @@ describe('the parts a calendar cell shows', () => {
   })
 
   it('spells the month and year a date falls in', () => {
+    expect(createFormatters('en-GB').civilMonth(MARCH_NINTH)).toBe('Mar')
+    expect(createFormatters('en-GB').civilMonth(MARCH_NINTH, 'long')).toBe(
+      'March',
+    )
     expect(createFormatters('en-GB').civilMonthAndYear(MARCH_NINTH)).toBe(
       'March 2024',
     )
     expect(createFormatters('da-DK').civilMonthAndYear(MARCH_NINTH)).toBe(
       'marts 2024',
     )
+    expect(createFormatters('en-GB').civilYear(MARCH_NINTH)).toBe('2024')
   })
 
   it('reads every part in UTC, so no part shifts with the device zone', () => {
     const formatters = createFormatters('en-GB')
     expect(formatters.civilDayOfMonth(NEW_YEAR)).toBe('1')
+    expect(formatters.civilMonth(NEW_YEAR, 'long')).toBe('January')
     expect(formatters.civilMonthAndYear(NEW_YEAR)).toBe('January 2024')
+    expect(formatters.civilYear(NEW_YEAR)).toBe('2024')
     expect(formatters.civilWeekday(NEW_YEAR, 'long')).toBe('Monday')
   })
 
@@ -92,7 +105,12 @@ describe('the parts a calendar cell shows', () => {
     for (const value of ['9 March 2024', '2024-3-9', '', 'today']) {
       expect(() => formatters.civilWeekday(value)).toThrow(TypeError)
       expect(() => formatters.civilDayOfMonth(value)).toThrow(TypeError)
+      expect(() => formatters.civilMonth(value)).toThrow(TypeError)
       expect(() => formatters.civilMonthAndYear(value)).toThrow(TypeError)
+      expect(() => formatters.civilYear(value)).toThrow(TypeError)
+      expect(() => formatters.civilCompactDateRange(value, NEW_YEAR)).toThrow(
+        TypeError,
+      )
     }
   })
 })

@@ -33,6 +33,7 @@ import type {
   StableId,
   Unsubscribe,
 } from '../client'
+import { ok } from '../client'
 import { MockCallRecorder } from './callRecorder'
 import {
   assertDevelopmentBuild,
@@ -163,8 +164,17 @@ export class MockLifeArchiveClient implements LifeArchiveClient {
   }
 
   readonly time: LifeArchiveClient['time'] = {
-    window: (request) => this.answer('time.window', request),
-    step: (request) => this.answer('time.step', request),
+    window: (request) => {
+      const fixed = this.scenario.timeNavigation?.windows[request.scale]
+      return this.answer('time.window', request, fixed ? ok(fixed) : undefined)
+    },
+    step: (request) => {
+      const scale = request.window?.scale
+      const fixed = scale
+        ? this.scenario.timeNavigation?.steps[scale][request.step]
+        : undefined
+      return this.answer('time.step', request, fixed ? ok(fixed) : undefined)
+    },
     calendarContext: (request) => this.answer('time.calendarContext', request),
   }
 
@@ -250,12 +260,13 @@ export class MockLifeArchiveClient implements LifeArchiveClient {
   private answer<Path extends MockResultPath>(
     path: Path,
     request: unknown,
+    fixedOverride?: MockResults[Path],
   ): Promise<MockResults[Path]> {
     this.calls.record(path, request)
     const queue = this.scripted.get(path)
     const scripted = queue?.shift()
     const fixed = this.scenario.results as Record<MockResultPath, unknown>
-    const result: unknown = scripted ?? fixed[path]
+    const result: unknown = scripted ?? fixedOverride ?? fixed[path]
     return Promise.resolve(result) as Promise<MockResults[Path]>
   }
 }

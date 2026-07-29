@@ -7,8 +7,9 @@
  * the client itself would be a second place the destination could come from.
  */
 
-import { useMemo, type ReactNode } from 'react'
-import type { LifeArchiveClient } from '../../core/client'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import type { LifeArchiveClient, StableId } from '../../core/client'
+import { useWorkspacePanels } from '../../app/shell'
 import { useEventEditor } from './events'
 import { useSpanEditor } from './spans'
 import { RecordNavigationPanel } from './navigation/RecordNavigationPanel'
@@ -27,7 +28,7 @@ import {
   RecordDraftSessionContext,
   useRecordDraftSessionGuard,
 } from './recordDraftSession'
-import { TrackNavigation, useTracks } from './tracks'
+import { useTracks } from './tracks'
 
 export interface RecordDestinationProviderProps {
   readonly client: LifeArchiveClient
@@ -42,6 +43,52 @@ export function RecordDestinationProvider({
   children,
   cursorOptions,
 }: RecordDestinationProviderProps) {
+  const [ordinaryNavigation, setOrdinaryNavigation] = useState<{
+    readonly windowId: string
+    readonly text: string
+    readonly mediaCount: number | null
+  } | null>(null)
+  const [structuredMediaCounts, setStructuredMediaCounts] = useState<
+    ReadonlyMap<StableId, number>
+  >(() => new Map())
+  const reportOrdinaryText = useCallback((windowId: string, text: string) => {
+    setOrdinaryNavigation((current) => {
+      if (current?.windowId === windowId && current.text === text)
+        return current
+      return {
+        windowId,
+        text,
+        mediaCount: current?.windowId === windowId ? current.mediaCount : null,
+      }
+    })
+  }, [])
+  const reportMediaCount = useCallback(
+    (ownerId: StableId, count: number, ordinaryWindowId?: string) => {
+      if (ordinaryWindowId) {
+        setOrdinaryNavigation((current) => {
+          if (
+            current?.windowId === ordinaryWindowId &&
+            current.mediaCount === count
+          ) {
+            return current
+          }
+          return {
+            windowId: ordinaryWindowId,
+            text: current?.windowId === ordinaryWindowId ? current.text : '',
+            mediaCount: count,
+          }
+        })
+        return
+      }
+      setStructuredMediaCounts((current) => {
+        if (current.get(ownerId) === count) return current
+        const next = new Map(current)
+        next.set(ownerId, count)
+        return next
+      })
+    },
+    [],
+  )
   const draftSession = useRecordDraftSessionGuard()
   const rawCursor = useTemporalCursor(client, cursorOptions)
   const guard = draftSession.flushBefore
@@ -156,6 +203,12 @@ export function RecordDestinationProvider({
           events,
           spans,
           tracks,
+          navigationSummary: {
+            ordinary: ordinaryNavigation,
+            structuredMediaCounts,
+            reportOrdinaryText,
+            reportMediaCount,
+          },
         }}
       >
         {children}
@@ -166,8 +219,19 @@ export function RecordDestinationProvider({
 
 /** Record's leading workspace region: where in time and what is selected. */
 export function RecordNavigationRegion() {
-  const { cursor, objects, events, spans, tracks } = useRecordDestination()
+  const { cursor, objects, events, spans, tracks, navigationSummary } =
+    useRecordDestination()
+  const { close, toggle } = useWorkspacePanels()
   const date = cursor.state.view?.calendar.focusedDate ?? null
+  const finishNavigation = () => {
+    close()
+    globalThis.queueMicrotask(() =>
+      document.getElementById('main-content')?.focus(),
+    )
+  }
+  const showCreationDetails = () => {
+    toggle('details')
+  }
   return (
     <div className="record-navigation-region">
       <RecordNavigationPanel cursor={cursor} />
@@ -177,20 +241,28 @@ export function RecordNavigationRegion() {
         objects={objects}
         creatingEvent={events.creating}
         creatingSpan={spans.creating}
+        ordinarySummary={
+          navigationSummary.ordinary?.windowId === cursor.state.view?.window.id
+            ? navigationSummary.ordinary
+            : null
+        }
+        structuredMediaCounts={navigationSummary.structuredMediaCounts}
+        onNavigate={finishNavigation}
         onCreateEvent={() => {
           if (date) {
             tracks.clearSelection()
             events.startCreate(date)
+            showCreationDetails()
           }
         }}
         onCreateSpan={() => {
           if (date) {
             tracks.clearSelection()
             spans.startCreate(date)
+            showCreationDetails()
           }
         }}
       />
-      <TrackNavigation tracks={tracks} date={date} />
     </div>
   )
 }

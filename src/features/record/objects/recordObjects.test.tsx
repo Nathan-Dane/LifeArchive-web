@@ -281,9 +281,12 @@ describe('the objects a day holds', () => {
       'Event: Swim, 14 June 2025',
       'Span: Living in Aarhus, 1 August 2024 to Present',
       'Span: The studio year, 1 January 2025 to 31 December 2025',
-      'New Event',
-      'New Span',
     ])
+    expect(
+      within(navigation).getByRole('button', {
+        name: 'New event or span',
+      }),
+    ).toBeInTheDocument()
   })
 
   it('asks for the objects of a window once, not once per object', async () => {
@@ -299,6 +302,26 @@ describe('the objects a day holds', () => {
       window: { scale: 'day' },
       limit: OBJECT_PAGE_LIMIT,
     })
+  })
+
+  it('keeps the existing Markdown writing surface mounted through view-only interactions', async () => {
+    const user = userEvent.setup()
+    const client = openArchive()
+    renderRecord(recordClient(client, ...listing(ok(page([])))))
+    await railReady()
+
+    const editor = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await user.click(
+      screen.getByRole('button', { name: 'Show the surrounding month' }),
+    )
+    expect(screen.getByRole('textbox', { name: 'Writing editor' })).toBe(editor)
+
+    await user.click(screen.getByRole('button', { name: 'New event or span' }))
+    expect(screen.getByRole('textbox', { name: 'Writing editor' })).toBe(editor)
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('textbox', { name: 'Writing editor' })).toBe(editor)
   })
 
   it('selects the exact one of two Events that share a date and a title', async () => {
@@ -342,6 +365,7 @@ describe('the objects a day holds', () => {
     renderRecord(recordClient(client, ...listing(ok(page([])))))
     await railReady()
 
+    await user.click(screen.getByRole('button', { name: 'New event or span' }))
     await user.click(screen.getByRole('button', { name: 'New Event' }))
     expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()
@@ -482,7 +506,7 @@ describe('scales wider than a day', () => {
 
     await user.click(screen.getByRole('button', { name: 'Week' }))
     await waitFor(() => expect(tabFor(AARHUS)).toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: 'Entry' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Entry' })).toBeNull()
     expect(screen.getByRole('heading', { name: 'Events' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Spans' })).toBeInTheDocument()
     expect(

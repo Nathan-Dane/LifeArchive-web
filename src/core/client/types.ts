@@ -405,6 +405,8 @@ export interface StructuredSummary {
   readonly iconId: SemanticId
   readonly tags: StructuredTags
   readonly trackId: StableId | null
+  /** Core-projected count for compact navigation when the contract provides it. */
+  readonly mediaCount?: number
 }
 
 export interface StructuredObject {

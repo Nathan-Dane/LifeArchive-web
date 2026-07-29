@@ -23,7 +23,9 @@ export function SpanWritingEditor({ span }: { readonly span: SpanEditor }) {
   return (
     <section className="record-editor" aria-label={t('record.editor.label')}>
       <header className="record-editor__header">
-        <h2 className="title">{t('record.editor.heading')}</h2>
+        <h2 className="record-editor__entry-kind">
+          {t('record.editor.entryKind.span')}
+        </h2>
         <div
           className="record-editor__status meta-text"
           role="status"

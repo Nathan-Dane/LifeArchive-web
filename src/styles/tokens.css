@@ -30,7 +30,7 @@
   --color-page: light-dark(#f6f4f2, #0e0d0c);
   --color-page-warm: light-dark(#f0f0ec, #13120f);
   --color-surface: light-dark(#fcfcfc, #191815);
-  --color-surface-alt: light-dark(#f6f4f2, #2a2823);
+  --color-surface-alt: light-dark(#f9f8f7, #2a2823);
   --color-surface-raised: light-dark(#ebe6dd, #343128);
   --color-details-panel: light-dark(#fcfcfc, #11100e);
   --color-border: light-dark(#e9e6e0, #201e18);
@@ -75,15 +75,43 @@
   --tag-achievement-accent: light-dark(#7f4a2b, #d8a077);
   --tag-fallback-accent: light-dark(#5f5c55, #aaa69d);
   --tag-foreground: light-dark(#ffffff, #15130f);
+  --tag-personal-bg: light-dark(#dde7f5, #41567b);
+  --tag-personal-text: light-dark(#3c5878, #dde7ff);
+  --tag-family-bg: light-dark(#e8ced8, #6b3e52);
+  --tag-family-text: light-dark(#6c344a, #f7dfe8);
+  --tag-friends-bg: light-dark(#cde4df, #356d65);
+  --tag-friends-text: light-dark(#285d55, #daf0eb);
+  --tag-work-bg: light-dark(#ddebdd, #36523e);
+  --tag-work-text: light-dark(#3e6847, #ddefe0);
+  --tag-education-bg: light-dark(#ddd5f0, #5c4c86);
+  --tag-education-text: light-dark(#55427d, #ece7ff);
+  --tag-travel-bg: light-dark(#cde4ec, #2f6d80);
+  --tag-travel-text: light-dark(#285f70, #ddf3fa);
+  --tag-home-bg: light-dark(#eadca9, #765813);
+  --tag-home-text: light-dark(#6b500e, #f9edc7);
+  --tag-health-bg: light-dark(#cfe7d5, #356d48);
+  --tag-health-text: light-dark(#2f6541, #ddf2e4);
+  --tag-creative-bg: light-dark(#ebddee, #5a455e);
+  --tag-creative-text: light-dark(#654469, #f0daf3);
+  --tag-achievement-bg: light-dark(#ecd1c0, #824622);
+  --tag-achievement-text: light-dark(#783c1c, #f8e2d4);
+  --tag-fallback-bg: var(--color-surface-alt);
+  --tag-fallback-text: var(--color-text-secondary);
 
   /* Scrim behind an open drawer. */
   --color-backdrop: light-dark(rgb(29 28 24 / 30%), rgb(0 0 0 / 48%));
+  --color-backdrop-strong: light-dark(rgb(20 18 14 / 70%), rgb(0 0 0 / 82%));
 
   /* Borders: always the border colour at one of three strengths. */
   --border-hairline: 1px;
   --border-strong: var(--color-border);
   --border-muted: color-mix(in srgb, var(--color-border) 60%, transparent);
   --border-subtle: color-mix(in srgb, var(--color-border) 40%, transparent);
+  --border-contrast: color-mix(
+    in srgb,
+    var(--color-text-primary) 9%,
+    transparent
+  );
 
   /* Shared opacity levels for states, overlays, and tinted fills. */
   --opacity-pressed: 0.75;
@@ -99,6 +127,7 @@
   --radius-control: 10px;
   --radius-card: 12px;
   --radius-panel: 16px;
+  --radius-task: 20px;
 
   /* Shadows stay faint: they separate a surface from the ground, no more. */
   --shadow-card: 0 3px 10px light-dark(rgb(81 73 58 / 4%), rgb(0 0 0 / 20%));
@@ -107,14 +136,28 @@
   --shadow-accent-glow: 0 4px 12px
     color-mix(in srgb, var(--color-accent) 18%, transparent);
   --shadow-details: 0 16px 38px light-dark(rgb(62 48 25 / 7%), transparent);
+  --shadow-popup:
+    0 24px 72px light-dark(rgb(62 48 25 / 16%), rgb(0 0 0 / 34%)),
+    0 4px 16px light-dark(rgb(62 48 25 / 10%), rgb(0 0 0 / 18%));
 
-  /* Spacing. */
-  --space-tight: 6px;
-  --space-compact: 8px;
-  --space-standard: 12px;
-  --space-section: 16px;
+  /*
+   * Spacing primitives. Record surfaces use this restrained scale directly;
+   * the role aliases below preserve established names for the rest of the app.
+   */
+  --space-2xs: 4px;
+  --space-xs: 6px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  --space-tight: var(--space-xs);
+  --space-compact: var(--space-sm);
+  --space-standard: var(--space-md);
+  --space-section: var(--space-lg);
   --space-content: 20px;
-  --space-card-padding: 16px;
+  --space-card-padding: var(--space-lg);
   --space-control-inline: 10px;
   --space-details-inset: 18px;
   --space-details-outer: 24px;
@@ -129,15 +172,38 @@
   --size-details-switch-height: 20px;
   --size-details-switch-thumb: 16px;
   --size-semantic-icon: 22px;
+  --size-record-scale: 29px;
+  --size-record-command: 35px;
+  --size-record-day: 40px;
+  --size-record-row: 45px;
+  --size-record-list-icon: 30px;
+  --size-popup-close: 29px;
+  --size-popup-option: 62px;
 
-  /* Type. Serif for display and reading, the platform sans for controls. */
-  --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  --font-reading: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  --font-ui:
+  /*
+   * The three configurable font roles. Settings can later replace these
+   * aliases without components having to know which concrete stack was chosen.
+   */
+  --font-title: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  --font-body-content: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  --font-interface:
     system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial,
     sans-serif;
 
-  --text-display-large: clamp(1.875rem, 3vw, 2.375rem);
+  /* A compact, repeatable type scale. */
+  --text-size-xs: 0.6875rem;
+  --text-size-sm: 0.75rem;
+  --text-size-md: 1rem;
+  --text-size-lg: 1.125rem;
+  --text-size-xl: 1.375rem;
+  --text-size-2xl: clamp(1.875rem, 3vw, 2.375rem);
+
+  /* Backwards-compatible family aliases outside the Record surface. */
+  --font-display: var(--font-title);
+  --font-reading: var(--font-body-content);
+  --font-ui: var(--font-interface);
+
+  --text-display-large: var(--text-size-2xl);
   --text-display: 1.375rem;
   --text-title: 1.0625rem;
   --text-reading: 1.0625rem;
@@ -146,11 +212,34 @@
   --text-meta: 0.75rem;
   --text-details-field: 0.6875rem;
   --text-details-label: 0.5625rem;
+  --text-shell-brand: 1.1875rem;
+  --text-shell-navigation: 0.75rem;
+  --text-record-control: 0.5625rem;
+  --text-record-date: 0.6875rem;
+  --text-record-list: 0.6875rem;
+  --text-record-list-meta: 0.5rem;
+  --text-popup-title: 1.125rem;
+  --text-popup-option: 0.75rem;
+  --text-popup-action: 0.625rem;
+
+  /*
+   * Record's complete semantic type set. Apart from rich-content headings,
+   * every piece of Record text resolves to one of these five sizes.
+   */
+  --text-record-title: var(--text-size-2xl);
+  --text-record-content: var(--text-size-lg);
+  --text-record-heading: var(--text-size-md);
+  --text-record-ui: var(--text-size-sm);
+  --text-record-meta: var(--text-size-xs);
 
   --leading-display: 1.1;
   --leading-title: 1.3;
   --leading-reading: 1.65;
   --leading-ui: 1.4;
+  --leading-record-title: var(--leading-display);
+  --leading-record-content: var(--leading-reading);
+  --leading-record-heading: var(--leading-title);
+  --leading-record-ui: var(--leading-ui);
   --tracking-meta: 0.08em;
 
   --weight-regular: 400;
@@ -160,16 +249,34 @@
   /* Motion. Movement through time, never decoration. */
   --motion-quick: 200ms;
   --motion-panel: 250ms;
+  --motion-overlay: 140ms;
   --motion-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
 
   /* Shell geometry. */
   --layout-topbar-height: 64px;
-  --layout-navigation-width: 276px;
+  --layout-navigation-width: 304px;
   --layout-details-width: 310px;
   --layout-content-minimum: 620px;
   --layout-navigation-drawer-width: min(310px, 90vw);
   --layout-details-drawer-width: min(342px, 88vw);
   --layout-reading-measure: 68ch;
+
+  /* Blocking Record task surfaces. */
+  --overlay-viewport-gutter: 20px;
+  --overlay-popup-min-width: 280px;
+  --overlay-track-width: clamp(290px, 26vw, 350px);
+  --overlay-tag-width: clamp(380px, 34vw, 440px);
+  --overlay-task-width: 900px;
+  --overlay-task-height: 700px;
+  --overlay-category-width: 205px;
+  --size-icon-dense-tile: 46px;
+  --size-icon-labelled-tile: 68px;
+  --size-icon-dense-glyph: 24px;
+  --size-icon-labelled-glyph: 28px;
+  --size-record-ordinary-glyph: 18px;
+  --size-record-list-glyph: 14px;
+  --size-record-popup-glyph: 18px;
+  --size-record-category-glyph: 12px;
 
   /*
    * The staged responsive breakpoints, recorded as tokens so scripts and tests

@@ -1144,6 +1144,11 @@ function mapStructuredSummary(value: unknown): StructuredSummary {
       ),
     },
     trackId: nullableStableId(metadata.trackId, 'structured track identifier'),
+    ...(summary.attachmentCount === undefined
+      ? {}
+      : {
+          mediaCount: count(summary.attachmentCount, 'structured media count'),
+        }),
   }
 }
 
