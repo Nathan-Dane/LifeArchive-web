@@ -11,8 +11,10 @@ import { useArchiveVerify } from './verifyController'
 
 export function ArchiveVerifyPanel({
   client,
+  compact = false,
 }: {
   readonly client: LifeArchiveClient
+  readonly compact?: boolean
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
@@ -32,19 +34,29 @@ export function ArchiveVerifyPanel({
 
   return (
     <section
-      className="archive-operation"
+      className={
+        compact
+          ? 'archive-operation archive-operation--compact'
+          : 'archive-operation'
+      }
       aria-labelledby="archive-verify-title"
       aria-busy={state.phase === 'verifying' || undefined}
     >
       <div className="archive-operation__heading">
         <div>
-          <p className="eyebrow">{t('archive.verify.eyebrow')}</p>
+          {!compact ? (
+            <p className="eyebrow">{t('archive.verify.eyebrow')}</p>
+          ) : null}
           <h2 id="archive-verify-title" className="display">
-            {t('archive.verify.title')}
+            {t(
+              compact ? 'archive.verify.compactTitle' : 'archive.verify.title',
+            )}
           </h2>
         </div>
         <p className="archive-operation__detail">
-          {t('archive.verify.detail')}
+          {t(
+            compact ? 'archive.verify.compactDetail' : 'archive.verify.detail',
+          )}
         </p>
       </div>
 

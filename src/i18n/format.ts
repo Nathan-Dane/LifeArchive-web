@@ -28,6 +28,10 @@ export type WeekdayStyle = 'long' | 'short' | 'narrow'
 /** How much of a month name to spell out. */
 export type MonthStyle = 'long' | 'short'
 
+/** A browser-only override for the order used when a complete date is shown. */
+export type DateFormatPreference =
+  'regional' | 'day-month-year' | 'month-day-year'
+
 export interface Formatters {
   /** The locale these formatters resolve against. */
   readonly locale: string
@@ -114,9 +118,18 @@ function civilDateAsUtcInstant(date: CivilDate | string): Date {
  * Builds the formatters for one locale. `Intl` objects are created once per
  * locale and reused: constructing them is the expensive part.
  */
-export function createFormatters(locale: string): Formatters {
+export function createFormatters(
+  locale: string,
+  datePreference: DateFormatPreference = 'regional',
+): Formatters {
   const dateFormats = new Map<string, Intl.DateTimeFormat>()
   const numberFormats = new Map<string, Intl.NumberFormat>()
+  const dateLocale =
+    datePreference === 'regional'
+      ? locale
+      : datePreference === 'day-month-year'
+        ? 'en-GB'
+        : 'en-US'
 
   const dateFormat = (
     key: string,
@@ -124,7 +137,7 @@ export function createFormatters(locale: string): Formatters {
   ): Intl.DateTimeFormat => {
     const existing = dateFormats.get(key)
     if (existing) return existing
-    const created = new Intl.DateTimeFormat(locale, options)
+    const created = new Intl.DateTimeFormat(dateLocale, options)
     dateFormats.set(key, created)
     return created
   }
