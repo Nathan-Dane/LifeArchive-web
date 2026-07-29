@@ -42,6 +42,12 @@ import { deviceCalendar, type DeviceCalendar } from './deviceCalendar'
 
 export type TemporalStatus = 'loading' | 'ready' | 'failed'
 
+export interface TemporalMotion {
+  readonly id: number
+  readonly kind: 'horizontal' | 'scale'
+  readonly direction: 'forward' | 'backward' | 'coarser' | 'finer'
+}
+
 /** What the core answered for one cursor position. */
 export interface TemporalView {
   readonly window: TimeWindow
@@ -69,6 +75,8 @@ export interface TemporalCursorState {
   readonly periods: readonly TimeWindow[]
   readonly failure: ClientFailure | null
   readonly expanded: boolean
+  /** Presentation intent only; core-owned traversal still chooses every date. */
+  readonly motion: TemporalMotion | null
 }
 
 /** One cursor position: a scale and the civil location read at that scale. */
@@ -182,6 +190,7 @@ export function useTemporalCursor(
    */
   const [steppingFrom, setSteppingFrom] = useState<Target | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const [motion, setMotion] = useState<TemporalMotion | null>(null)
   const [periodAnswer, setPeriodAnswer] = useState<PeriodAnswer>(NO_PERIODS)
 
   /*
@@ -191,6 +200,18 @@ export function useTemporalCursor(
    */
   const generation = useRef(0)
   const periodGeneration = useRef(0)
+  const motionGeneration = useRef(0)
+
+  const announceMotion = useCallback(
+    (kind: TemporalMotion['kind'], direction: TemporalMotion['direction']) => {
+      setMotion({
+        id: (motionGeneration.current += 1),
+        kind,
+        direction,
+      })
+    },
+    [],
+  )
 
   useEffect(() => {
     rememberCursor({ scale: target.scale, anchor: target.anchor })
@@ -233,35 +254,90 @@ export function useTemporalCursor(
     setTarget((current) => ({ ...current, anchor, load: current.load + 1 }))
   }, [])
 
-  const chooseScale = useCallback((scale: TimeScale) => {
-    setTarget((current) =>
-      current.scale === scale
-        ? current
-        : { ...current, scale, load: current.load + 1 },
-    )
-  }, [])
+  /*
+   * These handlers announce only spatial intent. They do not calculate or
+   * traverse dates: ordering comes from core-returned calendar cells, and
+   * previous/next still call the core.
+   */
+  const chooseScale = useCallback(
+    (scale: TimeScale) => {
+      if (target.scale === scale) return
+      announceMotion(
+        'scale',
+        TIME_SCALES.indexOf(scale) > TIME_SCALES.indexOf(target.scale)
+          ? 'coarser'
+          : 'finer',
+      )
+      setExpanded(false)
+      setTarget((current) => ({
+        ...current,
+        scale,
+        load: current.load + 1,
+      }))
+    },
+    [announceMotion, target.scale],
+  )
 
-  const selectDate = useCallback((date: CivilDate) => {
-    setTarget((current) =>
-      current.anchor === date
-        ? current
-        : { ...current, anchor: date, load: current.load + 1 },
-    )
-  }, [])
+  const selectDate = useCallback(
+    (date: CivilDate) => {
+      if (target.anchor === date) return
+      const calendar = answer.view?.calendar
+      const ordered =
+        calendar && calendar.month.length > 0 ? calendar.month : calendar?.week
+      const from = ordered?.findIndex(
+        ({ date: item }) => item === target.anchor,
+      )
+      const to = ordered?.findIndex(({ date: item }) => item === date)
+      announceMotion(
+        'horizontal',
+        typeof from === 'number' &&
+          typeof to === 'number' &&
+          from >= 0 &&
+          to >= 0 &&
+          to < from
+          ? 'backward'
+          : 'forward',
+      )
+      setTarget((current) => ({
+        ...current,
+        anchor: date,
+        load: current.load + 1,
+      }))
+    },
+    [announceMotion, answer.view?.calendar, target.anchor],
+  )
 
-  const goTo = useCallback(({ scale, anchor }: TemporalDestination) => {
-    setTarget((current) =>
-      current.scale === scale && current.anchor === anchor
-        ? current
-        : { scale, anchor, load: current.load + 1 },
-    )
-  }, [])
+  const goTo = useCallback(
+    ({ scale, anchor }: TemporalDestination) => {
+      if (target.scale === scale && target.anchor === anchor) return
+      if (target.scale !== scale) {
+        announceMotion(
+          'scale',
+          TIME_SCALES.indexOf(scale) > TIME_SCALES.indexOf(target.scale)
+            ? 'coarser'
+            : 'finer',
+        )
+      } else {
+        announceMotion('horizontal', 'forward')
+      }
+      setExpanded(false)
+      setTarget((current) => ({
+        scale,
+        anchor,
+        load: current.load + 1,
+      }))
+    },
+    [announceMotion, target.anchor, target.scale],
+  )
 
   const goToToday = useCallback(() => {
     const observed = device.today()
     setToday(observed)
-    moveTo(observed)
-  }, [device, moveTo])
+    if (target.anchor !== observed) {
+      announceMotion('horizontal', 'forward')
+      moveTo(observed)
+    }
+  }, [announceMotion, device, moveTo, target.anchor])
 
   const settled = answer.to === target
   const window = answer.view?.window ?? null
@@ -303,6 +379,10 @@ export function useTemporalCursor(
   const step = useCallback(
     (direction: WindowStep) => {
       if (!window) return
+      announceMotion(
+        'horizontal',
+        direction === 'next' ? 'forward' : 'backward',
+      )
       const requested = (generation.current += 1)
       setSteppingFrom(target)
       void client.time
@@ -322,7 +402,7 @@ export function useTemporalCursor(
           moveTo(result.value.startDate)
         })
     },
-    [client, device, moveTo, target, window],
+    [announceMotion, client, device, moveTo, target, window],
   )
 
   const retry = useCallback(() => {
@@ -347,6 +427,7 @@ export function useTemporalCursor(
       periods,
       failure: status === 'failed' ? answer.failure : null,
       expanded,
+      motion,
     },
     chooseScale,
     step,

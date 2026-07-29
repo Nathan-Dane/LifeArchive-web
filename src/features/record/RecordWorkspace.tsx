@@ -247,6 +247,8 @@ export function RecordNavigationRegion() {
             : null
         }
         structuredMediaCounts={navigationSummary.structuredMediaCounts}
+        navigationStatus={cursor.state.status}
+        motion={cursor.state.motion}
         onNavigate={finishNavigation}
         onCreateEvent={() => {
           if (date) {
