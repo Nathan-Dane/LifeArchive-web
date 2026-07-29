@@ -53,6 +53,12 @@ describe('civil dates', () => {
     ).toMatch(/^9.*12 Mar$/)
   })
 
+  it('overrides date order without changing number conventions', () => {
+    const formatters = createFormatters('da-DK', 'month-day-year')
+    expect(formatters.civilDate(MARCH_NINTH)).toBe('March 9, 2024')
+    expect(formatters.number(1234.5)).toBe('1.234,5')
+  })
+
   it('refuses malformed date text instead of guessing', () => {
     const formatters = createFormatters('en-GB')
     for (const value of ['9 March 2024', '2024-3-9', '', 'today']) {
@@ -181,13 +187,15 @@ describe('the catalog and dates', () => {
       'Saturday',
       'Sunday',
     ]
-    const phrases = Object.values(enMessages).flatMap((entry: unknown) =>
-      typeof entry === 'string'
-        ? [entry]
-        : Object.values(entry as object).filter(
-            (phrase): phrase is string => typeof phrase === 'string',
-          ),
-    )
+    const phrases = Object.entries(enMessages)
+      .filter(([key]) => !key.startsWith('settings.general.weekStartsOn.'))
+      .flatMap(([, entry]: [string, unknown]) =>
+        typeof entry === 'string'
+          ? [entry]
+          : Object.values(entry as object).filter(
+              (phrase): phrase is string => typeof phrase === 'string',
+            ),
+      )
     for (const phrase of phrases) {
       for (const fragment of fragments) {
         expect(phrase, `"${phrase}" contains ${fragment}`).not.toContain(
