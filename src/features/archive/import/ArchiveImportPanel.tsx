@@ -20,8 +20,10 @@ import { useArchiveImport } from './importController'
 
 export function ArchiveImportPanel({
   client,
+  compact = false,
 }: {
   readonly client: LifeArchiveClient
+  readonly compact?: boolean
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
@@ -44,18 +46,28 @@ export function ArchiveImportPanel({
 
   return (
     <section
-      className="archive-import"
+      className={
+        compact ? 'archive-import archive-operation--compact' : 'archive-import'
+      }
       aria-labelledby="archive-import-title"
       aria-busy={busy || undefined}
     >
       <div className="archive-import__heading">
         <div>
-          <p className="eyebrow">{t('archive.import.eyebrow')}</p>
+          {!compact ? (
+            <p className="eyebrow">{t('archive.import.eyebrow')}</p>
+          ) : null}
           <h2 id="archive-import-title" className="display">
-            {t('archive.import.title')}
+            {t(
+              compact ? 'archive.import.compactTitle' : 'archive.import.title',
+            )}
           </h2>
         </div>
-        <p className="archive-import__detail">{t('archive.import.detail')}</p>
+        <p className="archive-import__detail">
+          {t(
+            compact ? 'archive.import.compactDetail' : 'archive.import.detail',
+          )}
+        </p>
       </div>
 
       <label className="archive-import__picker">

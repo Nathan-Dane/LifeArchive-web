@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
+import { useBrowserPreferences } from '../features/settings/preferences'
 import { LocalisationContext } from './context'
 import { resolveFormattingLocale } from './format'
 import { createLocalisation } from './localisation'
@@ -17,9 +18,10 @@ export interface I18nProviderProps {
 
 export function I18nProvider({ children, locale }: I18nProviderProps) {
   const resolved = locale ?? resolveFormattingLocale()
+  const { preferences } = useBrowserPreferences()
   const value = useMemo(
-    () => createLocalisation(resolved, enMessages),
-    [resolved],
+    () => createLocalisation(resolved, enMessages, preferences.dateFormat),
+    [preferences.dateFormat, resolved],
   )
   return (
     <LocalisationContext.Provider value={value}>

@@ -7,14 +7,14 @@ import { AppearanceProvider } from './shell'
 
 export function App({ bootstrap }: { readonly bootstrap?: AppBootstrap }) {
   return (
-    <I18nProvider>
-      <AppearanceProvider>
+    <AppearanceProvider>
+      <I18nProvider>
         <BrowserRouter>
           <AppStateProvider bootstrap={bootstrap}>
             <AppShell />
           </AppStateProvider>
         </BrowserRouter>
-      </AppearanceProvider>
-    </I18nProvider>
+      </I18nProvider>
+    </AppearanceProvider>
   )
 }

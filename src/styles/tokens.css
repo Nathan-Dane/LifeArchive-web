@@ -46,11 +46,36 @@
   --color-text-tertiary: light-dark(#847d72, #8f8576);
   --color-text-inverted: light-dark(#fffdf8, #1b1710);
 
+  /*
+   * Accent palettes. Components consume only the semantic aliases below;
+   * Settings changes which complete adaptive palette supplies those aliases.
+   */
+  --accent-gold-primary: light-dark(#805900, #f0bb4a);
+  --accent-gold-muted: light-dark(#6e5222, #c99b43);
+  --accent-gold-glow: light-dark(#76540a, #ffd66b);
+  --accent-gold-on: light-dark(#fffdf8, #1b1710);
+  --accent-copper-primary: light-dark(#81421f, #e9a078);
+  --accent-copper-muted: light-dark(#704128, #c9845f);
+  --accent-copper-glow: light-dark(#7a3d1b, #ffc09b);
+  --accent-copper-on: light-dark(#fffdf8, #1b1710);
+  --accent-sage-primary: light-dark(#3f6948, #93c79b);
+  --accent-sage-muted: light-dark(#45634a, #79aa82);
+  --accent-sage-glow: light-dark(#38603f, #b4dfba);
+  --accent-sage-on: light-dark(#fffdf8, #152017);
+  --accent-blue-primary: light-dark(#315f85, #86b9de);
+  --accent-blue-muted: light-dark(#3d607c, #6fa0c5);
+  --accent-blue-glow: light-dark(#28577d, #add4ef);
+  --accent-blue-on: light-dark(#fffdf8, #111c24);
+  --accent-plum-primary: light-dark(#74496f, #cf9ac7);
+  --accent-plum-muted: light-dark(#684864, #b57fad);
+  --accent-plum-glow: light-dark(#6c4067, #e8b9df);
+  --accent-plum-on: light-dark(#fffdf8, #241620);
+
   /* Accent. Restrained: current and selected state, primary action, focus. */
-  --color-accent: light-dark(#805900, #f0bb4a);
-  --color-accent-muted: light-dark(#6e5222, #c99b43);
-  --color-accent-glow: light-dark(#b98210, #ffd66b);
-  --color-on-accent: light-dark(#fffdf8, #1b1710);
+  --color-accent: var(--accent-gold-primary);
+  --color-accent-muted: var(--accent-gold-muted);
+  --color-accent-glow: var(--accent-gold-glow);
+  --color-on-accent: var(--accent-gold-on);
 
   /*
    * The focus ring. Dark reuses the accent glow, which is exactly what that
@@ -60,7 +85,7 @@
    * the same gold, and it is the only colour here that the native palette does
    * not already name.
    */
-  --color-focus-ring: light-dark(#76540a, #ffd66b);
+  --color-focus-ring: var(--color-accent-glow);
 
   /* Meaning. Never the only cue for a state. */
   --color-destructive: light-dark(#a83220, #e98773);
@@ -196,11 +221,13 @@
    * The three configurable font roles. Settings can later replace these
    * aliases without components having to know which concrete stack was chosen.
    */
-  --font-title: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  --font-body-content: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  --font-interface:
+  --font-serif: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  --font-system:
     system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial,
     sans-serif;
+  --font-title: var(--font-serif);
+  --font-body-content: var(--font-serif);
+  --font-interface: var(--font-system);
 
   /* A compact, repeatable type scale. */
   --text-size-xs: 0.6875rem;
@@ -279,6 +306,8 @@
   --layout-navigation-drawer-width: min(310px, 90vw);
   --layout-details-drawer-width: min(342px, 88vw);
   --layout-reading-measure: 68ch;
+  --layout-settings-content: 48rem;
+  --size-settings-row: 58px;
 
   /* Blocking Record task surfaces. */
   --overlay-viewport-gutter: 20px;
@@ -328,6 +357,57 @@
 
 :root[data-appearance='system'] {
   color-scheme: light dark;
+}
+
+:root[data-heading-font='system'] {
+  --font-title: var(--font-system);
+}
+
+:root[data-heading-font='serif'] {
+  --font-title: var(--font-serif);
+}
+
+:root[data-writing-font='system'] {
+  --font-body-content: var(--font-system);
+}
+
+:root[data-writing-font='serif'] {
+  --font-body-content: var(--font-serif);
+}
+
+:root[data-accent-colour='gold'] {
+  --color-accent: var(--accent-gold-primary);
+  --color-accent-muted: var(--accent-gold-muted);
+  --color-accent-glow: var(--accent-gold-glow);
+  --color-on-accent: var(--accent-gold-on);
+}
+
+:root[data-accent-colour='copper'] {
+  --color-accent: var(--accent-copper-primary);
+  --color-accent-muted: var(--accent-copper-muted);
+  --color-accent-glow: var(--accent-copper-glow);
+  --color-on-accent: var(--accent-copper-on);
+}
+
+:root[data-accent-colour='sage'] {
+  --color-accent: var(--accent-sage-primary);
+  --color-accent-muted: var(--accent-sage-muted);
+  --color-accent-glow: var(--accent-sage-glow);
+  --color-on-accent: var(--accent-sage-on);
+}
+
+:root[data-accent-colour='blue'] {
+  --color-accent: var(--accent-blue-primary);
+  --color-accent-muted: var(--accent-blue-muted);
+  --color-accent-glow: var(--accent-blue-glow);
+  --color-on-accent: var(--accent-blue-on);
+}
+
+:root[data-accent-colour='plum'] {
+  --color-accent: var(--accent-plum-primary);
+  --color-accent-muted: var(--accent-plum-muted);
+  --color-accent-glow: var(--accent-plum-glow);
+  --color-on-accent: var(--accent-plum-on);
 }
 
 /* Small screens give the top bar a second row for primary navigation. */

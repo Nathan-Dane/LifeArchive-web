@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { useTranslate } from '../../i18n'
-import { AppearanceControl } from './AppearanceControl'
 import { ShellIcon, type ShellIconName } from './ShellIcon'
 import { useWorkspacePanels, type WorkspacePanel } from './workspacePanels'
 
@@ -68,7 +67,6 @@ export function ShellHeader({ navigation }: ShellHeaderProps) {
           <PanelToggle panel="navigation" />
         ) : null}
         {available.includes('details') ? <PanelToggle panel="details" /> : null}
-        <AppearanceControl />
       </div>
     </header>
   )
