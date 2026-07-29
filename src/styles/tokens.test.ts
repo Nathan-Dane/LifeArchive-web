@@ -91,22 +91,16 @@ const SURFACES = [
   '--color-surface',
   '--color-surface-alt',
   '--color-surface-raised',
+  '--color-details-panel',
 ] as const
 
 describe('the colour tokens', () => {
   it('specifies both appearances for every colour', () => {
-    /*
-     * Gold is bright in both appearances, so the label on a gold control is
-     * the same near-black either way. It is the one pair allowed to match.
-     */
-    const MAY_MATCH = new Set(['--color-on-accent'])
     expect(COLOURS.size).toBeGreaterThan(0)
     for (const [token, pair] of COLOURS) {
       expect(pair.light, token).toMatch(/^#[0-9a-f]{6}$/)
       expect(pair.dark, token).toMatch(/^#[0-9a-f]{6}$/)
-      if (!MAY_MATCH.has(token)) {
-        expect(pair.light, token).not.toBe(pair.dark)
-      }
+      expect(pair.light, token).not.toBe(pair.dark)
     }
   })
 
@@ -173,12 +167,52 @@ describe('the Record style system', () => {
     )
   })
 
+  it('sizes menus from their reference control and keeps action glyphs clear', () => {
+    expect(TOKENS_CSS).toContain('--overlay-menu-min-height: 126px')
+    expect(RECORD_CSS).toMatch(
+      /\.record-overlay\[data-kind='menu'\] \.record-overlay__surface\s*\{[^}]*width:\s*min\([^}]*min-width:\s*0[^}]*min-height:\s*min\(/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /\.record-track-menu__action \.record-track-menu__option-icon\s*\{[^}]*background:\s*transparent/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /\.record-menu\s*\{[^}]*background:\s*var\(--color-page-warm\)/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /\.record-menu__item:is\(:hover, :focus-visible\)\s*\{[^}]*background:\s*var\(--color-surface-raised\)/s,
+    )
+    expect(RECORD_CSS).not.toContain('.record-tag-picker__row:focus-within')
+    expect(RECORD_CSS).toMatch(
+      /\.record-tag-picker__list\[data-keyboard-navigation='false'\][^{]*:focus-visible\s*\{[^}]*outline:\s*0/s,
+    )
+  })
+
+  it('gives selected dropdown rows a quieter full-row fill than hover', () => {
+    expect(TOKENS_CSS).toContain('--color-dropdown-selected:')
+    for (const rule of [
+      /\.record-editor__block-menu-items\s*>\s*button\[aria-checked='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
+      /\.record-tag-picker__row\[data-selected='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
+      /\.record-track-menu__items\s*>\s*button\[aria-checked='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
+    ]) {
+      expect(RECORD_CSS).toMatch(rule)
+    }
+  })
+
+  it('keeps image thumbnails proportional while cropping from stable edges', () => {
+    expect(TOKENS_CSS).toContain('--ratio-media-thumbnail: 4 / 3')
+    expect(RECORD_CSS).toMatch(
+      /\.record-media__visual\s*\{[^}]*aspect-ratio:\s*var\(--ratio-media-thumbnail\)/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /\.record-media__thumbnail\s*\{[^}]*object-fit:\s*cover[^}]*object-position:\s*center top/s,
+    )
+  })
+
   it('uses the accessible foreground token on accent fills', () => {
     expect(RECORD_CSS).not.toMatch(/color:\s*var\(--color-page\)/)
     for (const rule of [
       /\.semantic-icon-dialog__use\s*\{[^}]*color:\s*var\(--color-on-accent\)/s,
       /\.semantic-icon-picker__option\[aria-selected='true'\]\s*\{[^}]*color:\s*var\(--color-on-accent\)/s,
-      /\.record-tag-dialog \.record-overlay__footer > \.button\s*\{[^}]*color:\s*var\(--color-on-accent\)/s,
     ]) {
       expect(RECORD_CSS).toMatch(rule)
     }
@@ -269,14 +303,23 @@ describe('contrast in both appearances', () => {
   it('keeps meaning colours visible on the page', () => {
     for (const appearance of ['light', 'dark'] as const) {
       for (const token of [
+        '--color-accent',
         '--color-destructive',
         '--color-success',
         '--color-note',
       ]) {
-        expect(
-          ratio(token, '--color-page', appearance),
-          `${appearance} ${token}`,
-        ).toBeGreaterThanOrEqual(2.9)
+        for (const surface of [
+          '--color-page',
+          '--color-page-warm',
+          '--color-surface',
+          '--color-surface-alt',
+          '--color-details-panel',
+        ] as const) {
+          expect(
+            ratio(token, surface, appearance),
+            `${appearance} ${token} on ${surface}`,
+          ).toBeGreaterThanOrEqual(4.5)
+        }
       }
     }
   })
