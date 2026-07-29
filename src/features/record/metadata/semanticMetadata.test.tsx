@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -61,19 +61,38 @@ describe('the negotiated semantic catalogue adapter', () => {
     expect(materialIconFor('future.icon-🌿')).toBeNull()
   })
 
-  it('exposes all 157 choices as named keyboard buttons in runtime order', async () => {
+  it('exposes all 157 choices as named keyboard options in runtime order', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
     localised(<SemanticIconPicker value="life-event" onChange={onChange} />)
 
-    const choices = screen.getAllByRole('button')
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Icon: Major event. Choose icon',
+      }),
+    )
+    expect(screen.getByRole('tab', { name: /All icons157/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByRole('separator')).toBeVisible()
+    expect(screen.getAllByRole('region')).toHaveLength(12)
+    const choices = screen.getAllByRole('option')
     expect(choices).toHaveLength(157)
     expect(choices[0]).toHaveAccessibleName('Major event')
     expect(choices.at(-1)).toHaveAccessibleName('Other')
+    expect(
+      choices[0]?.querySelector('.semantic-icon-picker__selected'),
+    ).not.toBeInTheDocument()
 
-    await user.tab()
     expect(choices[0]).toHaveFocus()
     await user.keyboard('{Enter}')
+    await user.click(screen.getByRole('tab', { name: /Life & Change12/ }))
+    expect(screen.getAllByRole('listbox')).toHaveLength(1)
+    expect(
+      document.querySelector('.semantic-icon-picker__name'),
+    ).toHaveTextContent('Major event')
+    await user.click(screen.getByRole('button', { name: 'Use icon' }))
     expect(onChange).toHaveBeenCalledWith('life-event')
   })
 })
@@ -104,7 +123,8 @@ describe('ordered tags and their one display tag', () => {
     })
   })
 
-  it('keeps unknown tags exact and offers every built-in in catalogue order', () => {
+  it('keeps unknown tags exact and offers every built-in in catalogue order', async () => {
+    const user = userEvent.setup()
     expect(PREDEFINED_TAG_IDS).toEqual([
       'personal',
       'family',
@@ -124,10 +144,13 @@ describe('ordered tags and their one display tag', () => {
         onChange={onChange}
       />,
     )
-    expect(screen.getAllByText('future.tag-🌿')).toHaveLength(2)
+    expect(screen.getAllByText('future.tag-🌿')).toHaveLength(1)
     expect(
       screen.getByLabelText('Unrecognised tag future.tag-🌿, main tag'),
     ).toHaveAttribute('data-semantic-tag-id', 'future.tag-🌿')
+    await user.click(screen.getByRole('button', { name: 'Manage tags' }))
+    expect(screen.getAllByText('future.tag-🌿')).toHaveLength(2)
+    expect(screen.getAllByRole('checkbox')).toHaveLength(11)
   })
 
   it('supports keyboard add and explicit Main selection without list reordering', async () => {
@@ -142,26 +165,47 @@ describe('ordered tags and their one display tag', () => {
     }
 
     localised(<Harness />)
-    const personal = screen.getByRole('button', { name: 'Personal' })
-    const family = screen.getByRole('button', { name: 'Family' })
-    await user.tab()
+    await user.click(screen.getByRole('button', { name: 'Manage tags' }))
+    const dialog = screen.getByRole('dialog', { name: 'Choose tags' })
+    expect(
+      within(dialog).getByText('Select any number. Mark one as main.'),
+    ).toBeVisible()
+    expect(within(dialog).getByText('0 selected')).toBeVisible()
+    expect(dialog.querySelectorAll('.record-tag')).toHaveLength(10)
+    const personal = screen.getByRole('checkbox', { name: 'Personal' })
+    const family = screen.getByRole('checkbox', { name: 'Family' })
     expect(personal).toHaveFocus()
+    expect(
+      screen.queryByRole('button', { name: 'Make Personal the main tag' }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Make Family the main tag' }),
+    ).toBeNull()
     await user.keyboard('{Enter}')
+    expect(
+      screen.getByRole('button', { name: 'Make Personal the main tag' }),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: 'Make Family the main tag' }),
+    ).toBeNull()
     await user.click(family)
     await user.click(
       screen.getByRole('button', { name: 'Make Family the main tag' }),
     )
 
-    const selected = screen
-      .getAllByRole('button', { pressed: true })
-      .map((button) => button.textContent)
-    expect(selected).toEqual(
-      expect.arrayContaining([
-        'check_boxPersonal',
-        'check_boxFamily',
-        'starMain',
-      ]),
-    )
-    expect(screen.getByLabelText('Family, main tag')).toBeVisible()
+    expect(personal).toHaveAttribute('aria-checked', 'true')
+    expect(family).toHaveAttribute('aria-checked', 'true')
+    expect(
+      screen.getByRole('button', { name: 'Make Family the main tag' }),
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      document.querySelector(
+        '.record-tag-ribbon [aria-label="Family, main tag"]',
+      ),
+    ).toBeVisible()
+    expect(
+      document.querySelector('.record-tag-ribbon')?.firstElementChild,
+    ).toHaveAttribute('data-semantic-tag-id', 'family')
+    expect(within(dialog).getByText('2 selected · Family main')).toBeVisible()
   })
 })

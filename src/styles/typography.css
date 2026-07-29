@@ -11,7 +11,7 @@
 .display-large,
 .display,
 .title {
-  font-family: var(--font-display);
+  font-family: var(--font-title);
   font-weight: var(--weight-semibold);
   margin: 0;
 }
@@ -34,7 +34,7 @@
 /* The words the user writes. Measured for reading, not for filling a column. */
 .reading {
   max-width: var(--layout-reading-measure);
-  font-family: var(--font-reading);
+  font-family: var(--font-body-content);
   font-size: var(--text-reading);
   font-weight: var(--weight-regular);
   line-height: var(--leading-reading);
@@ -42,14 +42,23 @@
 
 /* Controls, labels, and everything else the application says about itself. */
 .ui-text {
-  font-family: var(--font-ui);
+  font-family: var(--font-interface);
   font-size: var(--text-ui);
   line-height: var(--leading-ui);
 }
 
+/* Common section and popup headings are interface text, not display text. */
+.ui-heading {
+  margin: 0;
+  font-family: var(--font-interface);
+  font-size: var(--text-record-heading);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-record-heading);
+}
+
 /* Quiet chrome: eyebrows, captions, counts. */
 .meta-text {
-  font-family: var(--font-ui);
+  font-family: var(--font-interface);
   font-size: var(--text-meta);
   font-weight: var(--weight-medium);
   line-height: var(--leading-ui);
@@ -57,7 +66,7 @@
 }
 
 .eyebrow {
-  font-family: var(--font-ui);
+  font-family: var(--font-interface);
   font-size: var(--text-meta);
   font-weight: var(--weight-medium);
   line-height: var(--leading-ui);

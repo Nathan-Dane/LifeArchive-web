@@ -58,6 +58,9 @@ export function ShellHeader({ navigation }: ShellHeaderProps) {
     <header className="shell-header">
       <div className="shell-brand">
         <span className="shell-brand__name">{t('app.name')}</span>
+        {navigation ? (
+          <span className="shell-brand__local">{t('app.archive.local')}</span>
+        ) : null}
       </div>
       {navigation}
       <div className="shell-actions">

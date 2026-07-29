@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
 import type {
   LifeArchiveClient,
   MediaItem,
@@ -11,6 +11,7 @@ import {
   useLocalisation,
   useTranslate,
 } from '../../../i18n'
+import { RecordControlIcon } from '../overlays'
 import { useRecordMedia } from './useRecordMedia'
 
 export interface RecordMediaProps {
@@ -19,6 +20,7 @@ export interface RecordMediaProps {
   readonly developmentMock?: boolean
   readonly showBeforeOwnerExists?: boolean
   readonly onParentRevision?: (revision: Revision) => void
+  readonly onCountChange?: (ownerId: StableId, count: number) => void
 }
 
 export function RecordMedia({
@@ -27,6 +29,7 @@ export function RecordMedia({
   developmentMock = false,
   showBeforeOwnerExists = false,
   onParentRevision,
+  onCountChange,
 }: RecordMediaProps) {
   const t = useTranslate()
   const format = useFormat()
@@ -34,9 +37,30 @@ export function RecordMedia({
   const headingId = useId()
   const previewHeadingId = useId()
   const picker = useRef<HTMLInputElement>(null)
+  const addButton = useRef<HTMLButtonElement>(null)
+  const cancelDeleteButton = useRef<HTMLButtonElement>(null)
+  const deleteReturnFocus = useRef<HTMLButtonElement | null>(null)
   const [deleting, setDeleting] = useState<MediaItem | null>(null)
   const media = useRecordMedia(client, { ownerId, onParentRevision })
+  useEffect(() => {
+    if (
+      ownerId !== null &&
+      media.listing.status === 'ready' &&
+      media.listing.ownerId === ownerId
+    ) {
+      onCountChange?.(ownerId, media.listing.items.length)
+    }
+  }, [
+    media.listing.items.length,
+    media.listing.ownerId,
+    media.listing.status,
+    onCountChange,
+    ownerId,
+  ])
   const deletingForOwner = deleting?.parentEntryId === ownerId ? deleting : null
+  useEffect(() => {
+    if (deletingForOwner) cancelDeleteButton.current?.focus()
+  }, [deletingForOwner])
 
   const chooseFiles = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.currentTarget.files
@@ -51,15 +75,26 @@ export function RecordMedia({
   return (
     <section className="record-media" aria-labelledby={headingId}>
       <header className="record-media__header">
-        <div>
-          <h2 id={headingId} className="title">
+        <div className="record-media__heading">
+          <h2 id={headingId} className="ui-heading">
             {t('record.media.heading')}
           </h2>
-          <p className="meta-text">{t('record.media.detail')}</p>
+          {media.listing.status === 'ready' ? (
+            <span
+              className="record-media__count meta-text"
+              aria-label={t('record.media.count', {
+                count: media.listing.items.length,
+              })}
+            >
+              {format.number(media.listing.items.length)}
+            </span>
+          ) : null}
         </div>
         <button
+          ref={addButton}
           type="button"
-          className="button button--secondary"
+          className="record-media__add"
+          aria-label={t('record.media.add')}
           disabled={
             ownerId === null ||
             media.listing.status !== 'ready' ||
@@ -67,7 +102,8 @@ export function RecordMedia({
           }
           onClick={() => picker.current?.click()}
         >
-          {t('record.media.add')}
+          <RecordControlIcon name="add" />
+          <span>{t('record.media.addShort')}</span>
         </button>
         <input
           ref={picker}
@@ -136,22 +172,12 @@ export function RecordMedia({
       ) : null}
 
       {ownerId === null ? (
-        <div className="record-media__empty record-media__empty--unavailable">
-          <span>{t('record.media.ownerRequired')}</span>
-          <span className="meta-text">
-            {t('record.media.ownerRequiredDetail')}
-          </span>
-        </div>
+        <p className="record-media__empty record-media__empty--unavailable">
+          {t('record.media.ownerRequiredDetail')}
+        </p>
       ) : media.listing.status === 'ready' &&
         media.listing.items.length === 0 ? (
-        <button
-          type="button"
-          className="record-media__empty"
-          onClick={() => picker.current?.click()}
-        >
-          <span>{t('record.media.empty')}</span>
-          <span className="meta-text">{t('record.media.choose')}</span>
-        </button>
+        <p className="record-media__empty">{t('record.media.empty')}</p>
       ) : (
         <ul
           className="record-media__grid"
@@ -184,9 +210,12 @@ export function RecordMedia({
                 aria-label={t('record.media.deleteAction', {
                   fileName: item.fileName,
                 })}
-                onClick={() => setDeleting(item)}
+                onClick={(event) => {
+                  deleteReturnFocus.current = event.currentTarget
+                  setDeleting(item)
+                }}
               >
-                {t('record.media.remove')}
+                <RecordControlIcon name="close" />
               </button>
             </li>
           ))}
@@ -251,20 +280,27 @@ export function RecordMedia({
           </p>
           <div>
             <button
+              ref={cancelDeleteButton}
               type="button"
-              className="button button--destructive"
-              onClick={async () => {
-                if (await media.deleteItem(deletingForOwner)) setDeleting(null)
+              className="button button--secondary"
+              onClick={() => {
+                setDeleting(null)
+                deleteReturnFocus.current?.focus()
               }}
             >
-              {t('record.media.confirmDelete')}
+              {t('record.media.cancelDelete')}
             </button>
             <button
               type="button"
-              className="button button--secondary"
-              onClick={() => setDeleting(null)}
+              className="button button--destructive"
+              onClick={async () => {
+                if (await media.deleteItem(deletingForOwner)) {
+                  setDeleting(null)
+                  addButton.current?.focus()
+                }
+              }}
             >
-              {t('record.media.cancelDelete')}
+              {t('record.media.confirmDelete')}
             </button>
           </div>
         </div>

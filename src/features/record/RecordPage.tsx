@@ -10,10 +10,32 @@ import { SpanWritingEditor } from './spans'
 import { RecordMedia } from './media'
 import { TrackHistory } from './tracks'
 
+const ORDINARY_TITLE = {
+  day: 'record.objects.ordinaryDay',
+  week: 'record.objects.ordinaryWeek',
+  month: 'record.objects.ordinaryMonth',
+  year: 'record.objects.ordinaryYear',
+} as const
+
+const ORDINARY_ENTRY_KIND = {
+  day: 'record.editor.entryKind.scaleDay',
+  week: 'record.editor.entryKind.scaleWeek',
+  month: 'record.editor.entryKind.scaleMonth',
+  year: 'record.editor.entryKind.scaleYear',
+} as const
+
 export function RecordPage() {
   const t = useTranslate()
-  const { client, cursor, objects, events, spans, tracks, developmentMock } =
-    useRecordDestination()
+  const {
+    client,
+    cursor,
+    objects,
+    events,
+    spans,
+    tracks,
+    developmentMock,
+    navigationSummary,
+  } = useRecordDestination()
   const window = cursor.state.view?.window ?? null
   const eventActive =
     events.creating || objects.state.selected?.placement.kind === 'event'
@@ -21,9 +43,28 @@ export function RecordPage() {
     spans.creating || objects.state.selected?.placement.kind === 'span'
   const trackActive = tracks.active
   const structuredActive = eventActive || spanActive || trackActive
+  const selected = objects.state.selected
+  const eventTitle =
+    events.draft?.title.trim() ||
+    (selected?.placement.kind === 'event' ? selected.title : '') ||
+    t('record.event.new')
+  const spanTitle =
+    spans.draft?.title.trim() ||
+    (selected?.placement.kind === 'span' ? selected.title : '') ||
+    t('record.span.new')
+  const pageTitle = trackActive
+    ? (tracks.state.selected?.name ?? t('record.track.heading'))
+    : eventActive
+      ? eventTitle
+      : spanActive
+        ? spanTitle
+        : t(ORDINARY_TITLE[cursor.state.scale])
   return (
     <div className="record-page">
-      <h1 className="display-large">{t('record.page.title')}</h1>
+      <header className="record-page__header">
+        <h1 className="visually-hidden">{t('record.page.title')}</h1>
+        <h2 className="record-page__title">{pageTitle}</h2>
+      </header>
       {/*
         Both controllers stay mounted while the selection changes. The hidden
         ordinary surface therefore keeps its exact in-memory buffer while an
@@ -34,6 +75,15 @@ export function RecordPage() {
           client={client}
           window={window}
           selected={structuredActive ? null : objects.state.selected}
+          heading={t(ORDINARY_ENTRY_KIND[cursor.state.scale])}
+          onSummaryChange={(text) => {
+            if (window) navigationSummary.reportOrdinaryText(window.id, text)
+          }}
+          onMediaCountChange={(ownerId, count) => {
+            if (window) {
+              navigationSummary.reportMediaCount(ownerId, count, window.id)
+            }
+          }}
           developmentMock={developmentMock}
           allowMedia={cursor.state.scale === 'day'}
         />
@@ -45,6 +95,7 @@ export function RecordPage() {
           ownerId={events.creating ? null : (events.object?.summary.id ?? null)}
           developmentMock={developmentMock}
           onParentRevision={events.adoptMediaRevision}
+          onCountChange={navigationSummary.reportMediaCount}
         />
       </div>
       <div hidden={!spanActive || trackActive}>
@@ -54,6 +105,7 @@ export function RecordPage() {
           ownerId={spans.creating ? null : (spans.object?.summary.id ?? null)}
           developmentMock={developmentMock}
           onParentRevision={spans.adoptMediaRevision}
+          onCountChange={navigationSummary.reportMediaCount}
         />
       </div>
       <div hidden={!trackActive}>

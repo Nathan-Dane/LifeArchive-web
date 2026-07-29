@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import type {
   LifeArchiveClient,
+  StableId,
   StructuredSummary,
   TimeWindow,
 } from '../../../core/client'
@@ -17,6 +18,9 @@ export interface MarkdownEditorProps {
   readonly client: LifeArchiveClient
   readonly window: TimeWindow | null
   readonly selected: StructuredSummary | null
+  readonly heading?: string
+  readonly onSummaryChange?: (text: string) => void
+  readonly onMediaCountChange?: (ownerId: StableId, count: number) => void
   readonly developmentMock?: boolean
   readonly allowMedia?: boolean
 }
@@ -25,6 +29,9 @@ export function MarkdownEditor({
   client,
   window,
   selected,
+  heading,
+  onSummaryChange,
+  onMediaCountChange,
   developmentMock = false,
   allowMedia = window?.scale === 'day',
 }: MarkdownEditorProps) {
@@ -43,6 +50,11 @@ export function MarkdownEditor({
     mediaOwner,
     adoptMediaRevision,
   } = useEditorDocument(client, window, selected, developmentMock)
+  useEffect(() => {
+    if (document.status === 'ready' && selected === null) {
+      onSummaryChange?.(document.plainText)
+    }
+  }, [document.plainText, document.status, onSummaryChange, selected])
   const disabled =
     document.status === 'unavailable' || document.status === 'loading'
   const loadStatus =
@@ -65,7 +77,9 @@ export function MarkdownEditor({
     <>
       <section className="record-editor" aria-label={t('record.editor.label')}>
         <header className="record-editor__header">
-          <h2 className="title">{t('record.editor.heading')}</h2>
+          <h2 className="record-editor__entry-kind">
+            {heading ?? t('record.editor.entryKind.scaleDay')}
+          </h2>
           <div
             className="record-editor__status meta-text"
             role="status"
@@ -140,6 +154,7 @@ export function MarkdownEditor({
           developmentMock={developmentMock}
           showBeforeOwnerExists
           onParentRevision={adoptMediaRevision}
+          onCountChange={onMediaCountChange}
         />
       ) : null}
     </>

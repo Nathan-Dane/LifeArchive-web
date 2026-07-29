@@ -204,15 +204,15 @@ describe('the requests time navigation makes', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('the civil location and the cells', () => {
-  it('spells the location from the window the core returned', async () => {
+  it('keeps the compact command strip on the core-focused civil date', async () => {
     const stub = timeStub({
       window: async () => ok(coreWindow('week', '2025-06-09', '2025-06-15')),
     })
     renderPanel(stub.client)
     await panelReady()
 
-    /* The core gave one inclusive range, so the panel spells that range. */
-    expect(locationText()).toMatch(/9.*15 June 2025/)
+    /* Scale changes do not replace the compact date control with a range. */
+    expect(locationText()).toBe('14 Jun 2025')
   })
 
   it('renders exactly the days the core placed, in the order it placed them', async () => {
@@ -294,6 +294,55 @@ describe('the civil location and the cells', () => {
     expect(
       within(weekCells()).getByRole('button', { name: '1 June 2025' }),
     ).not.toHaveAttribute('data-outside')
+  })
+
+  it('centres the selected broader period between core-returned neighbours', async () => {
+    const user = userEvent.setup()
+    const current = coreWindow('month', '2025-06-01', '2025-06-30')
+    const previous = coreWindow('month', '2025-05-01', '2025-05-31')
+    const next = coreWindow('month', '2025-07-01', '2025-07-31')
+    const stub = timeStub({
+      window: async (request) =>
+        ok(
+          request.scale === 'month'
+            ? current
+            : coreWindow('day', FIXTURE_TODAY),
+        ),
+      step: async (request) =>
+        ok(request.step === 'previous' ? previous : next),
+    })
+    renderPanel(stub.client)
+    await panelReady()
+
+    await user.click(screen.getByRole('button', { name: 'Month' }))
+    await panelReady()
+    const strip = await screen.findByRole('group', {
+      name: 'Periods around the selected period',
+    })
+    const periods = within(strip).getAllByRole('button')
+
+    expect(periods.map((period) => period.textContent)).toEqual([
+      'May',
+      'Jun',
+      'Jul',
+    ])
+    expect(
+      periods.map((period) => period.getAttribute('aria-pressed')),
+    ).toEqual(['false', 'true', 'false'])
+    expect(locationText()).toBe('June 2025')
+    expect(
+      screen.queryByRole('group', { name: 'Week of the selected date' }),
+    ).toBeNull()
+    expect(stub.step).toHaveBeenCalledWith({
+      window: current,
+      step: 'previous',
+      weekRules: DEVICE.weekRules,
+    })
+    expect(stub.step).toHaveBeenCalledWith({
+      window: current,
+      step: 'next',
+      weekRules: DEVICE.weekRules,
+    })
   })
 })
 
@@ -435,11 +484,11 @@ describe('answers to questions the reader has moved on from', () => {
     /* The reader moves on before the first window has answered. */
     await user.click(screen.getByRole('button', { name: 'Week' }))
     await panelReady()
-    expect(locationText()).toBe('14 June 2025')
+    expect(locationText()).toBe('14 Jun 2025')
 
     await act(async () => releaseFirst?.())
     expect(screen.queryByText('1 January 2001')).toBeNull()
-    expect(locationText()).toBe('14 June 2025')
+    expect(locationText()).toBe('14 Jun 2025')
   })
 
   it('discards a step that resolves after the reader has stepped again', async () => {
@@ -506,9 +555,11 @@ describe('the expandable calendar', () => {
     await user.click(toggle)
     const collapse = screen.getByRole('button', { name: 'Show one week only' })
     expect(collapse).toHaveAttribute('aria-expanded', 'true')
+    const calendar = monthCells().closest('.record-calendar')
+    expect(calendar).not.toBeNull()
     expect(collapse).toHaveAttribute(
       'aria-controls',
-      monthCells().getAttribute('id'),
+      calendar?.getAttribute('id'),
     )
     expect(within(monthCells()).getAllByRole('button')).toHaveLength(8)
   })
@@ -544,9 +595,9 @@ describe('cursor restoration', () => {
     const mounted = renderPanel(first.client)
     await panelReady()
 
-    await user.click(screen.getByRole('button', { name: 'Month' }))
-    await panelReady()
     await user.click(screen.getByRole('button', { name: '10 June 2025' }))
+    await panelReady()
+    await user.click(screen.getByRole('button', { name: 'Month' }))
     await panelReady()
     mounted.unmount()
 

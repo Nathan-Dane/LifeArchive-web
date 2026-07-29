@@ -13,6 +13,10 @@
  */
 export const recordMessages = {
   'record.page.title': 'Record',
+  'record.page.kindEntry': 'Day Entry',
+  'record.page.kindEvent': 'Event Entry',
+  'record.page.kindSpan': 'Span Entry',
+  'record.page.kindTrack': 'Track',
 
   /* The navigation region as a whole, and the scale it is showing. */
   'record.navigation.label': 'Time',
@@ -41,6 +45,7 @@ export const recordMessages = {
   'record.navigation.collapseCalendar': 'Show one week only',
   'record.navigation.weekCells': 'Week of the selected date',
   'record.navigation.monthCells': 'Month around the selected date',
+  'record.navigation.periodStrip': 'Periods around the selected period',
 
   'record.navigation.loading': 'Reading time navigation',
   'record.navigation.unavailableTitle': 'Time navigation is unavailable',
@@ -60,6 +65,8 @@ export const recordMessages = {
   'record.objects.kindSpan': 'Span',
   'record.objects.groupEntry': 'Entry',
   'record.objects.noItems': 'No Items',
+  'record.objects.newStructured': 'New event or span',
+  'record.objects.closeCreateMenu': 'Close new record menu',
 
   /*
    * The spoken name of one object. Duplicate titles are allowed and several
@@ -108,6 +115,15 @@ export const recordMessages = {
   'record.details.organisation': 'Organisation',
 
   'record.icon.pickerLabel': 'Choose an icon',
+  'record.icon.trigger': 'Icon: {name}. Choose icon',
+  'record.icon.cancel': 'Cancel',
+  'record.icon.use': 'Use icon',
+  'record.icon.groups': 'Icon categories',
+  'record.icon.all': 'All icons',
+  'record.icon.count': {
+    one: '{count} icon',
+    other: '{count} icons',
+  },
   'record.icon.category.life-change': 'Life & Change',
   'record.icon.category.relationships-people': 'Relationships & People',
   'record.icon.category.home-possessions': 'Home & Possessions',
@@ -121,9 +137,15 @@ export const recordMessages = {
   'record.icon.category.nature-animals': 'Nature & Animals',
   'record.icon.category.occasions-general': 'Occasions & General',
   'record.tag.pickerLabel': 'Choose tags',
+  'record.tag.pickerDetail': 'Select any number. Mark one as main.',
   'record.tag.main': 'Main',
   'record.tag.makeMain': 'Make {name} the main tag',
   'record.tag.mainLabel': '{name}, main tag',
+  'record.tag.summary': '{count} selected',
+  'record.tag.summaryWithMain': '{count} selected · {name} main',
+  'record.tag.manage': 'Manage tags',
+  'record.tag.close': 'Close tag picker',
+  'record.tag.done': 'Done',
 
   /* Event creation and revision-safe editing. */
   'record.event.new': 'New Event',
@@ -216,7 +238,7 @@ export const recordMessages = {
 
   /* Track management, mixed-member capture, and membership chooser. */
   'record.track.heading': 'Tracks',
-  'record.track.new': 'New Track',
+  'record.track.new': 'New track',
   'record.track.showArchived': 'Show archived Tracks',
   'record.track.empty': 'No Tracks',
   'record.track.memberCount': {
@@ -225,6 +247,10 @@ export const recordMessages = {
   },
   'record.track.archived': 'Archived',
   'record.track.none': 'Not in a Track',
+  'record.track.choose': 'Choose a Track',
+  'record.track.trigger': 'Track: {name}. Choose Track',
+  'record.track.close': 'Close Track picker',
+  'record.track.manage': 'Manage Track',
   'record.track.createHeading': 'New Track',
   'record.track.editHeading': 'Track details',
   'record.track.name': 'Name',
@@ -275,9 +301,14 @@ export const recordMessages = {
 
   /* Core-owned media. A durability statement follows only core success. */
   'record.media.heading': 'Media',
+  'record.media.count': {
+    one: '{count} media item',
+    other: '{count} media items',
+  },
   'record.media.detail':
     'Original files are copied into this archive. Picker access and previews are temporary.',
   'record.media.add': 'Add media',
+  'record.media.addShort': 'Add',
   'record.media.picker': 'Choose media files',
   'record.media.choose': 'Choose photos or files from this computer',
   'record.media.empty': 'No media in this entry',
@@ -327,6 +358,12 @@ export const recordMessages = {
   /* Markdown writing surface. Mock mode never makes a durability claim. */
   'record.editor.label': 'Writing',
   'record.editor.heading': 'Writing',
+  'record.editor.entryKind.scaleDay': 'Day entry',
+  'record.editor.entryKind.scaleWeek': 'Week entry',
+  'record.editor.entryKind.scaleMonth': 'Month entry',
+  'record.editor.entryKind.scaleYear': 'Year entry',
+  'record.editor.entryKind.event': 'Event entry',
+  'record.editor.entryKind.span': 'Span entry',
   'record.editor.toolbar': 'Text formatting',
   'record.editor.source': 'Writing editor',
   'record.editor.mockStatus':

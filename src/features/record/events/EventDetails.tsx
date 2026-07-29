@@ -1,7 +1,6 @@
 import { useId, useState } from 'react'
-import { isCivilDate } from '../../../core/client'
+import { civilDate, isCivilDate } from '../../../core/client'
 import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
-import { RecordSemanticIcon } from './RecordSemanticIcon'
 import type { EventEditor } from './useEventEditor'
 import { TrackChooser, type Tracks } from '../tracks'
 import { RecordTagPicker, SemanticIconPicker } from '../metadata'
@@ -16,6 +15,7 @@ export function EventDetails({
   const t = useTranslate()
   const localisation = useLocalisation()
   const headingId = useId()
+  const titleId = useId()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const draft = event.draft
   if (!draft) return null
@@ -26,7 +26,7 @@ export function EventDetails({
   return (
     <section className="record-details" aria-labelledby={headingId}>
       <header className="record-details__head">
-        <h2 id={headingId} className="title">
+        <h2 id={headingId} className="ui-heading">
           {t('record.details.title')}
         </h2>
       </header>
@@ -39,26 +39,25 @@ export function EventDetails({
 
       <section className="record-details__section">
         <h3 className="eyebrow">{t('record.details.identity')}</h3>
-        <label className="record-details__field">
-          <span className="meta-text">{t('record.event.titleAndIcon')}</span>
-          <span className="record-details__identity">
-            <RecordSemanticIcon
-              id={draft.iconId}
-              className="record-details__icon"
+        <div className="record-details__field">
+          <label className="meta-text" htmlFor={titleId}>
+            {t('record.event.titleAndIcon')}
+          </label>
+          <div className="record-details__identity">
+            <SemanticIconPicker
+              value={draft.iconId}
+              disabled={event.status === 'saving'}
+              onChange={(iconId) => event.update({ iconId })}
             />
             <input
+              id={titleId}
               value={draft.title}
               onChange={(eventValue) =>
                 event.update({ title: eventValue.currentTarget.value })
               }
             />
-          </span>
-        </label>
-        <SemanticIconPicker
-          value={draft.iconId}
-          disabled={event.status === 'saving'}
-          onChange={(iconId) => event.update({ iconId })}
-        />
+          </div>
+        </div>
       </section>
 
       <section className="record-details__section">
@@ -86,6 +85,7 @@ export function EventDetails({
             <TrackChooser
               tracks={tracks}
               value={draft.trackId}
+              date={isCivilDate(draft.date) ? civilDate(draft.date) : undefined}
               disabled={event.status === 'saving'}
               onChange={(trackId) => {
                 if (event.creating) {

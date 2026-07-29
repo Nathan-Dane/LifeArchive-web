@@ -25,6 +25,9 @@ export type DateStyle = 'long' | 'medium' | 'short'
 /** How much of a weekday name to spell out. */
 export type WeekdayStyle = 'long' | 'short' | 'narrow'
 
+/** How much of a month name to spell out. */
+export type MonthStyle = 'long' | 'short'
+
 export interface Formatters {
   /** The locale these formatters resolve against. */
   readonly locale: string
@@ -44,13 +47,22 @@ export interface Formatters {
    * It is read out of the date, never counted towards or away from one.
    */
   readonly civilDayOfMonth: (date: CivilDate | string) => string
+  /** The month one civil date falls in, in the locale's own wording. */
+  readonly civilMonth: (date: CivilDate | string, style?: MonthStyle) => string
   /** The month and year one civil date falls in, in the locale's wording. */
   readonly civilMonthAndYear: (date: CivilDate | string) => string
+  /** The year one core-produced period begins in, in locale digits. */
+  readonly civilYear: (date: CivilDate | string) => string
   /** An inclusive civil-date range, using the locale's own range wording. */
   readonly civilDateRange: (
     start: CivilDate | string,
     end: CivilDate | string,
     style?: DateStyle,
+  ) => string
+  /** A compact inclusive range for a small core-returned period control. */
+  readonly civilCompactDateRange: (
+    start: CivilDate | string,
+    end: CivilDate | string,
   ) => string
   /** A number, with the locale's own grouping and decimal marks. */
   readonly number: (value: number, options?: Intl.NumberFormatOptions) => string
@@ -141,9 +153,19 @@ export function createFormatters(locale: string): Formatters {
       dateFormat('dayOfMonth', { day: 'numeric', timeZone: 'UTC' }).format(
         civilDateAsUtcInstant(date),
       ),
+    civilMonth: (date, style = 'short') =>
+      dateFormat(`month:${style}`, {
+        month: style,
+        timeZone: 'UTC',
+      }).format(civilDateAsUtcInstant(date)),
     civilMonthAndYear: (date) =>
       dateFormat('monthAndYear', {
         month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC',
+      }).format(civilDateAsUtcInstant(date)),
+    civilYear: (date) =>
+      dateFormat('year', {
         year: 'numeric',
         timeZone: 'UTC',
       }).format(civilDateAsUtcInstant(date)),
@@ -152,6 +174,12 @@ export function createFormatters(locale: string): Formatters {
         civilDateAsUtcInstant(start),
         civilDateAsUtcInstant(end),
       ),
+    civilCompactDateRange: (start, end) =>
+      dateFormat('compactRange', {
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'UTC',
+      }).formatRange(civilDateAsUtcInstant(start), civilDateAsUtcInstant(end)),
     number: (value, options) => numberFormat(options).format(value),
     byteSize: (bytes) => {
       const magnitude = bytes >= 1000 ? Math.floor(Math.log10(bytes) / 3) : 0

@@ -27,6 +27,7 @@ export type EditorSaveStatus =
 export interface EditorDocument {
   readonly key: string | null
   readonly markdown: string
+  readonly plainText: string
   readonly status: EditorDocumentStatus
   readonly failure: ClientFailure | null
 }
@@ -38,6 +39,7 @@ interface EditorConflict {
 
 interface CachedDocument {
   markdown: string
+  plainText: string
   loaded: boolean
   target: OrdinaryTarget | null
   ordinary: boolean
@@ -66,6 +68,7 @@ const AUTOSAVE_DELAY_MS = 500
 const UNAVAILABLE: EditorDocument = {
   key: null,
   markdown: '',
+  plainText: '',
   status: 'unavailable',
   failure: null,
 }
@@ -88,6 +91,10 @@ function targetForCurrent(
 
 function currentMarkdown(current: OrdinaryConflictState): string {
   return current.presence === 'present' ? current.entry.markdown : ''
+}
+
+function currentPlainText(current: OrdinaryConflictState): string {
+  return current.presence === 'present' ? current.entry.plainText : ''
 }
 
 /**
@@ -220,6 +227,20 @@ export function useEditorDocument(
                     expectedRevision: result.value.entry.revision,
                   }
                 : null
+            if (
+              result.value.outcome === 'created' ||
+              result.value.outcome === 'updated' ||
+              result.value.outcome === 'unchanged'
+            ) {
+              current.plainText = result.value.entry.plainText
+            } else {
+              current.plainText = ''
+            }
+            setDocument((document) =>
+              document.key === documentKey
+                ? { ...document, plainText: current.plainText }
+                : document,
+            )
             current.savedMarkdown = markdown
             current.saveConfirmed = true
             current.saveStatus =
@@ -358,6 +379,7 @@ export function useEditorDocument(
         setDocument({
           key,
           markdown: cached.markdown,
+          plainText: cached.plainText,
           status: 'ready',
           failure: null,
         })
@@ -368,6 +390,8 @@ export function useEditorDocument(
         key,
         markdown:
           cached?.markdown ?? (current.key === key ? current.markdown : ''),
+        plainText:
+          cached?.plainText ?? (current.key === key ? current.plainText : ''),
         status: 'loading',
         failure: null,
       }))
@@ -382,6 +406,9 @@ export function useEditorDocument(
           markdown:
             cache.current.get(key)?.markdown ??
             (current.key === key ? current.markdown : ''),
+          plainText:
+            cache.current.get(key)?.plainText ??
+            (current.key === key ? current.plainText : ''),
           status: 'failed',
           failure: loaded.failure,
         }))
@@ -397,6 +424,10 @@ export function useEditorDocument(
             : value.entry.markdown
       const existing = cache.current.get(key)
       const authoritative = existing?.loaded ? existing.markdown : markdown
+      const plainText =
+        value.presence === 'present' && 'entry' in value
+          ? value.entry.plainText
+          : ''
       const target: OrdinaryTarget | null = selected
         ? null
         : value.presence === 'present' && 'entry' in value
@@ -408,6 +439,7 @@ export function useEditorDocument(
           : null
       cache.current.set(key, {
         markdown: authoritative,
+        plainText: existing?.loaded ? existing.plainText : plainText,
         loaded: true,
         target,
         ordinary: selected === null,
@@ -430,6 +462,7 @@ export function useEditorDocument(
       setDocument({
         key,
         markdown: authoritative,
+        plainText: existing?.loaded ? existing.plainText : plainText,
         status: 'ready',
         failure: null,
       })
@@ -462,6 +495,7 @@ export function useEditorDocument(
         if (window) {
           cache.current.set(key, {
             markdown,
+            plainText: '',
             loaded: true,
             target: null,
             ordinary: selected === null,
@@ -536,7 +570,9 @@ export function useEditorDocument(
     const cached = cache.current.get(key)
     if (!cached?.conflict) return
     const markdown = currentMarkdown(cached.conflict.current)
+    const plainText = currentPlainText(cached.conflict.current)
     cached.markdown = markdown
+    cached.plainText = plainText
     cached.savedMarkdown = markdown
     cached.target = cached.conflict.target
     cached.conflict = null
@@ -545,7 +581,7 @@ export function useEditorDocument(
     cached.saveStatus = 'ready'
     cached.saveGeneration += 1
     setDocument((current) =>
-      current.key === key ? { ...current, markdown } : current,
+      current.key === key ? { ...current, markdown, plainText } : current,
     )
     refresh(key)
   }, [key, refresh])
@@ -581,6 +617,7 @@ export function useEditorDocument(
           : {
               key,
               markdown: '',
+              plainText: '',
               status: 'loading' as const,
               failure: null,
             },
