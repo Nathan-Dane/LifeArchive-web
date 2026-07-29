@@ -60,6 +60,7 @@ export interface Tracks {
   readonly state: TracksState
   readonly active: boolean
   readonly setIncludeArchived: (include: boolean) => void
+  readonly loadManagementList: () => Promise<readonly TrackSummary[]>
   readonly retry: () => void
   readonly select: (summary: TrackSummary) => void
   readonly clearSelection: () => void
@@ -677,6 +678,22 @@ export function useTracks(
     )
   }, [loadHistory])
 
+  const loadManagementList = useCallback(async () => {
+    const result = await client.tracks.list({
+      includeArchived: true,
+      limit: LIST_LIMIT,
+    })
+    const current = model.current.tracks
+    if (result.status === 'failed') return current
+
+    const summaries = new Map<StableId, TrackSummary>()
+    for (const summary of current) summaries.set(summary.track.id, summary)
+    for (const summary of result.value.tracks) {
+      summaries.set(summary.track.id, summary)
+    }
+    return [...summaries.values()]
+  }, [client])
+
   const state = useMemo<TracksState>(() => ({ ...view }), [view])
   return {
     state,
@@ -688,6 +705,7 @@ export function useTracks(
       },
       [publish],
     ),
+    loadManagementList,
     retry: refresh,
     select,
     clearSelection,

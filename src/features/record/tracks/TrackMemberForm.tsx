@@ -1,6 +1,10 @@
 import { isCivilDate } from '../../../core/client'
 import { useTranslate } from '../../../i18n'
-import { RecordTagPicker, SemanticIconPicker } from '../metadata'
+import {
+  RecordDatePicker,
+  RecordTagPicker,
+  SemanticIconPicker,
+} from '../metadata'
 import type { TrackMemberDraftFields } from './trackDrafts'
 
 export function TrackMemberForm({
@@ -46,11 +50,15 @@ export function TrackMemberForm({
               : 'record.span.startDate',
           )}
         </span>
-        <input
-          type="date"
+        <RecordDatePicker
+          label={t(
+            draft.kind === 'event'
+              ? 'record.event.date'
+              : 'record.span.startDate',
+          )}
           value={draft.date}
-          aria-invalid={!validDate || undefined}
-          onChange={(event) => update({ date: event.currentTarget.value })}
+          invalid={!validDate}
+          onChange={(date) => update({ date })}
         />
       </label>
       {draft.kind === 'span' ? (
@@ -68,12 +76,11 @@ export function TrackMemberForm({
           {draft.ongoing ? null : (
             <label>
               <span>{t('record.span.endDate')}</span>
-              <input
-                type="date"
+              <RecordDatePicker
+                label={t('record.span.endDate')}
                 value={draft.endDate}
-                onChange={(event) =>
-                  update({ endDate: event.currentTarget.value })
-                }
+                invalid={!isCivilDate(draft.endDate)}
+                onChange={(endDate) => update({ endDate })}
               />
             </label>
           )}
