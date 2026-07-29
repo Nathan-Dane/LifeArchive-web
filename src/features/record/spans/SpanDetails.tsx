@@ -1,9 +1,13 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { civilDate, isCivilDate } from '../../../core/client'
 import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
 import type { SpanEditor } from './useSpanEditor'
 import { TrackChooser, type Tracks } from '../tracks'
-import { RecordTagPicker, SemanticIconPicker } from '../metadata'
+import {
+  RecordDatePicker,
+  RecordTagPicker,
+  SemanticIconPicker,
+} from '../metadata'
 
 export function SpanDetails({
   span,
@@ -16,7 +20,7 @@ export function SpanDetails({
   const localisation = useLocalisation()
   const headingId = useId()
   const titleId = useId()
-  const endDateId = useId()
+  const datePair = useRef<HTMLDivElement>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [confirmingConversion, setConfirmingConversion] = useState(false)
   const [conversionDate, setConversionDate] = useState('')
@@ -84,22 +88,23 @@ export function SpanDetails({
 
       <section className="record-details__section">
         <h3 className="eyebrow">{t('record.details.time')}</h3>
-        <div className="record-details__date-pair">
-          <label className="record-details__field">
+        <div ref={datePair} className="record-details__date-pair">
+          <div className="record-details__field">
             <span className="record-details__label-line meta-text">
               {t('record.span.startDate')}
             </span>
-            <input
-              type="date"
+            <RecordDatePicker
+              label={t('record.span.startDate')}
               value={draft.startDate}
-              onChange={(event) =>
-                span.update({ startDate: event.currentTarget.value })
-              }
+              widthRef={datePair}
+              disabled={span.status === 'saving'}
+              invalid={!isCivilDate(draft.startDate)}
+              onChange={(startDate) => span.update({ startDate })}
             />
-          </label>
+          </div>
           <div className="record-details__field">
             <span className="record-details__label-line meta-text">
-              <label htmlFor={endDateId}>{t('record.span.endDate')}</label>
+              <span>{t('record.span.endDate')}</span>
               <button
                 type="button"
                 className="record-details__ongoing"
@@ -117,13 +122,13 @@ export function SpanDetails({
                 {t('record.span.present')}
               </div>
             ) : (
-              <input
-                id={endDateId}
-                type="date"
+              <RecordDatePicker
+                label={t('record.span.endDate')}
                 value={draft.endDate}
-                onChange={(event) =>
-                  span.update({ endDate: event.currentTarget.value })
-                }
+                widthRef={datePair}
+                disabled={span.status === 'saving'}
+                invalid={!isCivilDate(draft.endDate)}
+                onChange={(endDate) => span.update({ endDate })}
               />
             )}
           </div>
@@ -219,18 +224,17 @@ export function SpanDetails({
           {confirmingConversion ? (
             <div className="record-details__delete-confirm" role="alert">
               <p>{t('record.span.convertConfirm')}</p>
-              <label className="record-details__field">
+              <div className="record-details__field">
                 <span className="meta-text">
                   {t('record.span.convertDate')}
                 </span>
-                <input
-                  type="date"
+                <RecordDatePicker
+                  label={t('record.span.convertDate')}
                   value={conversionDate}
-                  onChange={(event) =>
-                    setConversionDate(event.currentTarget.value)
-                  }
+                  invalid={!isCivilDate(conversionDate)}
+                  onChange={setConversionDate}
                 />
-              </label>
+              </div>
               <div className="record-details__actions">
                 <button
                   type="button"

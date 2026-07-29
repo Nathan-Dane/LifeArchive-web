@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import type { SemanticId } from '../../../core/client'
 import { semanticName, useLocalisation } from '../../../i18n'
 import { RecordSemanticIcon } from '../events/RecordSemanticIcon'
@@ -11,6 +11,14 @@ import {
 
 type CategoryId = (typeof SEMANTIC_ICON_CATEGORIES)[number]['id']
 type IconView = 'all' | CategoryId
+type CataloguePhase = 'idle' | 'leaving' | 'entering'
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof globalThis.matchMedia === 'function' &&
+    globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
 
 export function SemanticIconPicker({
   value,
@@ -24,21 +32,41 @@ export function SemanticIconPicker({
   const localisation = useLocalisation()
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<IconView>('all')
+  const [cataloguePhase, setCataloguePhase] = useState<CataloguePhase>('idle')
   const [draft, setDraft] = useState<SemanticId>(value)
   const [activeIcon, setActiveIcon] = useState<SemanticId>(value)
   const trigger = useRef<HTMLButtonElement>(null)
+  const useButton = useRef<HTMLButtonElement>(null)
   const initialIcon = useRef<HTMLButtonElement>(null)
   const iconRefs = useRef(new Map<SemanticId, HTMLButtonElement>())
   const categoryRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const catalogue = useRef<HTMLDivElement>(null)
+  const categoryTimer = useRef<ReturnType<typeof globalThis.setTimeout> | null>(
+    null,
+  )
   const dialogId = useId()
   const headingId = useId()
   const catalogueId = useId()
   const currentName = semanticName(localisation, 'record', 'icon', value)
 
+  useEffect(
+    () => () => {
+      if (categoryTimer.current !== null) {
+        globalThis.clearTimeout(categoryTimer.current)
+      }
+    },
+    [],
+  )
+
   const openPicker = () => {
     setView('all')
+    setCataloguePhase('idle')
     setDraft(value)
-    setActiveIcon(ORDERED_SEMANTIC_ICON_IDS[0])
+    setActiveIcon(
+      (ORDERED_SEMANTIC_ICON_IDS as readonly SemanticId[]).includes(value)
+        ? value
+        : ORDERED_SEMANTIC_ICON_IDS[0],
+    )
     setOpen(true)
   }
   const close = () => setOpen(false)
@@ -47,13 +75,32 @@ export function SemanticIconPicker({
     close()
   }
   const chooseView = (next: IconView) => {
-    setView(next)
-    const visible =
-      next === 'all'
-        ? ORDERED_SEMANTIC_ICON_IDS
-        : SEMANTIC_ICON_CATEGORIES.find(({ id }) => id === next)?.icons
-    if (visible?.includes(activeIcon as never)) return
-    setActiveIcon(visible?.[0] ?? ORDERED_SEMANTIC_ICON_IDS[0])
+    if (next === view || cataloguePhase === 'leaving') return
+    const applyView = () => {
+      const visible =
+        next === 'all'
+          ? ORDERED_SEMANTIC_ICON_IDS
+          : SEMANTIC_ICON_CATEGORIES.find(({ id }) => id === next)?.icons
+      setView(next)
+      if (!visible?.includes(activeIcon as never)) {
+        setActiveIcon(visible?.[0] ?? ORDERED_SEMANTIC_ICON_IDS[0])
+      }
+      if (catalogue.current) catalogue.current.scrollTop = 0
+    }
+    if (prefersReducedMotion()) {
+      applyView()
+      setCataloguePhase('idle')
+      return
+    }
+    setCataloguePhase('leaving')
+    if (categoryTimer.current !== null) {
+      globalThis.clearTimeout(categoryTimer.current)
+    }
+    categoryTimer.current = globalThis.setTimeout(() => {
+      applyView()
+      setCataloguePhase('entering')
+      globalThis.requestAnimationFrame(() => setCataloguePhase('idle'))
+    }, 100)
   }
   const moveCategory = (index: number) => {
     const clamped = Math.min(
@@ -144,13 +191,17 @@ export function SemanticIconPicker({
         kind="modal"
         labelledBy={headingId}
         anchorRef={trigger}
-        initialFocusRef={initialIcon}
+        initialFocusRef={useButton}
         onClose={close}
         className="semantic-icon-dialog"
       >
         <header className="record-overlay__header semantic-icon-dialog__header">
           <div className="semantic-icon-dialog__title">
-            <span className="semantic-icon-dialog__preview" aria-hidden>
+            <span
+              key={draft}
+              className="semantic-icon-dialog__preview"
+              aria-hidden
+            >
               <RecordSemanticIcon id={draft} decorative />
             </span>
             <div>
@@ -174,6 +225,8 @@ export function SemanticIconPicker({
               {localisation.t('record.icon.cancel')}
             </button>
             <button
+              ref={useButton}
+              autoFocus
               type="button"
               className="button semantic-icon-dialog__use"
               onClick={() => commit()}
@@ -250,11 +303,14 @@ export function SemanticIconPicker({
             ))}
           </nav>
           <div
+            ref={catalogue}
             id={catalogueId}
             className="semantic-icon-picker__catalogue"
             role="tabpanel"
             aria-labelledby={`${dialogId}-tab-${view}`}
             data-view={view}
+            data-phase={cataloguePhase}
+            aria-busy={cataloguePhase !== 'idle' || undefined}
             data-catalog-version={SEMANTIC_ICON_CATALOG_VERSION}
           >
             <header className="semantic-icon-picker__catalogue-head">

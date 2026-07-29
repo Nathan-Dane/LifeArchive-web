@@ -3,7 +3,11 @@ import { civilDate, isCivilDate } from '../../../core/client'
 import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
 import type { EventEditor } from './useEventEditor'
 import { TrackChooser, type Tracks } from '../tracks'
-import { RecordTagPicker, SemanticIconPicker } from '../metadata'
+import {
+  RecordDatePicker,
+  RecordTagPicker,
+  SemanticIconPicker,
+} from '../metadata'
 
 export function EventDetails({
   event,
@@ -62,16 +66,16 @@ export function EventDetails({
 
       <section className="record-details__section">
         <h3 className="eyebrow">{t('record.details.time')}</h3>
-        <label className="record-details__field">
+        <div className="record-details__field">
           <span className="meta-text">{t('record.event.date')}</span>
-          <input
-            type="date"
+          <RecordDatePicker
+            label={t('record.event.date')}
             value={draft.date}
-            onChange={(eventValue) =>
-              event.update({ date: eventValue.currentTarget.value })
-            }
+            disabled={event.status === 'saving'}
+            invalid={!isCivilDate(draft.date)}
+            onChange={(date) => event.update({ date })}
           />
-        </label>
+        </div>
         <p className="record-details__hint meta-text">
           {t('record.event.noTimeOfDay')}
         </p>
