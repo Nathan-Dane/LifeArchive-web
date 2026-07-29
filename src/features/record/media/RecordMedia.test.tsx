@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -85,7 +85,9 @@ describe('Record media gallery', () => {
   it('renders exact core metadata, supports keyboard preview, and cleans up on reopen', async () => {
     const createUrl = vi
       .spyOn(URL, 'createObjectURL')
-      .mockReturnValue('blob:archived-preview')
+      .mockReturnValueOnce('blob:archived-thumbnail')
+      .mockReturnValueOnce('blob:archived-preview')
+      .mockReturnValue('blob:archived-thumbnail-reopen')
     const revokeUrl = vi
       .spyOn(URL, 'revokeObjectURL')
       .mockImplementation(() => {})
@@ -96,18 +98,54 @@ describe('Record media gallery', () => {
     })
     expect(screen.getByText('Morgen ved havnen.jpeg')).toBeVisible()
     expect(screen.getByText(/^Image · 3 byte/)).toBeVisible()
+    const thumbnail = await waitFor(() => {
+      const image = first.container.querySelector('.record-media__thumbnail')
+      expect(image).toHaveAttribute('src', 'blob:archived-thumbnail')
+      return image!
+    })
+    fireEvent.error(thumbnail)
+    expect(first.container.querySelector('.record-media__thumbnail')).toBeNull()
+    expect(first.container.querySelector('.record-media__glyph')).toBeVisible()
 
     preview.focus()
     await userEvent.keyboard('{Enter}')
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Morgen ved havnen.jpeg',
+    })
+    expect(dialog).toHaveClass('record-media__preview')
+    expect(dialog.parentElement).toHaveClass('record-overlay')
+    expect(dialog.parentElement).toHaveAttribute('data-placement', 'center')
     expect(
-      await screen.findByRole('img', {
+      screen.getByRole('img', {
         name: 'Preview of Morgen ved havnen.jpeg',
       }),
     ).toHaveAttribute('src', 'blob:archived-preview')
-    expect(createUrl).toHaveBeenCalledTimes(1)
+    expect(createUrl).toHaveBeenCalledTimes(2)
+    const overlay = dialog.parentElement
+    expect(overlay).toHaveClass('record-overlay')
+    await userEvent.click(screen.getByRole('button', { name: 'Close preview' }))
+    expect(overlay).toHaveAttribute('data-phase', 'closing')
+    expect(
+      screen.getByRole('img', {
+        name: 'Preview of Morgen ved havnen.jpeg',
+      }),
+    ).toBeVisible()
+    fireEvent.transitionEnd(overlay!)
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Morgen ved havnen.jpeg' }),
+      ).toBeNull(),
+    )
+    expect(preview).toHaveFocus()
+    expect(revokeUrl).toHaveBeenCalledWith('blob:archived-preview')
 
     first.unmount()
-    expect(revokeUrl).toHaveBeenCalledWith('blob:archived-preview')
+    expect(revokeUrl.mock.calls).toEqual(
+      expect.arrayContaining([
+        ['blob:archived-thumbnail'],
+        ['blob:archived-preview'],
+      ]),
+    )
     renderMedia(mediaClient)
     expect(
       await screen.findByRole('button', {
