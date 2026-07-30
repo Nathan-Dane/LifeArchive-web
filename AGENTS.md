@@ -19,6 +19,7 @@ Then read **only the architecture documents your task touches**:
 | [`docs/architecture/core-boundary.md`](docs/architecture/core-boundary.md) | Touching data flow, the client, the worker, storage, or state. |
 | [`docs/architecture/repository-boundary.md`](docs/architecture/repository-boundary.md) | Touching CI, licensing, or anything that references the private repository. |
 | [`docs/architecture/runtime-delivery.md`](docs/architecture/runtime-delivery.md) | Touching runtime loading, version pinning, capability negotiation, or `runtime/`. |
+| [`docs/operations/cloudflare-release.md`](docs/operations/cloudflare-release.md) | Publishing or rolling back the runtime or public frontend on Cloudflare Pages. |
 
 Do not read all three by default.
 

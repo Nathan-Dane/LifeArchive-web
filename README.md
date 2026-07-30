@@ -13,9 +13,10 @@ domain, time, persistence, media, and archive behaviour belongs to the core.
 **Pre-release frontend.** Product surfaces are under active implementation and
 are not ready for real personal archive use.
 
-- Runtime 0.1.0 is exactly pinned and the archive-lifecycle foundation has a
-  qualified pilot record. Record and Timeline product acceptance remains
-  incomplete.
+- Runtime 0.1.2 is exactly pinned. The archive-lifecycle foundation's qualified
+  pilot record remains attached to the earlier 0.1.0 pair, so the current pair
+  still requires its own complete acceptance. Record and Timeline product
+  acceptance remains incomplete.
 - Browser adapter tests use simulated opaque runtime payloads where
   appropriate; the pilot record, not those fixtures, is the production runtime
   evidence.
@@ -131,6 +132,7 @@ using it.
 | [`docs/architecture/core-boundary.md`](docs/architecture/core-boundary.md) | Data flow, client, worker, storage, state. |
 | [`docs/architecture/repository-boundary.md`](docs/architecture/repository-boundary.md) | CI, licensing, private/public separation. |
 | [`docs/architecture/runtime-delivery.md`](docs/architecture/runtime-delivery.md) | Runtime loading, pinning, capability negotiation. |
+| [`docs/operations/cloudflare-release.md`](docs/operations/cloudflare-release.md) | Publishing and verifying the runtime and frontend on Cloudflare Pages. |
 | [`docs/operations/browser-local-pilot.md`](docs/operations/browser-local-pilot.md) | Preparing, accepting, rolling back, or operating the browser-local pilot. |
 | [`docs/reference/README.md`](docs/reference/README.md) | Using the visual reference. |
 | [`runtime/README.md`](runtime/README.md) | The runtime artifact directory. |
