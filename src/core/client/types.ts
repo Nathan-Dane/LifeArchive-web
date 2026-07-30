@@ -1085,9 +1085,9 @@ export interface ArchiveCloseResult {
   readonly outcome: 'closed' | 'already-closed'
 }
 
-/** Ordinary entry scales the core counts, including ones v0.1 does not edit. */
-export type CountedEntryScale =
-  'moment' | 'day' | 'week' | 'month' | 'year' | 'custom'
+/** Active Entry kinds counted by the archive overview contract. */
+export type CountedEntryKind =
+  'day' | 'week' | 'month' | 'year' | 'event' | 'span'
 
 /**
  * Health facts as the current product surface reports them on success. A new
@@ -1107,7 +1107,7 @@ export interface ArchiveOverview {
   readonly storeSchemaVersion: string
   readonly storeContract: string
   readonly visibleEntryCount: number
-  readonly entryCounts: Readonly<Record<CountedEntryScale, number>>
+  readonly entryCounts: Readonly<Record<CountedEntryKind, number>>
   readonly structuredCounts: {
     readonly events: number
     readonly spans: number
