@@ -2508,9 +2508,10 @@
  */
 
 .record-editor {
-  display: grid;
-  gap: var(--space-xs);
+  display: flex;
+  gap: var(--space-lg);
   min-height: 30rem;
+  flex-direction: column;
 }
 
 .record-editor__header {
@@ -2579,6 +2580,7 @@
 .record-editor__surface {
   overflow: hidden;
   min-height: calc(var(--size-control-featured) * 8);
+  flex: 1 1 auto;
   border: var(--border-hairline) solid var(--border-strong);
   border-radius: var(--radius-panel);
   background: var(--color-surface);
