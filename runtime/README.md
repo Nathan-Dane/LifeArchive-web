@@ -76,12 +76,13 @@ To run exact packaged bytes from the current private sibling checkout without
 publishing them or editing the tracked pin:
 
 ```bash
+runtime_version="$(
+  tr -d '[:space:]' < ../LifeArchive/Shared/Rust/WEB-RUNTIME-VERSION
+)"
+artifact="../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-$runtime_version.tar.gz"
 ../LifeArchive/Shared/Rust/scripts/package-web.sh
-../LifeArchive/Shared/Rust/scripts/verify-web-artifact.sh \
-  ../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-0.1.0.tar.gz
-pnpm runtime:install-local \
-  ../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-0.1.0.tar.gz \
-  ../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-0.1.0.tar.gz.sha256
+../LifeArchive/Shared/Rust/scripts/verify-web-artifact.sh "$artifact"
+pnpm runtime:install-local "$artifact" "$artifact.sha256"
 VITE_LIFEARCHIVE_CLIENT=local-runtime pnpm run dev
 ```
 
@@ -95,8 +96,12 @@ mock selection and not a substitute for publication and pin.
 
 ## Runtime acceptance status
 
-Production Runtime 0.1.0 acceptance is recorded in
-[`docs/operations/browser-local-pilot.md`](../docs/operations/browser-local-pilot.md).
+The tracked production pin is Runtime 0.1.2. The qualified 0.1.0 pilot record
+in
+[`docs/operations/browser-local-pilot.md`](../docs/operations/browser-local-pilot.md)
+is historical evidence for that exact earlier pair, not automatic acceptance
+of the current release. Publication and verification steps are in
+[`docs/operations/cloudflare-release.md`](../docs/operations/cloudflare-release.md).
 Playwright's ordinary browser suite still uses fixed test boundaries where
 appropriate; it is not a replacement for deployed production acceptance.
 
