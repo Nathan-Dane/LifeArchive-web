@@ -73,11 +73,38 @@ describe('the staged workspace regions', () => {
     )
     const main = document.querySelector<HTMLElement>('.workspace__content')
     if (!main) throw new Error('no main scroller rendered')
+    const overlay = document.querySelector<HTMLElement>(
+      '[data-scrollbar-for="content"]',
+    )
+    if (!overlay) throw new Error('no main scrollbar overlay rendered')
+
+    Object.defineProperties(main, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 400 },
+      scrollTop: { configurable: true, value: 100 },
+    })
+    main.getBoundingClientRect = () =>
+      ({
+        bottom: 110,
+        height: 100,
+        left: 20,
+        right: 220,
+        top: 10,
+        width: 200,
+        x: 20,
+        y: 10,
+        toJSON: () => undefined,
+      }) as DOMRect
 
     fireEvent.scroll(main)
     expect(main).toHaveAttribute('data-scrollbar-visible', 'true')
+    expect(overlay).toHaveAttribute('data-visible', 'true')
+    expect(overlay.style.height).toBe('24px')
     await waitFor(
-      () => expect(main).not.toHaveAttribute('data-scrollbar-visible'),
+      () => {
+        expect(main).not.toHaveAttribute('data-scrollbar-visible')
+        expect(overlay).toHaveAttribute('data-visible', 'false')
+      },
       { timeout: 700 },
     )
   })

@@ -3504,22 +3504,13 @@
 }
 
 /*
- * The three persistent workspace scrollers reserve no gutter. Their thumbs
- * appear while scroll events are arriving, then return to transparent shortly
- * after scrolling stops so the panels regain their quiet edges.
+ * The three persistent workspace scrollers use a non-layout overlay. Native
+ * tracks stay hidden so content keeps its full width when overflow starts; the
+ * matching overlay thumb appears while scroll events are arriving, then fades
+ * shortly after scrolling stops.
  */
 .workspace :is(.record-objects__groups, .workspace__content, .record-details) {
-  scrollbar-color: transparent transparent;
-  scrollbar-width: thin;
-}
-
-.workspace
-  :is(
-    .record-objects__groups,
-    .workspace__content,
-    .record-details
-  )[data-scrollbar-visible='true'] {
-  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: none;
 }
 
 .workspace
@@ -3528,30 +3519,34 @@
     .workspace__content,
     .record-details
   )::-webkit-scrollbar {
-  width: var(--space-sm);
-  height: var(--space-sm);
+  display: none;
 }
 
-.workspace
-  :is(
-    .record-objects__groups,
-    .workspace__content,
-    .record-details
-  )::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
+.workspace__scrollbar-overlay {
+  position: absolute;
+  z-index: 45;
+  width: 8px;
+  min-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  transition: opacity var(--motion-quick) var(--motion-ease-standard);
+}
+
+.workspace__scrollbar-overlay::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
   border-radius: 999px;
-  background: transparent;
-  background-clip: padding-box;
+  background: var(--border-strong);
+  content: '';
 }
 
-.workspace
-  :is(
-    .record-objects__groups,
-    .workspace__content,
-    .record-details
-  )[data-scrollbar-visible='true']::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  background-clip: padding-box;
+.workspace__scrollbar-overlay[data-visible='true'] {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 @media (max-width: 1120px) {
