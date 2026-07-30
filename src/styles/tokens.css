@@ -337,6 +337,7 @@
    * literals and names the token it is honouring in a comment.
    */
   --breakpoint-details: 1120px;
+  --breakpoint-management: 900px;
   --breakpoint-navigation: 820px;
   --breakpoint-compact: 680px;
   --breakpoint-tight: 480px;
