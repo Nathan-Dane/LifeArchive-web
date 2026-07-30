@@ -3,7 +3,7 @@
 How the compiled LifeArchive runtime reaches this repository, how it is pinned
 and verified, how it is loaded, and how it behaves when it is missing.
 
-Runtime 0.1.0 is integrated and pinned in `runtime/runtime.lock.json`.
+Runtime 0.1.2 is integrated and pinned in `runtime/runtime.lock.json`.
 
 ## Artifact contents
 
@@ -67,10 +67,10 @@ ordered and duplicate-free. Module, licence, and notices paths must name
 distinct hashed files inside the bundle.
 
 `runtime/web-runtime-policy.json` records the exact dependency profile admitted
-for each reviewed runtime release series. This lets the tracked 0.1.0
-production pin retain its schema-7 profile while a verified local 0.1.1 runtime
-uses schema 8. An unknown release series or a dependency mismatch is rejected
-before worker startup; local selection does not weaken this check.
+for each reviewed runtime release series. This lets historical releases retain
+their reviewed profile while the current pin adopts a newer compatible
+dependency profile. An unknown release series or a dependency mismatch is
+rejected before worker startup; local selection does not weaken this check.
 
 The build ID never exposes a private commit SHA, branch, source path, lockfile
 hash, or internal artifact identity. Private release validation scans payload
