@@ -1,4 +1,10 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+  type UIEvent as ReactUIEvent,
+} from 'react'
 import { useFocusTrap, useMediaQuery } from '../../accessibility'
 import { useTranslate } from '../../i18n'
 import { ShellIcon } from './ShellIcon'
@@ -8,6 +14,10 @@ const REGION_LABELS = {
   navigation: 'app.panel.navigation',
   details: 'app.panel.details',
 } as const
+
+const TRANSIENT_SCROLLBAR_SELECTOR =
+  '.record-objects__groups, .workspace__content, .record-details'
+const SCROLLBAR_HIDE_DELAY_MS = 300
 
 export interface WorkspaceLayoutProps {
   readonly children: ReactNode
@@ -40,6 +50,30 @@ export function WorkspaceLayout({
   const hasDetails = details !== undefined
   const navigationIsDrawer = useMediaQuery('(max-width: 820px)')
   const detailsIsDrawer = useMediaQuery('(max-width: 1120px)')
+  const scrollbarTimers = useRef(
+    new Map<HTMLElement, ReturnType<typeof globalThis.setTimeout>>(),
+  )
+
+  const revealActiveScrollbar = useCallback(
+    (event: ReactUIEvent<HTMLElement>) => {
+      const target = event.target
+      if (
+        !(target instanceof HTMLElement) ||
+        !target.matches(TRANSIENT_SCROLLBAR_SELECTOR)
+      ) {
+        return
+      }
+      target.dataset.scrollbarVisible = 'true'
+      const pending = scrollbarTimers.current.get(target)
+      if (pending !== undefined) globalThis.clearTimeout(pending)
+      const timer = globalThis.setTimeout(() => {
+        delete target.dataset.scrollbarVisible
+        scrollbarTimers.current.delete(target)
+      }, SCROLLBAR_HIDE_DELAY_MS)
+      scrollbarTimers.current.set(target, timer)
+    },
+    [],
+  )
 
   useEffect(() => {
     const panels: WorkspacePanel[] = []
@@ -58,6 +92,16 @@ export function WorkspaceLayout({
     }
   }, [close, detailsIsDrawer, navigationIsDrawer, open])
 
+  useEffect(
+    () => () => {
+      for (const timer of scrollbarTimers.current.values()) {
+        globalThis.clearTimeout(timer)
+      }
+      scrollbarTimers.current.clear()
+    },
+    [],
+  )
+
   return (
     <div
       className="workspace"
@@ -66,6 +110,7 @@ export function WorkspaceLayout({
       data-open={open ?? 'none'}
       inert={inert || undefined}
       aria-disabled={inert || undefined}
+      onScrollCapture={revealActiveScrollbar}
     >
       {hasNavigation ? (
         <WorkspaceRegion

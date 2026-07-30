@@ -166,6 +166,8 @@ export interface TimeWindowFields {
   /** Exact inclusive civil bounds produced by core for boundary requests. */
   readonly startDate: CivilDate
   readonly endDate: CivilDate
+  /** Core-produced week ordinal for Day/Week; Month/Year have no single week. */
+  readonly weekNumber: number | null
   readonly calendarId: string
   readonly timeZoneId: string
 }

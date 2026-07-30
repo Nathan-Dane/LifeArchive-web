@@ -28,6 +28,7 @@ export function coreWindow(
   scale: TimeScale,
   start: string,
   end: string = start,
+  weekNumber: number | null = null,
 ): TimeWindow {
   return coreTimeWindow({
     id: `${scale}:${start}`,
@@ -36,6 +37,7 @@ export function coreWindow(
     endMs: 0,
     startDate: civilDate(start),
     endDate: civilDate(end),
+    weekNumber,
     calendarId: 'gregory',
     timeZoneId: 'UTC',
   })

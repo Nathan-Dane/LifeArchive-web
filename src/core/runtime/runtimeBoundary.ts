@@ -754,17 +754,23 @@ function mapOpenArchive(result: Record<string, unknown>): OpenArchive {
 }
 
 function mapTimeWindow(result: Record<string, unknown>): TimeWindow {
+  const scale = literal(
+    result.scale,
+    ['day', 'week', 'month', 'year'] as const,
+    'time window scale',
+  )
+  const weekNumber = nullableWeekNumber(result.weekNumber)
+  if (weekNumber !== null && scale !== 'day' && scale !== 'week') {
+    throw new TypeError('Malformed time window week number')
+  }
   return coreTimeWindow({
     id: string(result.id, 'time window identifier'),
-    scale: literal(
-      result.scale,
-      ['day', 'week', 'month', 'year'] as const,
-      'time window scale',
-    ),
+    scale,
     startMs: integer(result.startMs, 'time window start'),
     endMs: integer(result.endMs, 'time window end'),
     startDate: requiredCivilDate(result.startDate, 'time window start date'),
     endDate: requiredCivilDate(result.endDate, 'time window end date'),
+    weekNumber,
     calendarId: string(result.calendarId, 'time window calendar'),
     timeZoneId: string(result.timeZoneId, 'time window time zone'),
   })
@@ -2016,6 +2022,14 @@ function nullableCount(value: unknown, description: string): number | null {
   return value === null || value === undefined
     ? null
     : count(value, description)
+}
+
+function nullableWeekNumber(value: unknown): number | null {
+  const number = nullableCount(value, 'time window week number')
+  if (number !== null && (number < 1 || number > 53)) {
+    throw new TypeError('Malformed time window week number')
+  }
+  return number
 }
 
 function nullableString(value: unknown, description: string): string | null {

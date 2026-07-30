@@ -19,6 +19,7 @@ import {
   failureMessage,
   useFormat,
   useLocalisation,
+  type AppLocalisation,
   type Formatters,
 } from '../../../i18n'
 import { civilLocation } from '../civilLocation'
@@ -76,8 +77,10 @@ export function RecordNavigationPanel({ cursor }: RecordNavigationPanelProps) {
   const commandLocation = view
     ? state.scale === 'day'
       ? format.civilDate(view.calendar.focusedDate, 'medium')
-      : fullPeriodLabel(format, view.window)
+      : focusedPeriodLabel(format, view.window)
     : ''
+  const commandWeekNumber =
+    view && state.scale === 'day' ? view.window.weekNumber : null
 
   /*
    * Escape collapses the month first and returns the reader to the control
@@ -130,7 +133,21 @@ export function RecordNavigationPanel({ cursor }: RecordNavigationPanelProps) {
               >
                 <StepIcon name="previous" />
               </button>
-              <p className="record-navigation__location">{commandLocation}</p>
+              <p className="record-navigation__location">
+                <span>{commandLocation}</span>
+                {commandWeekNumber !== null ? (
+                  <span
+                    className="record-navigation__week-number"
+                    aria-label={t('record.navigation.weekNumber', {
+                      number: commandWeekNumber,
+                    })}
+                  >
+                    {t('record.navigation.weekAbbreviation', {
+                      number: commandWeekNumber,
+                    })}
+                  </span>
+                ) : null}
+              </p>
               {state.scale === 'day' ? (
                 <button
                   ref={toggle}
@@ -315,7 +332,9 @@ function PeriodCarousel({
 }) {
   const t = useLocalisation().t
   const format = useFormat()
-  const complete = periods.length === 3 ? periods : null
+  const periodCount =
+    window.scale === 'week' || window.scale === 'month' ? 5 : 3
+  const complete = periods.length === periodCount ? periods : null
   const signature = complete
     ? `${window.id}:${complete.map((period) => period.id).join('|')}`
     : null
@@ -340,8 +359,10 @@ function PeriodCarousel({
       stage !== null &&
       stage.current[0]?.scale === window.scale &&
       motion?.kind === 'horizontal' &&
-      ((direction === 'forward' && adjacentIndex === 2) ||
-        (direction === 'backward' && adjacentIndex === 0))
+      ((direction === 'forward' &&
+        adjacentIndex === Math.floor(periodCount / 2) + 1) ||
+        (direction === 'backward' &&
+          adjacentIndex === Math.floor(periodCount / 2) - 1))
     setStage({
       current: complete,
       selectedId: window.id,
@@ -383,6 +404,7 @@ function PeriodCarousel({
       className="record-navigation__period-carousel"
       role="group"
       aria-label={t('record.navigation.periodStrip')}
+      data-period-count={periodCount}
       data-direction={stage.direction}
       data-transition={stage.transitionPeriods ? 'true' : undefined}
       aria-busy={stage.transitionPeriods ? 'true' : undefined}
@@ -396,11 +418,11 @@ function PeriodCarousel({
           <button
             key={period.id}
             type="button"
-            aria-label={fullPeriodLabel(format, period)}
+            aria-label={fullPeriodLabel(format, t, period)}
             aria-pressed={period.id === stage.selectedId}
             onClick={() => onSelect(period)}
           >
-            {shortPeriodLabel(format, period)}
+            {shortPeriodLabel(format, t, period)}
           </button>
         ))}
       </div>
@@ -440,16 +462,30 @@ function CalendarIcon() {
   )
 }
 
-function fullPeriodLabel(format: Formatters, window: TimeWindow): string {
+function fullPeriodLabel(
+  format: Formatters,
+  t: AppLocalisation['t'],
+  window: TimeWindow,
+): string {
   switch (window.scale) {
     case 'day':
       return format.civilDate(window.startDate, 'medium')
     case 'week':
-      /*
-       * The current contract exposes exact core-produced bounds but no week
-       * ordinal. A range is truthful here; deriving “W28” in React would make
-       * the browser a second week-numbering authority.
-       */
+      return window.weekNumber === null
+        ? format.civilDateRange(window.startDate, window.endDate, 'medium')
+        : t('record.navigation.weekNumber', { number: window.weekNumber })
+    case 'month':
+      return format.civilMonthAndYear(window.startDate)
+    case 'year':
+      return format.civilYear(window.startDate)
+  }
+}
+
+function focusedPeriodLabel(format: Formatters, window: TimeWindow): string {
+  switch (window.scale) {
+    case 'day':
+      return format.civilDate(window.startDate, 'medium')
+    case 'week':
       return format.civilDateRange(window.startDate, window.endDate, 'medium')
     case 'month':
       return format.civilMonthAndYear(window.startDate)
@@ -458,12 +494,20 @@ function fullPeriodLabel(format: Formatters, window: TimeWindow): string {
   }
 }
 
-function shortPeriodLabel(format: Formatters, window: TimeWindow): string {
+function shortPeriodLabel(
+  format: Formatters,
+  t: AppLocalisation['t'],
+  window: TimeWindow,
+): string {
   switch (window.scale) {
     case 'day':
       return format.civilDate(window.startDate, 'short')
     case 'week':
-      return format.civilCompactDateRange(window.startDate, window.endDate)
+      return window.weekNumber === null
+        ? format.civilCompactDateRange(window.startDate, window.endDate)
+        : t('record.navigation.weekAbbreviation', {
+            number: window.weekNumber,
+          })
     case 'month':
       return format.civilMonth(window.startDate)
     case 'year':
