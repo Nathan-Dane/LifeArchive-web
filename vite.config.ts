@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import runtimeLockInput from './runtime/runtime.lock.json' with { type: 'json' }
+import { pinnedRuntimeDevProxy } from './scripts/pinned-runtime-dev-proxy.mjs'
 
 const runtimeDirectory = path.resolve(import.meta.dirname, 'runtime/installed')
 const runtimeMimeTypes: Readonly<Record<string, string>> = {
@@ -75,6 +77,7 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
     },
+    proxy: pinnedRuntimeDevProxy(runtimeLockInput),
   },
   preview: {
     headers: {

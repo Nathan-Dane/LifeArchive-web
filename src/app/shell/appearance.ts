@@ -13,25 +13,35 @@
  * correct before this module runs at all.
  */
 
-export const APPEARANCE_PREFERENCES = ['system', 'light', 'dark'] as const
+import {
+  BROWSER_PREFERENCE_STORAGE_KEYS,
+  DEFAULT_BROWSER_PREFERENCES,
+  PREFERENCE_ATTRIBUTES,
+  THEME_PREFERENCES,
+  browserPreferenceStorage,
+  isThemePreference,
+  readBrowserPreferences,
+  storeBrowserPreference,
+  type ThemePreference,
+} from '../../features/settings/preferences'
 
-export type AppearancePreference = (typeof APPEARANCE_PREFERENCES)[number]
+export const APPEARANCE_PREFERENCES = THEME_PREFERENCES
+
+export type AppearancePreference = ThemePreference
 
 /** The preference used until the reader chooses one. */
-export const DEFAULT_APPEARANCE: AppearancePreference = 'system'
+export const DEFAULT_APPEARANCE: AppearancePreference =
+  DEFAULT_BROWSER_PREFERENCES.theme
 
 /** Namespaced so a self-hosted origin can hold other applications too. */
-export const APPEARANCE_STORAGE_KEY = 'lifearchive.appearance'
+export const APPEARANCE_STORAGE_KEY = BROWSER_PREFERENCE_STORAGE_KEYS.theme
 
-export const APPEARANCE_ATTRIBUTE = 'data-appearance'
+export const APPEARANCE_ATTRIBUTE = PREFERENCE_ATTRIBUTES.theme
 
 export function isAppearancePreference(
   value: unknown,
 ): value is AppearancePreference {
-  return (
-    typeof value === 'string' &&
-    (APPEARANCE_PREFERENCES as readonly string[]).includes(value)
-  )
+  return isThemePreference(value)
 }
 
 /**
@@ -41,34 +51,20 @@ export function isAppearancePreference(
  * unhandled error.
  */
 export function appearanceStorage(): Storage | null {
-  try {
-    return globalThis.localStorage ?? null
-  } catch {
-    return null
-  }
+  return browserPreferenceStorage()
 }
 
 export function readStoredAppearance(
   storage: Storage | null = appearanceStorage(),
 ): AppearancePreference {
-  try {
-    const stored = storage?.getItem(APPEARANCE_STORAGE_KEY)
-    return isAppearancePreference(stored) ? stored : DEFAULT_APPEARANCE
-  } catch {
-    return DEFAULT_APPEARANCE
-  }
+  return readBrowserPreferences(storage).theme
 }
 
 export function storeAppearance(
   appearance: AppearancePreference,
   storage: Storage | null = appearanceStorage(),
 ): void {
-  try {
-    storage?.setItem(APPEARANCE_STORAGE_KEY, appearance)
-  } catch {
-    // A reader who blocks storage still gets the appearance they chose for
-    // this session; only the memory of it is lost.
-  }
+  storeBrowserPreference('theme', appearance, storage)
 }
 
 /** The order the appearance control cycles through. */

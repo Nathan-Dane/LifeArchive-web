@@ -12,15 +12,25 @@ const FOCUSABLE = [
   'input:not([disabled])',
   'select:not([disabled])',
   'textarea:not([disabled])',
+  '[contenteditable="true"]',
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
 function focusableChildren(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    (element) =>
-      !element.hidden &&
-      element.getAttribute('aria-hidden') !== 'true' &&
-      !element.closest('[inert]'),
+    (element) => {
+      const style = globalThis.getComputedStyle(element)
+      return (
+        !element.hidden &&
+        !element.matches(':disabled') &&
+        !element.closest('fieldset[disabled]') &&
+        element.getAttribute('aria-hidden') !== 'true' &&
+        !element.closest('[aria-hidden="true"]') &&
+        !element.closest('[inert]') &&
+        style.display !== 'none' &&
+        style.visibility !== 'hidden'
+      )
+    },
   )
 }
 
@@ -28,6 +38,8 @@ export interface FocusTrapOptions {
   readonly active: boolean
   readonly onEscape: () => void
   readonly restoreFocus?: boolean
+  /** A preferred initial control inside the surface. */
+  readonly initialFocusRef?: RefObject<HTMLElement | null>
   /**
    * An explicit opener for surfaces whose activation hides the focused
    * control before layout effects run.
@@ -45,49 +57,47 @@ export interface FocusTrapOptions {
  */
 export function useFocusTrap(
   container: RefObject<HTMLElement | null>,
-  { active, onEscape, restoreFocus = true, returnFocusRef }: FocusTrapOptions,
+  {
+    active,
+    onEscape,
+    restoreFocus = true,
+    initialFocusRef,
+    returnFocusRef,
+  }: FocusTrapOptions,
 ): void {
   const returnFocus = useRef<HTMLElement | null>(null)
-  const wasActive = useRef(false)
   const onEscapeRef = useRef(onEscape)
   useEffect(() => {
     onEscapeRef.current = onEscape
   }, [onEscape])
 
   useLayoutEffect(() => {
-    if (active && !wasActive.current) {
-      returnFocus.current =
-        returnFocusRef?.current ??
-        (document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null)
-    } else if (!active && wasActive.current && restoreFocus) {
-      returnFocus.current?.focus()
-      returnFocus.current = null
-    }
-    wasActive.current = active
-  }, [active, restoreFocus, returnFocusRef])
-
-  useEffect(
-    () => () => {
-      if (wasActive.current && restoreFocus) returnFocus.current?.focus()
-    },
-    [restoreFocus],
-  )
-
-  useLayoutEffect(() => {
     if (!active) return
     const surface = container.current
     if (!surface) return
+    returnFocus.current =
+      returnFocusRef?.current ??
+      (document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null)
+    focusTrapStack.push(surface)
 
     const moveInside = () => {
-      const target = focusableChildren(surface)[0] ?? surface
+      const target =
+        (initialFocusRef?.current &&
+        surface.contains(initialFocusRef.current) &&
+        focusableChildren(surface).includes(initialFocusRef.current)
+          ? initialFocusRef.current
+          : null) ??
+        focusableChildren(surface)[0] ??
+        surface
       target.focus()
     }
 
     moveInside()
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (focusTrapStack.at(-1) !== surface) return
       if (event.key === 'Escape') {
         event.preventDefault()
         onEscapeRef.current()
@@ -114,6 +124,7 @@ export function useFocusTrap(
     }
 
     const keepFocusInside = (event: FocusEvent) => {
+      if (focusTrapStack.at(-1) !== surface) return
       if (event.target instanceof Node && !surface.contains(event.target)) {
         moveInside()
       }
@@ -125,9 +136,31 @@ export function useFocusTrap(
     return () => {
       document.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('focusin', keepFocusInside)
+      const stackIndex = focusTrapStack.lastIndexOf(surface)
+      if (stackIndex >= 0) focusTrapStack.splice(stackIndex, 1)
+      const focusTarget = returnFocus.current
+      if (
+        restoreFocus &&
+        focusTarget?.isConnected &&
+        !focusTarget.closest('[inert]')
+      ) {
+        queueMicrotask(() => {
+          if (focusTarget.isConnected && !focusTarget.closest('[inert]')) {
+            focusTarget.focus()
+          }
+        })
+      }
+      returnFocus.current = null
     }
-  }, [active, container])
+  }, [active, container, initialFocusRef, restoreFocus, returnFocusRef])
 }
+
+/**
+ * Drawers and portal-based task surfaces may nest. Only the most recently
+ * activated surface owns document-level focus containment; when it closes,
+ * the previous surface becomes the boundary again.
+ */
+const focusTrapStack: HTMLElement[] = []
 
 /** Tracks a CSS media condition without making rendering depend on a width guess. */
 export function useMediaQuery(query: string): boolean {

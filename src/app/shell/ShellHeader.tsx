@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { useTranslate } from '../../i18n'
-import { AppearanceControl } from './AppearanceControl'
 import { ShellIcon, type ShellIconName } from './ShellIcon'
 import { useWorkspacePanels, type WorkspacePanel } from './workspacePanels'
 
@@ -58,6 +57,9 @@ export function ShellHeader({ navigation }: ShellHeaderProps) {
     <header className="shell-header">
       <div className="shell-brand">
         <span className="shell-brand__name">{t('app.name')}</span>
+        {navigation ? (
+          <span className="shell-brand__local">{t('app.archive.local')}</span>
+        ) : null}
       </div>
       {navigation}
       <div className="shell-actions">
@@ -65,7 +67,6 @@ export function ShellHeader({ navigation }: ShellHeaderProps) {
           <PanelToggle panel="navigation" />
         ) : null}
         {available.includes('details') ? <PanelToggle panel="details" /> : null}
-        <AppearanceControl />
       </div>
     </header>
   )

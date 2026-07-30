@@ -27,7 +27,7 @@ preview deployment, or `latest` alias for these values.
 
 The pilot support floor is:
 
-- Chromium 151 or newer, desktop, regular browser profile.
+- Chromium 137 or newer, desktop, regular browser profile.
 - Firefox 153 or newer, desktop, regular browser profile.
 
 Record the complete browser version for every result. A passing run qualifies

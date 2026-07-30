@@ -20,11 +20,20 @@
     "safety:mock": "pnpm safety:production",
     "runtime:fetch": "node scripts/fetch-runtime.mjs",
     "runtime:install-local": "node scripts/install-local-runtime.mjs",
+    "icons:update": "node scripts/update-material-symbols.mjs",
+    "icons:check": "node scripts/update-material-symbols.mjs --check",
     "test:policy": "node --test scripts/*.test.mjs",
     "test:runtime-fetch": "node --test scripts/fetch-runtime.test.mjs scripts/runtime-ci-policy.test.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm safety && pnpm test:policy && pnpm test:run && pnpm build && pnpm safety:production"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm safety && pnpm icons:check && pnpm test:policy && pnpm test:run && pnpm build && pnpm safety:production"
   },
   "dependencies": {
+    "@lexical/link": "0.48.0",
+    "@lexical/list": "0.48.0",
+    "@lexical/markdown": "0.48.0",
+    "@lexical/react": "0.48.0",
+    "@lexical/rich-text": "0.48.0",
+    "@lexical/selection": "0.48.0",
+    "lexical": "0.48.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",

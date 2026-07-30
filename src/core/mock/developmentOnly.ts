@@ -32,8 +32,9 @@ export interface BuildMode {
   readonly clientSelection: string | null
 }
 
-/** The one value that selects the mock. Anything else selects the runtime. */
+/** The two explicit development selections. Absence selects the hosted pin. */
 export const DEVELOPMENT_MOCK_SELECTION = 'development-mock'
+export const LOCAL_RUNTIME_SELECTION = 'local-runtime'
 
 /** Reads the current build's facts. The only place `import.meta.env` is read. */
 export function currentBuildMode(): BuildMode {
@@ -58,6 +59,13 @@ export function isDevelopmentMockSelected(mode: BuildMode): boolean {
     mode.DEV &&
     !mode.PROD &&
     mode.clientSelection === DEVELOPMENT_MOCK_SELECTION
+  )
+}
+
+/** True only for a development build that explicitly asked for local bytes. */
+export function isLocalRuntimeSelected(mode: BuildMode): boolean {
+  return (
+    mode.DEV && !mode.PROD && mode.clientSelection === LOCAL_RUNTIME_SELECTION
   )
 }
 

@@ -19,7 +19,7 @@ const payloadNames = [
 
 const ACCEPTED_BROWSER: BrowserAdmissionEnvironment = {
   engine: 'chromium',
-  majorVersion: 151,
+  majorVersion: 137,
   deviceClass: 'desktop',
   storageMode: 'regular',
 }
@@ -274,6 +274,7 @@ async function loaderFor(
     readonly corruptPayload?: boolean
     readonly createWorker?: () => Worker
     readonly secure?: boolean
+    readonly useDevelopmentArtifactProxy?: boolean
   } = {},
 ) {
   const fixed = await fixture({
@@ -291,10 +292,13 @@ async function loaderFor(
   const lock = change.lock ?? fixed.lock
   const worker = new NegotiatingWorker(fixed.manifest.capabilities)
   const fetches: { readonly url: string; readonly cache?: RequestCache }[] = []
+  const expectedArtifactUrl = change.useDevelopmentArtifactProxy
+    ? `https://app.example${new URL(fixed.lock.artifactUrl).pathname}`
+    : fixed.lock.artifactUrl
   const fetchImpl: typeof fetch = (input, init) => {
     const url = String(input)
     fetches.push({ url, cache: init?.cache })
-    if (url === fixed.lock.artifactUrl) {
+    if (url === expectedArtifactUrl) {
       if (change.artifactResponse instanceof Error) {
         return Promise.reject(change.artifactResponse)
       }
@@ -315,6 +319,7 @@ async function loaderFor(
     loader: new RuntimeLoader({
       lock,
       fetch: fetchImpl,
+      useDevelopmentArtifactProxy: change.useDevelopmentArtifactProxy,
       isSecureContext: change.secure ?? true,
       installedBaseUrl: 'https://app.example/runtime/installed/',
       createObjectUrl: () => {
@@ -349,7 +354,7 @@ describe('RuntimeLoader', () => {
     expect(fetched).toBe(false)
   })
 
-  it('loads a verified local receipt only through the development runtime gate', async () => {
+  it('uses a verified local receipt even while the tracked lock is pinned', async () => {
     const fixed = await fixture()
     const worker = new NegotiatingWorker(fixed.manifest.capabilities)
     const baseUrl = 'https://app.example/runtime/installed/'
@@ -360,7 +365,14 @@ describe('RuntimeLoader', () => {
       const url = new URL(String(input))
       fetched.push({ url: url.href, cache: init?.cache })
       if (url.href === `${baseUrl}local-runtime.json`) {
-        return response(JSON.stringify({ lock: fixed.lock, artifactFile }))
+        return response(
+          JSON.stringify({
+            receiptVersion: 1,
+            source: 'lifearchive:local-runtime-source:v1',
+            lock: fixed.lock,
+            artifactFile,
+          }),
+        )
       }
       if (url.pathname.endsWith(`/${artifactFile}`)) {
         return responseBytes(fixed.artifact)
@@ -370,10 +382,10 @@ describe('RuntimeLoader', () => {
     const objectUrls: string[] = []
     const revoked: string[] = []
     const state = await new RuntimeLoader({
-      lock: NOT_INTEGRATED_LOCK,
+      lock: { ...fixed.lock, sha256: '0'.repeat(64) },
       fetch: fetchImpl,
+      source: 'local-runtime',
       installedBaseUrl: baseUrl,
-      allowDevelopmentRuntime: true,
       isSecureContext: true,
       createWorker: () => worker.asWorker(),
       browserEnvironment: ACCEPTED_BROWSER,
@@ -403,6 +415,95 @@ describe('RuntimeLoader', () => {
       },
     })
     expect(revoked).toEqual(objectUrls)
+  })
+
+  it('never falls back when selected local material is missing or malformed', async () => {
+    const fixed = await fixture()
+    const baseUrl = 'https://app.example/runtime/installed/'
+    for (const receipt of [
+      new Response(null, { status: 404 }),
+      new Response('{"receiptVersion":2}', { status: 200 }),
+    ]) {
+      const fetched: string[] = []
+      const state = await new RuntimeLoader({
+        lock: fixed.lock,
+        source: 'local-runtime',
+        installedBaseUrl: baseUrl,
+        fetch: (input) => {
+          fetched.push(String(input))
+          return Promise.resolve(receipt.clone())
+        },
+      }).load()
+      expect(state).toEqual(
+        receipt.status === 404
+          ? { state: 'unavailable', reason: 'missing' }
+          : { state: 'incompatible', reason: 'manifest-mismatch' },
+      )
+      expect(fetched).toEqual([`${baseUrl}local-runtime.json`])
+    }
+  })
+
+  it('invalidates verified local bytes when the receipt checksum changes', async () => {
+    const fixed = await fixture()
+    const worker = new NegotiatingWorker(fixed.manifest.capabilities)
+    const baseUrl = 'https://app.example/runtime/installed/'
+    const artifactFile = `lifearchive-runtime-web-${fixed.lock.runtimeVersion}.tar.gz`
+    let receiptReads = 0
+    const artifactUrls: string[] = []
+    const loader = new RuntimeLoader({
+      lock: fixed.lock,
+      source: 'local-runtime',
+      installedBaseUrl: baseUrl,
+      fetch: (input) => {
+        const url = String(input)
+        if (url === `${baseUrl}local-runtime.json`) {
+          receiptReads += 1
+          const lock =
+            receiptReads === 1
+              ? fixed.lock
+              : { ...fixed.lock, sha256: '0'.repeat(64) }
+          return response(
+            JSON.stringify({
+              receiptVersion: 1,
+              source: 'lifearchive:local-runtime-source:v1',
+              lock,
+              artifactFile,
+            }),
+          )
+        }
+        artifactUrls.push(url)
+        return responseBytes(fixed.artifact)
+      },
+      isSecureContext: true,
+      createWorker: () => worker.asWorker(),
+      browserEnvironment: ACCEPTED_BROWSER,
+      createObjectUrl: () => 'blob:https://app.example/verified',
+      revokeObjectUrl: () => undefined,
+    })
+
+    await expect(loader.load()).resolves.toMatchObject({ state: 'open' })
+    await expect(loader.load()).resolves.toEqual({
+      state: 'incompatible',
+      reason: 'checksum-mismatch',
+    })
+    expect(artifactUrls).toEqual([
+      `${baseUrl}${artifactFile}?local-runtime=${fixed.lock.sha256}`,
+      `${baseUrl}${artifactFile}?local-runtime=${'0'.repeat(64)}`,
+    ])
+  })
+
+  it('loads the pinned artifact through the current development origin', async () => {
+    const { loader, fetches } = await loaderFor({
+      useDevelopmentArtifactProxy: true,
+    })
+
+    await expect(loader.load()).resolves.toMatchObject({ state: 'open' })
+    expect(fetches).toEqual([
+      {
+        url: 'https://app.example/lifearchive-runtime-web-0.1.0.tar.gz',
+        cache: 'no-store',
+      },
+    ])
   })
 
   it('reports unsupported and insecure environments before fetching', async () => {

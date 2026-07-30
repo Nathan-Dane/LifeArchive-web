@@ -4,7 +4,14 @@ const listeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
 function mediaQueryList(query: string): MediaQueryList {
   return {
     media: query,
-    matches: matches.has(query),
+    /*
+     * Read on access, not captured. A listener re-reads `matches` from the
+     * list it was registered on, so a snapshot taken when the list was created
+     * would make a change event announce a condition the object still denies.
+     */
+    get matches(): boolean {
+      return matches.has(query)
+    },
     onchange: null,
     addEventListener: (
       _type: string,

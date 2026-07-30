@@ -1,11 +1,6 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import {
-  applyAppearance,
-  readStoredAppearance,
-  storeAppearance,
-  type AppearancePreference,
-} from './appearance'
-import { AppearanceContext } from './appearanceContext'
+import type { ReactNode } from 'react'
+import { BrowserPreferencesProvider } from '../../features/settings/preferences'
+import type { AppearancePreference } from './appearance'
 
 export interface AppearanceProviderProps {
   readonly children: ReactNode
@@ -23,28 +18,13 @@ export function AppearanceProvider({
   children,
   initialAppearance,
 }: AppearanceProviderProps) {
-  const [appearance, setStoredAppearance] = useState<AppearancePreference>(
-    () => {
-      const initial = initialAppearance ?? readStoredAppearance()
-      applyAppearance(initial)
-      return initial
-    },
-  )
-
-  const setAppearance = useCallback((next: AppearancePreference) => {
-    setStoredAppearance(next)
-    applyAppearance(next)
-    storeAppearance(next)
-  }, [])
-
-  const value = useMemo(
-    () => ({ appearance, setAppearance }),
-    [appearance, setAppearance],
-  )
-
   return (
-    <AppearanceContext.Provider value={value}>
+    <BrowserPreferencesProvider
+      initialPreferences={
+        initialAppearance ? { theme: initialAppearance } : undefined
+      }
+    >
       {children}
-    </AppearanceContext.Provider>
+    </BrowserPreferencesProvider>
   )
 }

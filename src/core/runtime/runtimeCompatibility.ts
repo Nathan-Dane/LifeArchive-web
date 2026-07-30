@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import webRuntimePolicy from '../../../runtime/web-runtime-policy.json'
 
 const exactVersion = /^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){0,2}$/
 const exactRuntimeVersion =
@@ -14,47 +15,13 @@ const bundlePathSchema = z
   .refine((value) => value.split('/').every((part) => part !== '.'))
   .refine((value) => value.split('/').every((part) => part !== '..'))
 
-export const WEB_V0_1_CAPABILITIES = [
-  ['product.describe', '5'],
-  ['archive.verify', '4'],
-  ['store.open', '5'],
-  ['store.close', '1'],
-  ['store.invalidation', '1'],
-  ['operation.cancel', '1'],
-  ['record.loadSpan', '1'],
-  ['record.saveDraft', '1'],
-  ['record.deleteEntry', '1'],
-  ['timeline.index', '4'],
-  ['timeline.focusedDetail', '1'],
-  ['media.listForEntry', '1'],
-  ['media.resolveContent', '1'],
-  ['media.import', '1'],
-  ['media.delete', '1'],
-  ['archive.overview', '5'],
-  ['archive.export', '5'],
-  ['archive.apply', '5'],
-  ['archive.erase', '2'],
-  ['record.listObjects', '3'],
-  ['structured.load', '3'],
-  ['structured.create', '3'],
-  ['structured.save', '3'],
-  ['structured.delete', '1'],
-  ['structured.convertSpanToEvent', '3'],
-  ['timeline.structuredDetail', '3'],
-  ['timeline.structuredList', '3'],
-  ['archive.identity.load', '1'],
-  ['archive.identity.save', '1'],
-  ['track.list', '2'],
-  ['track.load', '2'],
-  ['track.create', '2'],
-  ['track.save', '2'],
-  ['track.delete', '2'],
-  ['track.createWithFirstMember', '2'],
-  ['track.history', '2'],
-  ['track.attachMember', '1'],
-  ['track.detachMember', '1'],
-  ['track.createMember', '1'],
-] as const
+export const WEB_V0_1_CAPABILITIES = webRuntimePolicy.capabilities.map(
+  ({ name, version }) => [name, version] as const,
+)
+
+const WEB_V0_1_DEPENDENCY_PROFILES: Readonly<
+  Record<string, Readonly<Record<string, string>>>
+> = webRuntimePolicy.dependencyProfiles
 
 const unpinnedRuntimeLockSchema = z.strictObject({
   manifestVersion: z.literal(1),
@@ -153,6 +120,21 @@ export const runtimeManifestSchema = z
     }),
   })
   .superRefine((manifest, context) => {
+    if (manifest.productContract !== webRuntimePolicy.productContract) {
+      context.addIssue({
+        code: 'custom',
+        message: 'product contract must match the web runtime policy',
+        path: ['productContract'],
+      })
+    }
+    if (manifest.bindingsAbi !== webRuntimePolicy.bindingsAbi) {
+      context.addIssue({
+        code: 'custom',
+        message: 'bindings ABI must match the web runtime policy',
+        path: ['bindingsAbi'],
+      })
+    }
+
     if (/^[0-9a-f]{40}$|^[0-9a-f]{64}$/i.test(manifest.buildId)) {
       context.addIssue({
         code: 'custom',
@@ -161,30 +143,24 @@ export const runtimeManifestSchema = z
       })
     }
 
-    const expectedDependencies = {
-      domain: '4',
-      timeNavigation: '1',
-      durableMedia: '1',
-      archiveApplication: '5',
-      applicationQuery: '4',
-      providerNeutralAI: '3',
-      archiveOverviewExport: '5',
-      store: '5',
-      rootLayout: '1',
-      sqliteSchema: '7',
-      archiveFormat: '0.4.1',
-    }
+    const runtimeSeries = manifest.runtimeVersion.split('-', 1)[0]
+    const expectedDependencies =
+      WEB_V0_1_DEPENDENCY_PROFILES[runtimeSeries ?? '']
     if (
+      expectedDependencies === undefined ||
+      Object.keys(manifest.dependencyVersions).length !==
+        Object.keys(expectedDependencies).length ||
       Object.entries(expectedDependencies).some(
         ([name, version]) =>
           manifest.dependencyVersions[
-            name as keyof typeof expectedDependencies
+            name as keyof typeof manifest.dependencyVersions
           ] !== version,
       )
     ) {
       context.addIssue({
         code: 'custom',
-        message: 'dependency versions must match product contract 5',
+        message:
+          'dependency versions must match the approved runtime version profile',
         path: ['dependencyVersions'],
       })
     }

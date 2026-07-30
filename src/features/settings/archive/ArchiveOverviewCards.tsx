@@ -13,6 +13,7 @@ import {
   type ArchiveFact,
 } from './archiveOverviewController'
 import type { ArchiveStorageFacts } from './storageFactsAdapter'
+import { useSharedArchiveOverview } from './archiveOverviewContext'
 
 const DURABILITY_MESSAGES = {
   durable: 'settings.archive.storage.durability.durable',
@@ -34,7 +35,34 @@ export function ArchiveOverviewCards({
   readonly client: LifeArchiveClient
   readonly persistence?: StoragePersistence
 }) {
-  const { state, retry } = useArchiveOverview(client, persistence)
+  const shared = useSharedArchiveOverview()
+  return shared ? (
+    <ArchiveOverviewCardsContent state={shared.state} retry={shared.retry} />
+  ) : (
+    <ArchiveOverviewCardsLoader client={client} persistence={persistence} />
+  )
+}
+
+function ArchiveOverviewCardsLoader({
+  client,
+  persistence,
+}: {
+  readonly client: LifeArchiveClient
+  readonly persistence?: StoragePersistence
+}) {
+  const controller = useArchiveOverview(client, persistence)
+  return (
+    <ArchiveOverviewCardsContent
+      state={controller.state}
+      retry={controller.retry}
+    />
+  )
+}
+
+function ArchiveOverviewCardsContent({
+  state,
+  retry,
+}: ReturnType<typeof useArchiveOverview>) {
   return (
     <div className="settings-archive">
       <ArchiveHealthCard
@@ -101,58 +129,42 @@ function ArchiveHealthCard({
 function OverviewFacts({ overview }: { readonly overview: ArchiveOverview }) {
   const t = useTranslate()
   const format = useFormat()
-  const scales = [
-    {
-      key: 'day',
-      count: overview.entryCounts.day,
-      message: 'settings.archive.entries.days',
-    },
-    {
-      key: 'week',
-      count: overview.entryCounts.week,
-      message: 'settings.archive.entries.weeks',
-    },
-    {
-      key: 'month',
-      count: overview.entryCounts.month,
-      message: 'settings.archive.entries.months',
-    },
-    {
-      key: 'year',
-      count: overview.entryCounts.year,
-      message: 'settings.archive.entries.years',
-    },
-  ] as const
-  const visibleScales = scales.filter(({ count }) => count > 0)
 
   return (
-    <dl className="archive-health-card__facts">
+    <dl className="settings-value-list settings-overview-list">
       <div>
         <dt>{t('settings.archive.health.label')}</dt>
         <dd>{t('settings.archive.health.verified')}</dd>
-        <dd className="archive-health-card__secondary">
-          {t('settings.archive.health.recoveryClean')}
-        </dd>
       </div>
       <div>
         <dt>{t('settings.archive.entries.label')}</dt>
-        <dd>
+        <dd className="settings-counts">
           {t('settings.archive.entries.total', {
             count: overview.visibleEntryCount,
           })}
+          <span>
+            {[
+              t('settings.archive.entries.days', {
+                count: overview.entryCounts.day,
+              }),
+              t('settings.archive.entries.weeks', {
+                count: overview.entryCounts.week,
+              }),
+              t('settings.archive.entries.months', {
+                count: overview.entryCounts.month,
+              }),
+              t('settings.archive.entries.years', {
+                count: overview.entryCounts.year,
+              }),
+              t('settings.archive.entries.events', {
+                count: overview.structuredCounts.events,
+              }),
+              t('settings.archive.entries.spans', {
+                count: overview.structuredCounts.spans,
+              }),
+            ].join(' · ')}
+          </span>
         </dd>
-        {visibleScales.length > 0 ? (
-          <dd>
-            <ul
-              className="archive-health-card__breakdown"
-              aria-label={t('settings.archive.entries.breakdown')}
-            >
-              {visibleScales.map(({ key, count, message }) => (
-                <li key={key}>{t(message, { count })}</li>
-              ))}
-            </ul>
-          </dd>
-        ) : null}
       </div>
       <div>
         <dt>{t('settings.archive.media.label')}</dt>
@@ -163,7 +175,34 @@ function OverviewFacts({ overview }: { readonly overview: ArchiveOverview }) {
           })}
         </dd>
       </div>
+      <UnavailableOverviewRow
+        label={t('settings.archive.lastExport.label')}
+        value={t('settings.archive.history.unavailable')}
+      />
+      <UnavailableOverviewRow
+        label={t('settings.archive.lastVerification.label')}
+        value={t('settings.archive.history.unavailable')}
+      />
+      <UnavailableOverviewRow
+        label={t('settings.archive.format.label')}
+        value={t('settings.status.notAvailable')}
+      />
     </dl>
+  )
+}
+
+function UnavailableOverviewRow({
+  label,
+  value,
+}: {
+  readonly label: string
+  readonly value: string
+}) {
+  return (
+    <div className="settings-value-list__disabled" aria-disabled="true">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
   )
 }
 
@@ -199,17 +238,6 @@ function ArchiveStorageCard({
               value={t(GRANT_MESSAGES[storage.value.grant])}
             />
             <StorageRow
-              label={t('settings.archive.storage.estimate.label')}
-              value={
-                storage.value.estimate
-                  ? t('settings.archive.storage.estimate.value', {
-                      quota: format.byteSize(storage.value.estimate.quotaBytes),
-                      used: format.byteSize(storage.value.estimate.usedBytes),
-                    })
-                  : t('settings.archive.storage.estimate.unavailable')
-              }
-            />
-            <StorageRow
               label={t('settings.archive.storage.runtime.label')}
               value={
                 storage.value.runtime
@@ -217,6 +245,15 @@ function ArchiveStorageCard({
                   : t('settings.archive.storage.runtime.unavailable')
               }
             />
+            {storage.value.estimate ? (
+              <StorageRow
+                label={t('settings.archive.storage.estimate.label')}
+                value={t('settings.archive.storage.estimate.value', {
+                  used: format.byteSize(storage.value.estimate.usedBytes),
+                  quota: format.byteSize(storage.value.estimate.quotaBytes),
+                })}
+              />
+            ) : null}
           </dl>
           <p className="settings-group__footer">
             {storage.value.runtime?.archiveOpen

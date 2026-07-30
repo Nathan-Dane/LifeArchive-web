@@ -25,7 +25,11 @@ import {
   type MessageKey,
   type PluralCategory,
 } from './catalog'
-import { createFormatters, type Formatters } from './format'
+import {
+  createFormatters,
+  type DateFormatPreference,
+  type Formatters,
+} from './format'
 
 /** Thrown when a build-time key is not in the catalog. */
 export class MissingMessageError extends Error {
@@ -128,8 +132,9 @@ const NO_VALUES: DynamicValues = Object.freeze({})
 export function createLocalisation<Catalog extends MessageCatalog>(
   locale: string,
   catalog: Catalog,
+  datePreference: DateFormatPreference = 'regional',
 ): Localisation<Catalog> {
-  const format = createFormatters(locale)
+  const format = createFormatters(locale, datePreference)
 
   const render = (key: string, values: DynamicValues): string | null => {
     const entry = Object.hasOwn(catalog, key) ? catalog[key] : undefined

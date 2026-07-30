@@ -118,6 +118,45 @@ describe('runtime state', () => {
     ).toThrow()
   })
 
+  it('admits the reviewed 0.1.1 dependency profile without breaking 0.1.0', () => {
+    const nextLock = {
+      ...pinnedLock,
+      runtimeVersion: '0.1.1',
+      artifactUrl:
+        'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.1.tar.gz',
+    }
+    const nextManifest = {
+      ...manifest,
+      runtimeVersion: '0.1.1',
+      dependencyVersions: {
+        ...manifest.dependencyVersions,
+        sqliteSchema: '8',
+      },
+    }
+
+    expect(assertRuntimeCompatibility(nextManifest, nextLock)).toEqual(
+      nextManifest,
+    )
+    expect(() =>
+      assertRuntimeCompatibility(
+        {
+          ...nextManifest,
+          dependencyVersions: manifest.dependencyVersions,
+        },
+        nextLock,
+      ),
+    ).toThrow()
+    expect(() =>
+      assertRuntimeCompatibility(
+        {
+          ...manifest,
+          dependencyVersions: nextManifest.dependencyVersions,
+        },
+        pinnedLock,
+      ),
+    ).toThrow()
+  })
+
   it('rejects duplicate capabilities even when the list length is unchanged', () => {
     const capabilities = [...manifest.capabilities]
     capabilities[1] = capabilities[0]
@@ -126,7 +165,7 @@ describe('runtime state', () => {
     ).toThrow()
   })
 
-  it('keeps every ergonomic runtime dispatch inside the approved 39-operation ABI', () => {
+  it('keeps every ergonomic runtime dispatch inside the approved 42-operation ABI', () => {
     const approved = new Set<string>(
       WEB_V0_1_CAPABILITIES.map(([operation]) => operation),
     )
@@ -134,7 +173,7 @@ describe('runtime state', () => {
       (entry) => entry.operation,
     )
 
-    expect(WEB_V0_1_CAPABILITIES).toHaveLength(39)
+    expect(WEB_V0_1_CAPABILITIES).toHaveLength(42)
     expect(new Set(dispatched).size).toBe(dispatched.length)
     expect(dispatched.filter((operation) => !approved.has(operation))).toEqual(
       [],
@@ -155,9 +194,9 @@ describe('runtime state', () => {
       ),
     ).toBe(true)
     expect(dispatched).not.toContain('runtime.storage')
-    expect(dispatched).not.toContain('time.window')
-    expect(dispatched).not.toContain('time.step')
-    expect(dispatched).not.toContain('time.calendarContext')
+    expect(dispatched).toContain('time.window')
+    expect(dispatched).toContain('time.step')
+    expect(dispatched).toContain('time.calendarContext')
   })
 
   it('rejects missing licence files and private commit identities', () => {

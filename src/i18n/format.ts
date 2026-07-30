@@ -22,16 +22,51 @@ import { isCivilDate, type CivilDate } from '../core/client'
 /** How much of a date to spell out. */
 export type DateStyle = 'long' | 'medium' | 'short'
 
+/** How much of a weekday name to spell out. */
+export type WeekdayStyle = 'long' | 'short' | 'narrow'
+
+/** How much of a month name to spell out. */
+export type MonthStyle = 'long' | 'short'
+
+/** A browser-only override for the order used when a complete date is shown. */
+export type DateFormatPreference =
+  'regional' | 'day-month-year' | 'month-day-year'
+
 export interface Formatters {
   /** The locale these formatters resolve against. */
   readonly locale: string
   /** One civil date, in the locale's own wording and order. */
   readonly civilDate: (date: CivilDate | string, style?: DateStyle) => string
+  /**
+   * The weekday one civil date falls on, named by the platform. A calendar
+   * header takes its column names from the days the core placed there, so no
+   * weekday name is ever ordered, numbered, or assembled here.
+   */
+  readonly civilWeekday: (
+    date: CivilDate | string,
+    style?: WeekdayStyle,
+  ) => string
+  /**
+   * The day-of-month numeral of one civil date, in the locale's own digits.
+   * It is read out of the date, never counted towards or away from one.
+   */
+  readonly civilDayOfMonth: (date: CivilDate | string) => string
+  /** The month one civil date falls in, in the locale's own wording. */
+  readonly civilMonth: (date: CivilDate | string, style?: MonthStyle) => string
+  /** The month and year one civil date falls in, in the locale's wording. */
+  readonly civilMonthAndYear: (date: CivilDate | string) => string
+  /** The year one core-produced period begins in, in locale digits. */
+  readonly civilYear: (date: CivilDate | string) => string
   /** An inclusive civil-date range, using the locale's own range wording. */
   readonly civilDateRange: (
     start: CivilDate | string,
     end: CivilDate | string,
     style?: DateStyle,
+  ) => string
+  /** A compact inclusive range for a small core-returned period control. */
+  readonly civilCompactDateRange: (
+    start: CivilDate | string,
+    end: CivilDate | string,
   ) => string
   /** A number, with the locale's own grouping and decimal marks. */
   readonly number: (value: number, options?: Intl.NumberFormatOptions) => string
@@ -83,17 +118,31 @@ function civilDateAsUtcInstant(date: CivilDate | string): Date {
  * Builds the formatters for one locale. `Intl` objects are created once per
  * locale and reused: constructing them is the expensive part.
  */
-export function createFormatters(locale: string): Formatters {
-  const dateFormats = new Map<DateStyle, Intl.DateTimeFormat>()
+export function createFormatters(
+  locale: string,
+  datePreference: DateFormatPreference = 'regional',
+): Formatters {
+  const dateFormats = new Map<string, Intl.DateTimeFormat>()
   const numberFormats = new Map<string, Intl.NumberFormat>()
+  const dateLocale =
+    datePreference === 'regional'
+      ? locale
+      : datePreference === 'day-month-year'
+        ? 'en-GB'
+        : 'en-US'
 
-  const dateFormat = (style: DateStyle): Intl.DateTimeFormat => {
-    const existing = dateFormats.get(style)
+  const dateFormat = (
+    key: string,
+    options: Intl.DateTimeFormatOptions,
+  ): Intl.DateTimeFormat => {
+    const existing = dateFormats.get(key)
     if (existing) return existing
-    const created = new Intl.DateTimeFormat(locale, DATE_OPTIONS[style])
-    dateFormats.set(style, created)
+    const created = new Intl.DateTimeFormat(dateLocale, options)
+    dateFormats.set(key, created)
     return created
   }
+
+  const styled = (style: DateStyle) => dateFormat(style, DATE_OPTIONS[style])
 
   const numberFormat = (options?: Intl.NumberFormatOptions) => {
     const key = options ? JSON.stringify(options) : ''
@@ -107,12 +156,43 @@ export function createFormatters(locale: string): Formatters {
   const formatters: Formatters = {
     locale,
     civilDate: (date, style = 'long') =>
-      dateFormat(style).format(civilDateAsUtcInstant(date)),
+      styled(style).format(civilDateAsUtcInstant(date)),
+    civilWeekday: (date, style = 'short') =>
+      dateFormat(`weekday:${style}`, {
+        weekday: style,
+        timeZone: 'UTC',
+      }).format(civilDateAsUtcInstant(date)),
+    civilDayOfMonth: (date) =>
+      dateFormat('dayOfMonth', { day: 'numeric', timeZone: 'UTC' }).format(
+        civilDateAsUtcInstant(date),
+      ),
+    civilMonth: (date, style = 'short') =>
+      dateFormat(`month:${style}`, {
+        month: style,
+        timeZone: 'UTC',
+      }).format(civilDateAsUtcInstant(date)),
+    civilMonthAndYear: (date) =>
+      dateFormat('monthAndYear', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC',
+      }).format(civilDateAsUtcInstant(date)),
+    civilYear: (date) =>
+      dateFormat('year', {
+        year: 'numeric',
+        timeZone: 'UTC',
+      }).format(civilDateAsUtcInstant(date)),
     civilDateRange: (start, end, style = 'long') =>
-      dateFormat(style).formatRange(
+      styled(style).formatRange(
         civilDateAsUtcInstant(start),
         civilDateAsUtcInstant(end),
       ),
+    civilCompactDateRange: (start, end) =>
+      dateFormat('compactRange', {
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'UTC',
+      }).formatRange(civilDateAsUtcInstant(start), civilDateAsUtcInstant(end)),
     number: (value, options) => numberFormat(options).format(value),
     byteSize: (bytes) => {
       const magnitude = bytes >= 1000 ? Math.floor(Math.log10(bytes) / 3) : 0

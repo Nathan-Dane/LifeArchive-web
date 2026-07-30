@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { BuildMode } from './developmentOnly'
-import { isDevelopmentMockSelected } from './developmentOnly'
-import { selectClient } from './selectClient'
+import {
+  isDevelopmentMockSelected,
+  isLocalRuntimeSelected,
+} from './developmentOnly'
+import {
+  InvalidDevelopmentClientSelectionError,
+  selectClient,
+} from './selectClient'
 
 function mode(overrides: Partial<BuildMode> = {}): BuildMode {
   return {
@@ -14,10 +20,13 @@ function mode(overrides: Partial<BuildMode> = {}): BuildMode {
 
 describe('selecting a client', () => {
   it('selects the runtime when nothing asked for the mock', async () => {
-    await expect(selectClient(mode())).resolves.toEqual({ mode: 'runtime' })
+    await expect(selectClient(mode())).resolves.toEqual({
+      mode: 'runtime',
+      source: 'hosted',
+    })
   })
 
-  it('selects the runtime for any value other than the exact opt-in', async () => {
+  it('rejects every unrecognized development value', async () => {
     for (const clientSelection of [
       '',
       'mock',
@@ -26,10 +35,19 @@ describe('selecting a client', () => {
       'development-mock ',
       'true',
     ]) {
-      await expect(selectClient(mode({ clientSelection }))).resolves.toEqual({
-        mode: 'runtime',
-      })
+      await expect(
+        selectClient(mode({ clientSelection })),
+      ).rejects.toBeInstanceOf(InvalidDevelopmentClientSelectionError)
     }
+  })
+
+  it('selects the local runtime only for its exact development opt-in', async () => {
+    await expect(
+      selectClient(mode({ clientSelection: 'local-runtime' })),
+    ).resolves.toEqual({
+      mode: 'runtime',
+      source: 'local-runtime',
+    })
   })
 
   it('selects the mock only for the explicit development opt-in', async () => {
@@ -46,10 +64,15 @@ describe('selecting a client', () => {
   })
 
   it('never selects the mock in a production build, opt-in or not', async () => {
-    for (const clientSelection of ['development-mock', null]) {
+    for (const clientSelection of [
+      'development-mock',
+      'local-runtime',
+      'unrecognized',
+      null,
+    ]) {
       await expect(
         selectClient(mode({ DEV: false, PROD: true, clientSelection })),
-      ).resolves.toEqual({ mode: 'runtime' })
+      ).resolves.toEqual({ mode: 'runtime', source: 'hosted' })
     }
   })
 
@@ -73,6 +96,30 @@ describe('selecting a client', () => {
         DEV: true,
         PROD: false,
         clientSelection: 'development-mock',
+      }),
+    ).toBe(true)
+  })
+
+  it('never selects local runtime outside an exact development selection', () => {
+    expect(
+      isLocalRuntimeSelected({
+        DEV: false,
+        PROD: true,
+        clientSelection: 'local-runtime',
+      }),
+    ).toBe(false)
+    expect(
+      isLocalRuntimeSelected({
+        DEV: true,
+        PROD: false,
+        clientSelection: 'local-runtime ',
+      }),
+    ).toBe(false)
+    expect(
+      isLocalRuntimeSelected({
+        DEV: true,
+        PROD: false,
+        clientSelection: 'local-runtime',
       }),
     ).toBe(true)
   })

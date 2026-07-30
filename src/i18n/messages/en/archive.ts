@@ -66,6 +66,9 @@ export const archiveMessages = {
 
   'archive.import.eyebrow': 'Archive lifecycle',
   'archive.import.title': 'Import an archive',
+  'archive.import.compactTitle': 'Import',
+  'archive.import.compactDetail':
+    'Merge writing and media from an archive package.',
   'archive.import.detail':
     'Choose a supported LifeArchive package. It is checked and applied as one operation; if it cannot be applied, the open archive stays in place.',
   'archive.import.file.label': 'Archive package',
@@ -125,6 +128,9 @@ export const archiveMessages = {
 
   'archive.export.eyebrow': 'Portable archive',
   'archive.export.title': 'Export this archive',
+  'archive.export.compactTitle': 'Export',
+  'archive.export.compactDetail':
+    'Download a portable copy with writing and media.',
   'archive.export.detail':
     'LifeArchive asks the core to create and verify one self-contained package, including original media. Your browser then chooses where the download goes.',
   'archive.export.action.export': 'Create export',
@@ -161,6 +167,9 @@ export const archiveMessages = {
 
   'archive.verify.eyebrow': 'Read-only check',
   'archive.verify.title': 'Verify an archive',
+  'archive.verify.compactTitle': 'Verify',
+  'archive.verify.compactDetail':
+    'Check an archive package without changing either copy.',
   'archive.verify.detail':
     'Choose a LifeArchive package for a standalone integrity check. Verification does not open, import, replace, back up, or sync anything.',
   'archive.verify.file.label': 'Archive package to verify',

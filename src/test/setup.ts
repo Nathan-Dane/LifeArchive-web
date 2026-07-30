@@ -50,3 +50,26 @@ Object.defineProperty(globalThis, 'localStorage', {
 
 installClientMedia()
 beforeEach(resetClientMedia)
+
+/*
+ * jsdom omits geometry and drag primitives that Lexical's DOM selection and
+ * clipboard handlers probe. Layout is immaterial to component tests.
+ */
+Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+Range.prototype.getBoundingClientRect = () => new DOMRect()
+if (typeof globalThis.DragEvent === 'undefined') {
+  Object.defineProperty(globalThis, 'DragEvent', {
+    configurable: true,
+    value: class TestDragEvent extends MouseEvent {
+      readonly dataTransfer = null
+    },
+  })
+}
+if (typeof globalThis.ClipboardEvent === 'undefined') {
+  Object.defineProperty(globalThis, 'ClipboardEvent', {
+    configurable: true,
+    value: class TestClipboardEvent extends Event {
+      readonly clipboardData = null
+    },
+  })
+}
