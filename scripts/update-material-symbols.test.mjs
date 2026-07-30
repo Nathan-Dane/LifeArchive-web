@@ -17,14 +17,16 @@ test('embeds the generated font bytes in a local stylesheet', () => {
 
 test('builds one sorted, duplicate-free selection from semantic and UI glyphs', () => {
   const names = selectedMaterialIconNames()
-  assert.equal(names.length, 161)
+  assert.equal(names.length, 162)
   assert.deepEqual(names, [...names].sort())
   assert.equal(new Set(names).size, names.length)
   for (const required of [
     'cake',
     'calendar_month',
     'check_box',
+    'grid_view',
     'question_mark',
+    'settings',
     'star_outline',
   ]) {
     assert(names.includes(required), required)

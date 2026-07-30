@@ -102,4 +102,51 @@ describe('RecordDatePicker', () => {
     )
     expect(trigger).toHaveFocus()
   })
+
+  it('lets the user replace the year without stepping through every month', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <I18nProvider locale="en">
+        <RecordDatePicker label="Date" value="2025-06-14" onChange={vi.fn()} />
+      </I18nProvider>,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Date:.*Choose date/ }))
+    const dialog = screen.getByRole('dialog')
+    const changeYear = within(dialog).getByRole('button', {
+      name: 'Change year. Currently 2025',
+    })
+
+    await user.click(changeYear)
+    const yearInput = within(dialog).getByRole('textbox', { name: 'Year' })
+    expect(yearInput).toHaveFocus()
+    expect(yearInput).toHaveValue('2025')
+    expect(yearInput).toHaveProperty('selectionStart', 0)
+    expect(yearInput).toHaveProperty('selectionEnd', 4)
+
+    await user.clear(yearInput)
+    await user.type(yearInput, '1987')
+    await user.keyboard('{Enter}')
+    expect(
+      within(dialog).getByRole('grid', { name: 'June 1987' }),
+    ).toBeVisible()
+    const changedYear = within(dialog).getByRole('button', {
+      name: 'Change year. Currently 1987',
+    })
+    expect(changedYear).toHaveFocus()
+
+    await user.click(changedYear)
+    const changedYearInput = within(dialog).getByRole('textbox', {
+      name: 'Year',
+    })
+    await user.clear(changedYearInput)
+    await user.type(changedYearInput, '2031')
+    await user.keyboard('{Escape}')
+    expect(
+      within(dialog).getByRole('button', {
+        name: 'Change year. Currently 1987',
+      }),
+    ).toHaveFocus()
+  })
 })

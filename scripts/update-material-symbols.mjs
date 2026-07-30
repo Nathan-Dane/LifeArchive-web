@@ -9,6 +9,7 @@ import {
   MATERIAL_ICON_BY_SEMANTIC_ID,
   MATERIAL_UI_GLYPHS,
 } from '../src/features/record/metadata/semanticCatalog.ts'
+import { SHELL_MATERIAL_GLYPHS } from '../src/app/shell/materialGlyphs.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const FONT_PATH = path.join(
@@ -33,6 +34,7 @@ export function selectedMaterialIconNames() {
     ...new Set([
       ...Object.values(MATERIAL_ICON_BY_SEMANTIC_ID),
       ...Object.values(MATERIAL_UI_GLYPHS),
+      ...Object.values(SHELL_MATERIAL_GLYPHS),
     ]),
   ].sort()
 }

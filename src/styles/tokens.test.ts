@@ -217,7 +217,7 @@ describe('the Record style system', () => {
       /\.record-media__visual\s*\{[^}]*aspect-ratio:\s*var\(--ratio-media-thumbnail\)/s,
     )
     expect(RECORD_CSS).toMatch(
-      /\.record-media__thumbnail\s*\{[^}]*object-fit:\s*cover[^}]*object-position:\s*center top/s,
+      /\.record-media__thumbnail\s*\{[^}]*object-fit:\s*cover[^}]*object-position:\s*50% 50%/s,
     )
   })
 

@@ -1,11 +1,12 @@
 /**
- * The shell's own small icon set.
+ * The shell's small icon set.
  *
- * Drawn here rather than pulled from an icon library or copied from a native
- * symbol set: five glyphs do not justify a dependency, and the native symbol
- * names are Apple's, not portable design tokens. Every glyph is decorative —
- * the control around it always carries the words.
+ * Most glyphs are drawn here rather than copied from a native symbol set.
+ * Settings uses the matching glyph from the packaged Material Symbols subset.
+ * Every glyph is decorative — the control around it always carries the words.
  */
+
+import { SHELL_MATERIAL_GLYPHS } from './materialGlyphs'
 
 export type ShellIconName =
   | 'navigation'
@@ -18,7 +19,7 @@ export type ShellIconName =
   | 'appearance-dark'
   | 'close'
 
-const PATHS: Record<ShellIconName, React.ReactNode> = {
+const PATHS: Record<Exclude<ShellIconName, 'settings'>, React.ReactNode> = {
   navigation: (
     <>
       <rect x="2.5" y="3.5" width="15" height="13" rx="2.5" />
@@ -43,12 +44,6 @@ const PATHS: Record<ShellIconName, React.ReactNode> = {
       <path d="M10 6.5V10l2.5 1.5" />
     </>
   ),
-  settings: (
-    <>
-      <circle cx="10" cy="10" r="2.25" />
-      <path d="M10 3.25v1.5M10 15.25v1.5M3.25 10h1.5M15.25 10h1.5M5.25 5.25l1.05 1.05M13.7 13.7l1.05 1.05M14.75 5.25 13.7 6.3M6.3 13.7l-1.05 1.05" />
-    </>
-  ),
   'appearance-system': (
     <>
       <circle cx="10" cy="10" r="6.5" />
@@ -68,6 +63,18 @@ const PATHS: Record<ShellIconName, React.ReactNode> = {
 }
 
 export function ShellIcon({ name }: { readonly name: ShellIconName }) {
+  if (name === 'settings') {
+    return (
+      <span
+        className="material-symbols-rounded"
+        data-material-icon={SHELL_MATERIAL_GLYPHS.settings}
+        aria-hidden="true"
+      >
+        {SHELL_MATERIAL_GLYPHS.settings}
+      </span>
+    )
+  }
+
   return (
     <svg
       aria-hidden="true"

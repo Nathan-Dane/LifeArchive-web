@@ -150,6 +150,8 @@ export const recordMessages = {
   'record.tag.done': 'Done',
   'record.datePicker.trigger': '{label}: {date}. Choose date',
   'record.datePicker.triggerEmpty': 'Choose {label}',
+  'record.datePicker.changeYear': 'Change year. Currently {year}',
+  'record.datePicker.yearInput': 'Year',
 
   /* Event creation and revision-safe editing. */
   'record.event.new': 'New Event',

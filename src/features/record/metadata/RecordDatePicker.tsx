@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useId,
   useRef,
   useState,
@@ -111,9 +112,13 @@ export function RecordDatePicker({
   const [viewMonth, setViewMonth] = useState<CalendarMonth>(() =>
     monthFor(value),
   )
+  const [editingYear, setEditingYear] = useState(false)
+  const [yearDraft, setYearDraft] = useState('')
   const trigger = useRef<HTMLButtonElement>(null)
   const selectedDay = useRef<HTMLButtonElement>(null)
   const firstMonthDay = useRef<HTMLButtonElement>(null)
+  const monthYearButton = useRef<HTMLButtonElement>(null)
+  const yearInput = useRef<HTMLInputElement>(null)
   const menuId = useId()
   const triggerId = useId()
   const selected = parseDate(value)
@@ -121,6 +126,7 @@ export function RecordDatePicker({
   const today = canonicalDate(todayParts())
   const days = monthDays(viewMonth)
   const monthStart = canonicalDate({ ...viewMonth, day: 1 })
+  const displayedYear = format.civilYear(monthStart)
   const displayValue = selectedValue
     ? format.civilDate(selectedValue, 'short')
     : 'YYYY-MM-DD'
@@ -138,10 +144,12 @@ export function RecordDatePicker({
   }
   const openMenu = () => {
     setViewMonth(monthFor(value))
+    setEditingYear(false)
     setOpen(true)
     focusCalendar()
   }
   const closeMenu = (restoreFocus = true) => {
+    setEditingYear(false)
     setOpen(false)
     if (restoreFocus) {
       globalThis.queueMicrotask(() => trigger.current?.focus())
@@ -155,6 +163,28 @@ export function RecordDatePicker({
     setViewMonth((current) => shiftMonth(current, amount))
     focusCalendar()
   }
+  const focusMonthYearButton = () => {
+    globalThis.queueMicrotask(() => monthYearButton.current?.focus())
+  }
+  const startYearEdit = () => {
+    setYearDraft(String(viewMonth.year))
+    setEditingYear(true)
+  }
+  const finishYearEdit = (apply: boolean, restoreFocus = true) => {
+    const nextYear = /^\d{1,4}$/.test(yearDraft) ? Number(yearDraft) : 0
+    if (apply && nextYear >= 1 && nextYear <= 9999) {
+      setViewMonth((current) => ({ ...current, year: nextYear }))
+    }
+    setEditingYear(false)
+    if (restoreFocus) focusMonthYearButton()
+  }
+
+  useEffect(() => {
+    if (!editingYear) return
+    yearInput.current?.focus()
+    yearInput.current?.select()
+  }, [editingYear])
+
   const onDayKeyDown = (
     event: KeyboardEvent<HTMLButtonElement>,
     index: number,
@@ -229,7 +259,49 @@ export function RecordDatePicker({
             >
               <RecordControlIcon name="next" />
             </button>
-            <strong>{format.civilMonthAndYear(monthStart)}</strong>
+            {editingYear ? (
+              <input
+                ref={yearInput}
+                className="record-date-picker__year-input"
+                type="text"
+                inputMode="numeric"
+                enterKeyHint="done"
+                pattern="[0-9]*"
+                maxLength={4}
+                autoComplete="off"
+                spellCheck={false}
+                aria-label={t('record.datePicker.yearInput')}
+                value={yearDraft}
+                onChange={(event) =>
+                  setYearDraft(
+                    event.currentTarget.value.replace(/\D/g, '').slice(0, 4),
+                  )
+                }
+                onBlur={() => finishYearEdit(true, false)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    finishYearEdit(true)
+                  } else if (event.key === 'Escape') {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    finishYearEdit(false)
+                  }
+                }}
+              />
+            ) : (
+              <button
+                ref={monthYearButton}
+                type="button"
+                className="record-date-picker__month-year"
+                aria-label={t('record.datePicker.changeYear', {
+                  year: displayedYear,
+                })}
+                onClick={startYearEdit}
+              >
+                <strong>{format.civilMonthAndYear(monthStart)}</strong>
+              </button>
+            )}
             <button
               type="button"
               className="record-date-picker__month-step"
