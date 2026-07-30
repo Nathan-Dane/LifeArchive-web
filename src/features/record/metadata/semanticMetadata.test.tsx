@@ -10,6 +10,7 @@ import { SemanticIconPicker } from './SemanticIconPicker'
 import {
   EVENT_DEFAULT_ICON_ID,
   MATERIAL_ICON_BY_SEMANTIC_ID,
+  MATERIAL_UI_GLYPHS,
   ORDERED_SEMANTIC_ICON_IDS,
   PREDEFINED_TAG_IDS,
   SEMANTIC_ICON_CATALOG_VERSION,
@@ -94,10 +95,12 @@ describe('the negotiated semantic catalogue adapter', () => {
         name: 'Icon: Major event. Choose icon',
       }),
     )
-    expect(screen.getByRole('tab', { name: /All icons157/ })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    )
+    const allIcons = screen.getByRole('tab', { name: /All icons157/ })
+    expect(allIcons).toHaveAttribute('aria-selected', 'true')
+    expect(
+      allIcons.querySelector('[data-material-icon="grid_view"]'),
+    ).toBeInTheDocument()
+    expect(MATERIAL_UI_GLYPHS.all).toBe('grid_view')
     expect(screen.getByRole('separator')).toBeVisible()
     expect(screen.getAllByRole('region')).toHaveLength(12)
     const choices = screen.getAllByRole('option')

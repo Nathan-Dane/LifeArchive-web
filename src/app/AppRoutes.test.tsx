@@ -90,6 +90,10 @@ describe('ready application routes', () => {
     const user = userEvent.setup()
     renderAppAt('/')
     const nav = await screen.findByRole('navigation', { name: 'Main' })
+    const settings = within(nav).getByRole('link', { name: 'Settings' })
+    expect(
+      settings.querySelector('[data-material-icon="settings"]'),
+    ).toBeInTheDocument()
 
     for (const heading of ['Timeline', 'Overview', 'Record']) {
       const linkName = heading === 'Overview' ? 'Settings' : heading

@@ -401,6 +401,7 @@ export function materialIconFor(id: SemanticId): string | null {
 
 /** Non-semantic Material glyphs used by the picker controls and fallback. */
 export const MATERIAL_UI_GLYPHS = {
+  all: 'grid_view',
   unknown: 'question_mark',
   selected: 'check_box',
   unselected: 'check_box_outline_blank',
