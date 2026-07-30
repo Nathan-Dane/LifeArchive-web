@@ -170,9 +170,15 @@ export class MockLifeArchiveClient implements LifeArchiveClient {
     },
     step: (request) => {
       const scale = request.window?.scale
-      const fixed = scale
+      const first = scale
         ? this.scenario.timeNavigation?.steps[scale][request.step]
         : undefined
+      const fixed =
+        scale && first?.id === request.window.id
+          ? (this.scenario.timeNavigation?.outerSteps?.[scale]?.[
+              request.step
+            ] ?? first)
+          : first
       return this.answer('time.step', request, fixed ? ok(fixed) : undefined)
     },
     calendarContext: (request) => this.answer('time.calendarContext', request),

@@ -1,5 +1,5 @@
 import { StrictMode } from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '../../i18n'
@@ -65,6 +65,23 @@ describe('the frame', () => {
 })
 
 describe('the staged workspace regions', () => {
+  it('hides a workspace scrollbar shortly after scrolling stops', async () => {
+    renderShell(
+      <WorkspaceLayout>
+        <h1>Record</h1>
+      </WorkspaceLayout>,
+    )
+    const main = document.querySelector<HTMLElement>('.workspace__content')
+    if (!main) throw new Error('no main scroller rendered')
+
+    fireEvent.scroll(main)
+    expect(main).toHaveAttribute('data-scrollbar-visible', 'true')
+    await waitFor(
+      () => expect(main).not.toHaveAttribute('data-scrollbar-visible'),
+      { timeout: 700 },
+    )
+  })
+
   it('offers no drawer when the view has only a primary surface', () => {
     const { container } = renderShell(
       <WorkspaceLayout>

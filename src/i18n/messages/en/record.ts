@@ -46,6 +46,8 @@ export const recordMessages = {
   'record.navigation.weekCells': 'Week of the selected date',
   'record.navigation.monthCells': 'Month around the selected date',
   'record.navigation.periodStrip': 'Periods around the selected period',
+  'record.navigation.weekNumber': 'Week {number}',
+  'record.navigation.weekAbbreviation': 'W{number}',
 
   'record.navigation.loading': 'Reading time navigation',
   'record.navigation.unavailableTitle': 'Time navigation is unavailable',

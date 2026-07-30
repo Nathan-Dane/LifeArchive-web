@@ -66,6 +66,7 @@ async function fixture(root, change = {}) {
     runtimeVersion: version,
     productContract: policy.productContract,
     bindingsAbi: policy.bindingsAbi,
+    dependencyVersions: policy.dependencyProfiles['0.1.0'],
     capabilities: policy.capabilities,
     files,
     ...change,
@@ -194,5 +195,26 @@ test('rejects product contract and bindings ABI mismatches', async () => {
     } finally {
       await rm(root, { recursive: true, force: true })
     }
+  }
+})
+
+test('rejects a runtime dependency profile mismatch', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'local-runtime-dependencies-'))
+  try {
+    const fixed = await fixture(root, {
+      dependencyVersions: {
+        domain: '999',
+      },
+    })
+    await assert.rejects(
+      installLocalRuntime({
+        artifactInput: fixed.artifact,
+        sidecarInput: fixed.sidecar,
+        root: fixed.publicRoot,
+      }),
+      /dependency versions are incompatible/,
+    )
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })

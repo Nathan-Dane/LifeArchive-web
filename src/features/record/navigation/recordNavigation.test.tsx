@@ -228,15 +228,86 @@ describe('the requests time navigation makes', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('the civil location and the cells', () => {
-  it('keeps the compact command strip on the core-focused civil date', async () => {
+  it('shows the core-projected week number beside the focused day', async () => {
+    const stub = timeStub({
+      window: async () =>
+        ok(coreWindow('day', FIXTURE_TODAY, FIXTURE_TODAY, 24)),
+    })
+    const { container } = renderPanel(stub.client)
+    await panelReady()
+
+    const location = container.querySelector('.record-navigation__location')
+    expect(location).toHaveTextContent('14 Jun 2025')
+    expect(
+      location?.querySelector('.record-navigation__week-number'),
+    ).toHaveTextContent('W24')
+    expect(
+      location?.querySelector('.record-navigation__week-number'),
+    ).toHaveAccessibleName('Week 24')
+  })
+
+  it('uses core-projected ordinals in the week carousel', async () => {
+    const user = userEvent.setup()
+    const current = coreWindow('week', '2025-06-09', '2025-06-15', 24)
+    const earlier = coreWindow('week', '2025-05-26', '2025-06-01', 22)
+    const previous = coreWindow('week', '2025-06-02', '2025-06-08', 23)
+    const next = coreWindow('week', '2025-06-16', '2025-06-22', 25)
+    const later = coreWindow('week', '2025-06-23', '2025-06-29', 26)
+    const stub = timeStub({
+      window: async (request) =>
+        ok(
+          request.scale === 'week'
+            ? current
+            : coreWindow('day', FIXTURE_TODAY, FIXTURE_TODAY, 24),
+        ),
+      step: async ({ window, step }) =>
+        ok(
+          window.id === current.id
+            ? step === 'previous'
+              ? previous
+              : next
+            : window.id === previous.id
+              ? earlier
+              : later,
+        ),
+    })
+    renderPanel(stub.client)
+    await panelReady()
+
+    await user.click(screen.getByRole('button', { name: 'Week' }))
+    await panelReady()
+    const strip = await screen.findByRole('group', {
+      name: 'Periods around the selected period',
+    })
+    const periods = within(strip).getAllByRole('button')
+    expect(periods.map((period) => period.textContent)).toEqual([
+      'W22',
+      'W23',
+      'W24',
+      'W25',
+      'W26',
+    ])
+    expect(periods.map((period) => period.getAttribute('aria-label'))).toEqual([
+      'Week 22',
+      'Week 23',
+      'Week 24',
+      'Week 25',
+      'Week 26',
+    ])
+    expect(locationText()).toBe('9 – 15 Jun 2025')
+  })
+
+  it('keeps the focused week heading as its core-projected date range', async () => {
+    const user = userEvent.setup()
     const stub = timeStub({
       window: async () => ok(coreWindow('week', '2025-06-09', '2025-06-15')),
     })
     renderPanel(stub.client)
     await panelReady()
 
-    /* Scale changes do not replace the compact date control with a range. */
-    expect(locationText()).toBe('14 Jun 2025')
+    await user.click(screen.getByRole('button', { name: 'Week' }))
+    await panelReady()
+    expect(locationText()).toBe('9 – 15 Jun 2025')
   })
 
   it('renders exactly the days the core placed, in the order it placed them', async () => {
@@ -323,8 +394,10 @@ describe('the civil location and the cells', () => {
   it('centres the selected broader period between core-returned neighbours', async () => {
     const user = userEvent.setup()
     const current = coreWindow('month', '2025-06-01', '2025-06-30')
+    const earlier = coreWindow('month', '2025-04-01', '2025-04-30')
     const previous = coreWindow('month', '2025-05-01', '2025-05-31')
     const next = coreWindow('month', '2025-07-01', '2025-07-31')
+    const later = coreWindow('month', '2025-08-01', '2025-08-31')
     const stub = timeStub({
       window: async (request) =>
         ok(
@@ -332,8 +405,16 @@ describe('the civil location and the cells', () => {
             ? current
             : coreWindow('day', FIXTURE_TODAY),
         ),
-      step: async (request) =>
-        ok(request.step === 'previous' ? previous : next),
+      step: async ({ window, step }) =>
+        ok(
+          window.id === current.id
+            ? step === 'previous'
+              ? previous
+              : next
+            : window.id === previous.id
+              ? earlier
+              : later,
+        ),
     })
     renderPanel(stub.client)
     await panelReady()
@@ -346,13 +427,15 @@ describe('the civil location and the cells', () => {
     const periods = within(strip).getAllByRole('button')
 
     expect(periods.map((period) => period.textContent)).toEqual([
+      'Apr',
       'May',
       'Jun',
       'Jul',
+      'Aug',
     ])
     expect(
       periods.map((period) => period.getAttribute('aria-pressed')),
-    ).toEqual(['false', 'true', 'false'])
+    ).toEqual(['false', 'false', 'true', 'false', 'false'])
     expect(locationText()).toBe('June 2025')
     expect(
       screen.queryByRole('group', { name: 'Week of the selected date' }),
@@ -367,19 +450,34 @@ describe('the civil location and the cells', () => {
       step: 'next',
       weekRules: DEVICE.weekRules,
     })
+    expect(stub.step).toHaveBeenCalledWith({
+      window: previous,
+      step: 'previous',
+      weekRules: DEVICE.weekRules,
+    })
+    expect(stub.step).toHaveBeenCalledWith({
+      window: next,
+      step: 'next',
+      weekRules: DEVICE.weekRules,
+    })
   })
 
   it('shifts a broader period carousel by one card to centre its neighbour', async () => {
     const user = userEvent.setup()
+    const april = coreWindow('month', '2025-04-01', '2025-04-30')
     const may = coreWindow('month', '2025-05-01', '2025-05-31')
     const june = coreWindow('month', '2025-06-01', '2025-06-30')
     const july = coreWindow('month', '2025-07-01', '2025-07-31')
     const august = coreWindow('month', '2025-08-01', '2025-08-31')
+    const september = coreWindow('month', '2025-09-01', '2025-09-30')
+    const ordered = [april, may, june, july, august, september]
     const byStart = new Map([
+      [april.startDate, april],
       [may.startDate, may],
       [june.startDate, june],
       [july.startDate, july],
       [august.startDate, august],
+      [september.startDate, september],
     ])
     const stub = timeStub({
       window: async (request) =>
@@ -389,11 +487,8 @@ describe('the civil location and the cells', () => {
             : coreWindow('day', request.containing),
         ),
       step: async ({ window, step }) => {
-        const neighbours =
-          window.id === june.id
-            ? { previous: may, next: july }
-            : { previous: june, next: august }
-        return ok(neighbours[step])
+        const index = ordered.findIndex((period) => period.id === window.id)
+        return ok(ordered[index + (step === 'previous' ? -1 : 1)] ?? window)
       },
       calendarContext: async (request) =>
         ok(coreCalendarContext(request.focusedDate, WEEK_OF_FOURTEENTH)),
@@ -418,7 +513,14 @@ describe('the civil location and the cells', () => {
       within(carousel)
         .getAllByRole('button')
         .map((period) => period.getAttribute('aria-label')),
-    ).toEqual(['May 2025', 'June 2025', 'July 2025', 'August 2025'])
+    ).toEqual([
+      'April 2025',
+      'May 2025',
+      'June 2025',
+      'July 2025',
+      'August 2025',
+      'September 2025',
+    ])
     expect(
       within(carousel).getByRole('button', { name: 'July 2025' }),
     ).toHaveAttribute('aria-pressed', 'true')

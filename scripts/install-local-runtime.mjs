@@ -47,6 +47,23 @@ function validateWebCompatibility(manifest, policy) {
   ) {
     fail('capability inventory is incompatible with this frontend')
   }
+  const runtimeSeries =
+    typeof manifest.runtimeVersion === 'string'
+      ? manifest.runtimeVersion.split('-', 1)[0]
+      : null
+  const expectedDependencies =
+    runtimeSeries === null ? null : policy.dependencyProfiles?.[runtimeSeries]
+  if (
+    !expectedDependencies ||
+    !manifest.dependencyVersions ||
+    Object.keys(manifest.dependencyVersions).length !==
+      Object.keys(expectedDependencies).length ||
+    Object.entries(expectedDependencies).some(
+      ([name, version]) => manifest.dependencyVersions[name] !== version,
+    )
+  ) {
+    fail('dependency versions are incompatible with this frontend')
+  }
 }
 
 export async function installLocalRuntime({
