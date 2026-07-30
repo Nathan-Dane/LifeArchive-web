@@ -4,6 +4,7 @@ import { semanticName, useLocalisation } from '../../../i18n'
 import { RecordSemanticIcon } from '../events/RecordSemanticIcon'
 import { RecordOverlay } from '../overlays'
 import {
+  MATERIAL_UI_GLYPHS,
   ORDERED_SEMANTIC_ICON_IDS,
   SEMANTIC_ICON_CATALOG_VERSION,
   SEMANTIC_ICON_CATEGORIES,
@@ -256,13 +257,15 @@ export function SemanticIconPicker({
             >
               <span className="semantic-icon-picker__category-label">
                 <span
-                  className="semantic-icon-picker__category-glyph"
+                  className="semantic-icon-picker__category-glyph semantic-icon-picker__category-glyph--plain"
                   aria-hidden
                 >
-                  <RecordSemanticIcon
-                    id={ORDERED_SEMANTIC_ICON_IDS[0]}
-                    decorative
-                  />
+                  <span
+                    className="material-symbols-rounded"
+                    data-material-icon={MATERIAL_UI_GLYPHS.all}
+                  >
+                    {MATERIAL_UI_GLYPHS.all}
+                  </span>
                 </span>
                 <span>{localisation.t('record.icon.all')}</span>
               </span>

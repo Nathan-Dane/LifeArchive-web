@@ -359,10 +359,10 @@ function RecordMediaCard({
       >
         <span className="record-media__visual">
           {imageUrl && !imageFailed ? (
-            <img
-              className="record-media__thumbnail"
+            <LoadedRecordMediaThumbnail
+              key={imageUrl}
+              item={item}
               src={imageUrl}
-              alt=""
               onError={() => setImageFailed(true)}
             />
           ) : (
@@ -383,6 +383,36 @@ function RecordMediaCard({
         <RecordControlIcon name="close" />
       </button>
     </li>
+  )
+}
+
+function LoadedRecordMediaThumbnail({
+  item,
+  src,
+  onError,
+}: {
+  readonly item: MediaItem
+  readonly src: string
+  readonly onError: () => void
+}) {
+  const [loaded, setLoaded] = useState(false)
+  return (
+    <>
+      <span
+        className="record-media__thumbnail-placeholder"
+        data-loaded={loaded ? 'true' : undefined}
+      >
+        <MediaGlyph item={item} />
+      </span>
+      <img
+        className="record-media__thumbnail"
+        src={src}
+        alt=""
+        data-loaded={loaded ? 'true' : undefined}
+        onLoad={() => setLoaded(true)}
+        onError={onError}
+      />
+    </>
   )
 }
 

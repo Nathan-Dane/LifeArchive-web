@@ -103,6 +103,14 @@ describe('Record media gallery', () => {
       expect(image).toHaveAttribute('src', 'blob:archived-thumbnail')
       return image!
     })
+    const thumbnailPlaceholder = first.container.querySelector(
+      '.record-media__thumbnail-placeholder',
+    )
+    expect(thumbnailPlaceholder).not.toHaveAttribute('data-loaded')
+    expect(thumbnail).not.toHaveAttribute('data-loaded')
+    fireEvent.load(thumbnail)
+    expect(thumbnail).toHaveAttribute('data-loaded', 'true')
+    expect(thumbnailPlaceholder).toHaveAttribute('data-loaded', 'true')
     fireEvent.error(thumbnail)
     expect(first.container.querySelector('.record-media__thumbnail')).toBeNull()
     expect(first.container.querySelector('.record-media__glyph')).toBeVisible()
