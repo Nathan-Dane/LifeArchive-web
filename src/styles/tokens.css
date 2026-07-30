@@ -27,18 +27,18 @@
 
   /* Ground and surfaces. Dark is the home appearance; light keeps the warm
      archival character rather than turning clinical white. */
-  --color-page: light-dark(#f5f1e9, #0e0d0c);
-  --color-page-warm: light-dark(#e9e2d7, #171510);
-  --color-surface: light-dark(#fffdf8, #201e19);
-  --color-surface-alt: light-dark(#f7f2e9, #28251f);
-  --color-surface-raised: light-dark(#e5dccd, #3a352b);
+  --color-page: light-dark(#e6e0d9, #0e0d0c);
+  --color-page-warm: light-dark(#f2eee9, #171510);
+  --color-surface: light-dark(#f9f6f2, #201e19);
+  --color-surface-alt: light-dark(#eae5dc, #28251f);
+  --color-surface-raised: light-dark(#fbf9f6, #302c24);
   --color-dropdown-selected: color-mix(
     in srgb,
-    var(--color-accent) 10%,
+    var(--color-accent) 8%,
     var(--color-page-warm)
   );
-  --color-details-panel: light-dark(#faf7f1, #15130f);
-  --color-border: light-dark(#cec4b5, #4a4438);
+  --color-details-panel: light-dark(#f4f1eb, #15130f);
+  --color-border: light-dark(#e0d8cd, #282520);
 
   /* Text. */
   --color-text-primary: light-dark(#24211c, #f6f0e6);
@@ -50,25 +50,25 @@
    * Accent palettes. Components consume only the semantic aliases below;
    * Settings changes which complete adaptive palette supplies those aliases.
    */
-  --accent-gold-primary: light-dark(#805900, #f0bb4a);
-  --accent-gold-muted: light-dark(#6e5222, #c99b43);
-  --accent-gold-glow: light-dark(#76540a, #ffd66b);
-  --accent-gold-on: light-dark(#fffdf8, #1b1710);
-  --accent-copper-primary: light-dark(#81421f, #e9a078);
+  --accent-gold-primary: light-dark(#d29a17, #ecb643);
+  --accent-gold-muted: light-dark(#be821b, #c99b43);
+  --accent-gold-glow: light-dark(#be8b1b, #ffd66b);
+  --accent-gold-on: light-dark(#fffdf8, #14120d);
+  --accent-copper-primary: light-dark(#9e491b, #e9a078);
   --accent-copper-muted: light-dark(#704128, #c9845f);
-  --accent-copper-glow: light-dark(#7a3d1b, #ffc09b);
+  --accent-copper-glow: light-dark(#8d451e, #ffc09b);
   --accent-copper-on: light-dark(#fffdf8, #1b1710);
-  --accent-sage-primary: light-dark(#3f6948, #93c79b);
-  --accent-sage-muted: light-dark(#45634a, #79aa82);
-  --accent-sage-glow: light-dark(#38603f, #b4dfba);
+  --accent-sage-primary: light-dark(#40814e, #93c79b);
+  --accent-sage-muted: light-dark(#406b48, #79aa82);
+  --accent-sage-glow: light-dark(#356f40, #b4dfba);
   --accent-sage-on: light-dark(#fffdf8, #152017);
-  --accent-blue-primary: light-dark(#315f85, #86b9de);
-  --accent-blue-muted: light-dark(#3d607c, #6fa0c5);
-  --accent-blue-glow: light-dark(#28577d, #add4ef);
+  --accent-blue-primary: light-dark(#1e659f, #86b9de);
+  --accent-blue-muted: light-dark(#3b6281, #6fa0c5);
+  --accent-blue-glow: light-dark(#235884, #add4ef);
   --accent-blue-on: light-dark(#fffdf8, #111c24);
-  --accent-plum-primary: light-dark(#74496f, #cf9ac7);
-  --accent-plum-muted: light-dark(#684864, #b57fad);
-  --accent-plum-glow: light-dark(#6c4067, #e8b9df);
+  --accent-plum-primary: light-dark(#873c7e, #cf9ac7);
+  --accent-plum-muted: light-dark(#77406f, #b57fad);
+  --accent-plum-glow: light-dark(#803477, #e8b9df);
   --accent-plum-on: light-dark(#fffdf8, #241620);
 
   /* Accent. Restrained: current and selected state, primary action, focus. */
