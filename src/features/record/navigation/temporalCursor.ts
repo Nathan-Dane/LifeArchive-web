@@ -98,7 +98,7 @@ export interface TemporalCursor {
   /**
    * Moves scale and civil location together, as one cursor position.
    *
-   * A handoff — an object chosen at a broader scale, a notice pointing at an
+   * A handoff — an Event chosen at a broader scale, a notice pointing at an
    * object's own dates — lands somewhere the reader did not step to, and both
    * halves of that landing are one move. Setting them separately would ask the
    * core about an intermediate position nobody asked to see.

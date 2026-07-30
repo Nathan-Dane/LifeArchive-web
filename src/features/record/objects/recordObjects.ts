@@ -15,8 +15,9 @@
  *    that order. Nothing is re-sorted, re-grouped by time, merged across
  *    windows, or counted into an aggregate.
  * 3. **One destination.** Scale, civil location, and the selected ID are one
- *    position. Choosing an object at a broader scale moves the cursor and the
- *    selection together; there is no second competing date or scale state.
+ *    position. Selecting a Span edits it in the current window; an explicit
+ *    follow action moves the cursor and selection together. There is no second
+ *    competing date or scale state.
  * 4. **A selection the window does not hold is stated, not silently swapped.**
  *    When the selected object is not among the ones the core placed here, the
  *    ordinary entry becomes the selection and a notice names the exact object
