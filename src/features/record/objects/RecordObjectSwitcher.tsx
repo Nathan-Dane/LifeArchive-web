@@ -1,8 +1,8 @@
 /**
  * The categorized navigation list for the exact objects at this location.
  *
- * Grouping never changes the order within a kind. The core owns the requested
- * shortest-to-longest and alphabetical tie order, including the meaning of an
+ * Grouping never changes the order within a kind. The core owns Span length
+ * and returns Spans from shortest to longest, including the meaning of an
  * ongoing Span; this browser surface only separates that ordered result into
  * Entry, Events, and Spans.
  */
@@ -608,25 +608,22 @@ function reconcileRows(
   previous: readonly PresentedObjectRow[],
   desired: readonly PresentedObjectRow[],
 ): readonly PresentedObjectRow[] {
-  const desiredByKey = new Map(desired.map((row) => [row.key, row]))
-  const rows = previous.map<PresentedObjectRow>((row) => {
-    const next = desiredByKey.get(row.key)
-    return next
-      ? { ...next, presence: 'stable' as const }
-      : { ...row, presence: 'exiting' as const }
-  })
-  const existing = new Set(rows.map((row) => row.key))
+  const previousByKey = new Map(previous.map((row) => [row.key, row]))
+  const desiredKeys = new Set(desired.map((row) => row.key))
+  const rows = desired.map<PresentedObjectRow>((row) => ({
+    ...row,
+    presence: previousByKey.has(row.key) ? 'stable' : 'entering',
+  }))
 
-  desired.forEach((row, index) => {
-    if (existing.has(row.key)) return
-    const following = desired
+  previous.forEach((row, index) => {
+    if (desiredKeys.has(row.key)) return
+    const following = previous
       .slice(index + 1)
-      .find((candidate) => existing.has(candidate.key))
+      .find((candidate) => desiredKeys.has(candidate.key))
     const insertion = following
       ? rows.findIndex((candidate) => candidate.key === following.key)
       : rows.length
-    rows.splice(insertion, 0, { ...row, presence: 'entering' })
-    existing.add(row.key)
+    rows.splice(insertion, 0, { ...row, presence: 'exiting' })
   })
   return rows
 }

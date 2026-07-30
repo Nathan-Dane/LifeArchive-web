@@ -54,6 +54,32 @@ const ARRIVING_SPAN: StructuredSummary = {
   title: 'Arriving span',
 }
 
+const SHORTEST_SPAN: StructuredSummary = {
+  ...RETAINED_SPAN,
+  id: stableId('6f1c0a10-0000-4000-8000-000000000105'),
+  title: 'Shortest span',
+  placement: {
+    kind: 'span',
+    startDate: civilDate('2025-01-01'),
+    endDate: civilDate('2025-01-02'),
+    beginMarker: { enabled: false, titleOverride: null },
+    endMarker: { enabled: false, titleOverride: null },
+  },
+}
+
+const LONGEST_SPAN: StructuredSummary = {
+  ...RETAINED_SPAN,
+  id: stableId('6f1c0a10-0000-4000-8000-000000000106'),
+  title: 'Longest span',
+  placement: {
+    kind: 'span',
+    startDate: civilDate('2024-01-01'),
+    endDate: civilDate('2026-12-31'),
+    beginMarker: { enabled: false, titleOverride: null },
+    endMarker: { enabled: false, titleOverride: null },
+  },
+}
+
 function recordObjects(
   objects: readonly StructuredSummary[],
   status: RecordObjectsState['status'] = 'ready',
@@ -125,7 +151,40 @@ function ordinaryEntry(): HTMLElement {
   return element
 }
 
+function presentedSpanIds(): string[] {
+  return Array.from(
+    document.querySelectorAll<HTMLElement>(
+      '.record-objects__group [data-object-kind="span"]',
+    ),
+    (element) => element.dataset.objectId ?? '',
+  )
+}
+
 describe('RecordObjectSwitcher presence transitions', () => {
+  it('keeps the core-provided shortest-to-longest span order after reconciliation', () => {
+    const rendered = render(
+      switcher(
+        recordObjects([LONGEST_SPAN, RETAINED_SPAN, SHORTEST_SPAN]),
+        'ready',
+        null,
+      ),
+    )
+
+    rendered.rerender(
+      switcher(
+        recordObjects([SHORTEST_SPAN, RETAINED_SPAN, LONGEST_SPAN]),
+        'ready',
+        null,
+      ),
+    )
+
+    expect(presentedSpanIds()).toEqual([
+      SHORTEST_SPAN.id,
+      RETAINED_SPAN.id,
+      LONGEST_SPAN.id,
+    ])
+  })
+
   it('keeps retained rows stationary while only entering and exiting rows move', () => {
     const initial = recordObjects([DEPARTING_EVENT, RETAINED_SPAN])
     const rendered = render(switcher(initial, 'ready', null))
