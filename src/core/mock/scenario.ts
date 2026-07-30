@@ -64,6 +64,7 @@ import type {
   StructuredObject,
   StructuredObjectState,
   StructuredSummary,
+  TimeScale,
   TimeWindow,
   TimelineFocusResult,
   TimelinePage,
@@ -75,6 +76,7 @@ import type {
   TrackMutationResult,
   TrackState,
   TrackWithFirstMember,
+  WindowStep,
 } from '../client'
 import { DEVELOPMENT_MOCK_MARKER } from './developmentOnly'
 
@@ -192,6 +194,7 @@ function dayWindow([date, startMs, endMs]: DayFixture): TimeWindow {
     endMs,
     startDate: civilDate(date),
     endDate: civilDate(date),
+    weekNumber: 24,
     calendarId: 'gregory',
     timeZoneId: 'UTC',
   })
@@ -231,9 +234,107 @@ const WEEK_WINDOW = coreTimeWindow({
   endMs: 1750032000000,
   startDate: civilDate('2025-06-09'),
   endDate: civilDate('2025-06-15'),
+  weekNumber: 24,
   calendarId: 'gregory',
   timeZoneId: 'UTC',
 })
+
+function fixedPeriodWindow(
+  id: string,
+  scale: Exclude<TimeScale, 'day'>,
+  startDate: string,
+  endDate: string,
+  weekNumber: number | null = null,
+): TimeWindow {
+  return coreTimeWindow({
+    id,
+    scale,
+    startMs: 0,
+    endMs: 0,
+    startDate: civilDate(startDate),
+    endDate: civilDate(endDate),
+    weekNumber,
+    calendarId: 'gregory',
+    timeZoneId: 'UTC',
+  })
+}
+
+const WEEK_PREVIOUS = fixedPeriodWindow(
+  'week:2025-W23',
+  'week',
+  '2025-06-02',
+  '2025-06-08',
+  23,
+)
+const WEEK_EARLIER = fixedPeriodWindow(
+  'week:2025-W22',
+  'week',
+  '2025-05-26',
+  '2025-06-01',
+  22,
+)
+const WEEK_NEXT = fixedPeriodWindow(
+  'week:2025-W25',
+  'week',
+  '2025-06-16',
+  '2025-06-22',
+  25,
+)
+const WEEK_LATER = fixedPeriodWindow(
+  'week:2025-W26',
+  'week',
+  '2025-06-23',
+  '2025-06-29',
+  26,
+)
+const MONTH_WINDOW = fixedPeriodWindow(
+  'month:2025-06',
+  'month',
+  '2025-06-01',
+  '2025-06-30',
+)
+const MONTH_PREVIOUS = fixedPeriodWindow(
+  'month:2025-05',
+  'month',
+  '2025-05-01',
+  '2025-05-31',
+)
+const MONTH_EARLIER = fixedPeriodWindow(
+  'month:2025-04',
+  'month',
+  '2025-04-01',
+  '2025-04-30',
+)
+const MONTH_NEXT = fixedPeriodWindow(
+  'month:2025-07',
+  'month',
+  '2025-07-01',
+  '2025-07-31',
+)
+const MONTH_LATER = fixedPeriodWindow(
+  'month:2025-08',
+  'month',
+  '2025-08-01',
+  '2025-08-31',
+)
+const YEAR_WINDOW = fixedPeriodWindow(
+  'year:2025',
+  'year',
+  '2025-01-01',
+  '2025-12-31',
+)
+const YEAR_PREVIOUS = fixedPeriodWindow(
+  'year:2024',
+  'year',
+  '2024-01-01',
+  '2024-12-31',
+)
+const YEAR_NEXT = fixedPeriodWindow(
+  'year:2026',
+  'year',
+  '2026-01-01',
+  '2026-12-31',
+)
 
 /* -------------------------------------------------------------------------- */
 /* Record fixtures                                                            */
@@ -316,9 +417,10 @@ const EVENT_SUMMARY: StructuredSummary = {
   revision: revision('4'),
   title: 'Harbour swim',
   placement: { kind: 'event', date: FOCUSED_DATE },
-  iconId: 'icon.activity',
-  tags: { ordered: ['tag.outdoors', 'tag.summer'], display: 'tag.outdoors' },
+  iconId: 'swimming',
+  tags: { ordered: ['personal', 'health'], display: 'health' },
   trackId: null,
+  mediaCount: 1,
 }
 
 const SPAN_SUMMARY: StructuredSummary = {
@@ -332,9 +434,10 @@ const SPAN_SUMMARY: StructuredSummary = {
     beginMarker: { enabled: true, titleOverride: 'Moved to Aarhus' },
     endMarker: { enabled: false, titleOverride: null },
   },
-  iconId: 'icon.home',
-  tags: { ordered: ['tag.places'], display: 'tag.places' },
+  iconId: 'home',
+  tags: { ordered: ['home'], display: 'home' },
   trackId: TRACK_ID,
+  mediaCount: 0,
 }
 
 const EVENT_OBJECT: StructuredObject = {
@@ -371,8 +474,8 @@ const TRACK: Track = {
   id: TRACK_ID,
   revision: revision('3'),
   name: 'Where I lived',
-  iconId: 'icon.home',
-  suggestedTagId: 'tag.places',
+  iconId: 'home',
+  suggestedTagId: 'home',
   isArchived: false,
   createdAtMs: 1722470400000,
   updatedAtMs: 1749896400000,
@@ -382,7 +485,7 @@ const ARCHIVED_TRACK: Track = {
   id: ARCHIVED_TRACK_ID,
   revision: revision('2'),
   name: 'Bicycle repairs',
-  iconId: 'icon.tools',
+  iconId: 'repair',
   suggestedTagId: null,
   isArchived: true,
   createdAtMs: 1690848000000,
@@ -507,6 +610,20 @@ export interface MockScenario {
   /** Handed out in order and then cycled. Never generated. */
   readonly mintedStableIds: readonly StableId[]
   readonly mintedOperationIds: readonly OperationId[]
+  /**
+   * Fixed scale-specific time answers used only to make every navigation
+   * presentation reachable. These are literal windows, not browser-computed
+   * calendar values.
+   */
+  readonly timeNavigation?: {
+    readonly windows: Readonly<Record<TimeScale, TimeWindow>>
+    readonly steps: Readonly<
+      Record<TimeScale, Readonly<Record<WindowStep, TimeWindow>>>
+    >
+    readonly outerSteps?: Readonly<
+      Partial<Record<TimeScale, Readonly<Record<WindowStep, TimeWindow>>>>
+    >
+  }
   readonly results: MockResults
 }
 
@@ -525,14 +642,14 @@ const RESULTS: MockResults = {
     storeId: ARCHIVE_ID,
     storeSchemaVersion: 'development-mock',
     storeContract: 'development-mock',
-    visibleEntryCount: 128,
+    visibleEntryCount: 149,
     entryCounts: {
-      moment: 0,
       day: 124,
       week: 3,
       month: 1,
       year: 0,
-      custom: 0,
+      event: 17,
+      span: 4,
     },
     structuredCounts: { events: 17, spans: 4 },
     trackCounts: { active: 1, archived: 1, ongoingMembers: 1 },
@@ -681,8 +798,8 @@ const RESULTS: MockResults = {
         title: 'Living in Aarhus',
         primaryDate: civilDate('2024-08-01'),
         endDate: null,
-        iconId: 'icon.home',
-        displayTagId: 'tag.places',
+        iconId: 'home',
+        displayTagId: 'home',
         beginMarkerTitleOverride: 'Moved to Aarhus',
         endMarkerTitleOverride: null,
       },
@@ -759,8 +876,8 @@ const RESULTS: MockResults = {
         trackId: TRACK_ID,
         titleMode: 'override',
         titleOverride: 'Moved to Aarhus',
-        iconId: 'icon.home',
-        displayTagId: 'tag.places',
+        iconId: 'home',
+        displayTagId: 'home',
       },
     ],
     contentBounds: { startMs: 1722470400000, endMs: 1749945600000 },
@@ -827,6 +944,24 @@ export const DEVELOPMENT_MOCK_SCENARIO: MockScenario = {
   archiveSession: { state: 'open', archive: OPEN_ARCHIVE },
   mintedStableIds: MINTED_STABLE_IDS,
   mintedOperationIds: MINTED_OPERATION_IDS,
+  timeNavigation: {
+    windows: {
+      day: FOCUSED_WINDOW,
+      week: WEEK_WINDOW,
+      month: MONTH_WINDOW,
+      year: YEAR_WINDOW,
+    },
+    steps: {
+      day: { previous: NEIGHBOUR_WINDOW, next: NEIGHBOUR_WINDOW },
+      week: { previous: WEEK_PREVIOUS, next: WEEK_NEXT },
+      month: { previous: MONTH_PREVIOUS, next: MONTH_NEXT },
+      year: { previous: YEAR_PREVIOUS, next: YEAR_NEXT },
+    },
+    outerSteps: {
+      week: { previous: WEEK_EARLIER, next: WEEK_LATER },
+      month: { previous: MONTH_EARLIER, next: MONTH_LATER },
+    },
+  },
   results: RESULTS,
 }
 
@@ -846,6 +981,8 @@ export const MOCK_FIXTURES = {
   focusedWindow: FOCUSED_WINDOW,
   neighbourWindow: NEIGHBOUR_WINDOW,
   weekWindow: WEEK_WINDOW,
+  monthWindow: MONTH_WINDOW,
+  yearWindow: YEAR_WINDOW,
   invalidation: INVALIDATION,
   entry: ENTRY,
   entryPresent: ENTRY_PRESENT,

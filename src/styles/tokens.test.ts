@@ -27,6 +27,10 @@ const LAYOUT_CSS = styles('layout.css')
 const TYPOGRAPHY_CSS = styles('typography.css')
 const GLOBAL_CSS = styles('global.css')
 const ALL_CSS = [TOKENS_CSS, LAYOUT_CSS, TYPOGRAPHY_CSS, GLOBAL_CSS]
+const RECORD_CSS = LAYOUT_CSS.slice(
+  LAYOUT_CSS.indexOf('Record time navigation.'),
+  LAYOUT_CSS.indexOf('.app-notice'),
+)
 
 interface AppearancePair {
   readonly light: string
@@ -36,10 +40,23 @@ interface AppearancePair {
 /** Every `--token: light-dark(light, dark)` declaration in `tokens.css`. */
 function colourPairs(): ReadonlyMap<string, AppearancePair> {
   const pairs = new Map<string, AppearancePair>()
+  const root = TOKENS_CSS.slice(
+    TOKENS_CSS.indexOf(':root {'),
+    TOKENS_CSS.indexOf('\n}', TOKENS_CSS.indexOf(':root {')),
+  )
   const declaration =
     /(--[a-z0-9-]+):\s*light-dark\(\s*(#[0-9a-f]{3,8})\s*,\s*(#[0-9a-f]{3,8})\s*\)/g
-  for (const [, token, light, dark] of TOKENS_CSS.matchAll(declaration)) {
+  for (const [, token, light, dark] of root.matchAll(declaration)) {
     pairs.set(token!, { light: light!, dark: dark! })
+  }
+  const aliases = [
+    ...root.matchAll(/(--[a-z0-9-]+):\s*var\((--[a-z0-9-]+)\)/g),
+  ].map(([, token, target]) => [token!, target!] as const)
+  for (let pass = 0; pass < aliases.length; pass += 1) {
+    for (const [token, target] of aliases) {
+      const pair = pairs.get(target)
+      if (pair) pairs.set(token, pair)
+    }
   }
   return pairs
 }
@@ -87,22 +104,16 @@ const SURFACES = [
   '--color-surface',
   '--color-surface-alt',
   '--color-surface-raised',
+  '--color-details-panel',
 ] as const
 
 describe('the colour tokens', () => {
   it('specifies both appearances for every colour', () => {
-    /*
-     * Gold is bright in both appearances, so the label on a gold control is
-     * the same near-black either way. It is the one pair allowed to match.
-     */
-    const MAY_MATCH = new Set(['--color-on-accent'])
     expect(COLOURS.size).toBeGreaterThan(0)
     for (const [token, pair] of COLOURS) {
       expect(pair.light, token).toMatch(/^#[0-9a-f]{6}$/)
       expect(pair.dark, token).toMatch(/^#[0-9a-f]{6}$/)
-      if (!MAY_MATCH.has(token)) {
-        expect(pair.light, token).not.toBe(pair.dark)
-      }
+      expect(pair.light, token).not.toBe(pair.dark)
     }
   })
 
@@ -121,6 +132,102 @@ describe('the colour tokens', () => {
     for (const css of [LAYOUT_CSS, TYPOGRAPHY_CSS]) {
       expect(css).not.toMatch(/:\s*#[0-9a-f]{3,8}\b/i)
       expect(css).not.toMatch(/\b(rgb|hsl)a?\(/i)
+    }
+  })
+})
+
+describe('the Record style system', () => {
+  it('routes text through exactly three configurable font roles', () => {
+    for (const token of [
+      '--font-title',
+      '--font-body-content',
+      '--font-interface',
+    ]) {
+      expect(TOKENS_CSS).toContain(`${token}:`)
+    }
+
+    const families = new Set(
+      [...RECORD_CSS.matchAll(/font-family:\s*var\((--[a-z-]+)\)/g)].map(
+        (match) => match[1],
+      ),
+    )
+    expect(families).toEqual(
+      new Set(['--font-title', '--font-body-content', '--font-interface']),
+    )
+  })
+
+  it('uses the consolidated Record type scale without literal text sizes', () => {
+    for (const token of [
+      '--text-record-title',
+      '--text-record-content',
+      '--text-record-heading',
+      '--text-record-ui',
+      '--text-record-meta',
+    ]) {
+      expect(TOKENS_CSS).toContain(`${token}:`)
+      expect(RECORD_CSS).toContain(`var(${token})`)
+    }
+
+    expect(RECORD_CSS).not.toMatch(/font-size:\s*\d/)
+    expect(RECORD_CSS).not.toMatch(
+      /--text-(?:details|popup|record-(?:control|date|list))/,
+    )
+  })
+
+  it('uses spacing tokens for Record gaps and padding', () => {
+    expect(RECORD_CSS).not.toMatch(
+      /(?:gap|padding(?:-[a-z]+)?):[^;]*\b[1-9]\d*px/,
+    )
+  })
+
+  it('sizes menus from their reference control and keeps action glyphs clear', () => {
+    expect(TOKENS_CSS).toContain('--overlay-menu-min-height: 126px')
+    expect(RECORD_CSS).toMatch(
+      /\.record-overlay\[data-kind='menu'\] \.record-overlay__surface\s*\{[^}]*width:\s*min\([^}]*min-width:\s*0[^}]*min-height:\s*min\(/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /\.record-track-menu__action \.record-track-menu__option-icon\s*\{[^}]*background:\s*transparent/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /\.record-menu\s*\{[^}]*background:\s*var\(--color-page-warm\)/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /\.record-menu__item:is\(:hover, :focus-visible\)\s*\{[^}]*background:\s*var\(--color-surface-raised\)/s,
+    )
+    expect(RECORD_CSS).not.toContain('.record-tag-picker__row:focus-within')
+    expect(RECORD_CSS).toMatch(
+      /\.record-tag-picker__list\[data-keyboard-navigation='false'\][^{]*:focus-visible\s*\{[^}]*outline:\s*0/s,
+    )
+  })
+
+  it('gives selected dropdown rows a quieter full-row fill than hover', () => {
+    expect(TOKENS_CSS).toContain('--color-dropdown-selected:')
+    for (const rule of [
+      /\.record-editor__block-menu-items\s*>\s*button\[aria-checked='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
+      /\.record-tag-picker__row\[data-selected='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
+      /\.record-track-menu__items\s*>\s*button\[aria-checked='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
+    ]) {
+      expect(RECORD_CSS).toMatch(rule)
+    }
+  })
+
+  it('keeps image thumbnails proportional while cropping from stable edges', () => {
+    expect(TOKENS_CSS).toContain('--ratio-media-thumbnail: 4 / 3')
+    expect(RECORD_CSS).toMatch(
+      /\.record-media__visual\s*\{[^}]*aspect-ratio:\s*var\(--ratio-media-thumbnail\)/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /\.record-media__thumbnail\s*\{[^}]*object-fit:\s*cover[^}]*object-position:\s*50% 50%/s,
+    )
+  })
+
+  it('uses the accessible foreground token on accent fills', () => {
+    expect(RECORD_CSS).not.toMatch(/color:\s*var\(--color-page\)/)
+    for (const rule of [
+      /\.semantic-icon-dialog__use\s*\{[^}]*color:\s*var\(--color-on-accent\)/s,
+      /\.semantic-icon-picker__option\[aria-selected='true'\]\s*\{[^}]*color:\s*var\(--color-on-accent\)/s,
+    ]) {
+      expect(RECORD_CSS).toMatch(rule)
     }
   })
 })
@@ -162,44 +269,100 @@ describe('contrast in both appearances', () => {
   })
 
   it('reads the label on a filled accent control', () => {
+    const accents = ['gold', 'copper', 'sage', 'blue', 'plum']
     for (const appearance of ['light', 'dark'] as const) {
-      expect(
-        ratio('--color-on-accent', '--color-accent', appearance),
-        appearance,
-      ).toBeGreaterThanOrEqual(4.5)
+      for (const accent of accents) {
+        expect(
+          ratio(
+            `--accent-${accent}-on`,
+            `--accent-${accent}-primary`,
+            appearance,
+          ),
+          `${appearance} ${accent}`,
+        ).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+
+  it('keeps every semantic tag badge readable in both appearances', () => {
+    const tags = [
+      'personal',
+      'family',
+      'friends',
+      'work',
+      'education',
+      'travel',
+      'home',
+      'health',
+      'creative',
+      'achievement',
+      'fallback',
+    ]
+    for (const appearance of ['light', 'dark'] as const) {
+      for (const tag of tags) {
+        expect(
+          ratio('--tag-foreground', `--tag-${tag}-accent`, appearance),
+          `${appearance} ${tag} tag`,
+        ).toBeGreaterThanOrEqual(4.5)
+      }
     }
   })
 
   it('shows the focus ring against every surface', () => {
+    const focusTokens = [
+      '--accent-gold-glow',
+      '--accent-copper-glow',
+      '--accent-sage-glow',
+      '--accent-blue-glow',
+      '--accent-plum-glow',
+    ]
     for (const appearance of ['light', 'dark'] as const) {
-      for (const surface of SURFACES) {
-        expect(
-          ratio('--color-focus-ring', surface, appearance),
-          `${appearance} focus ring on ${surface}`,
-        ).toBeGreaterThanOrEqual(3)
+      for (const focus of focusTokens) {
+        for (const surface of SURFACES) {
+          expect(
+            ratio(focus, surface, appearance),
+            `${appearance} ${focus} on ${surface}`,
+          ).toBeGreaterThanOrEqual(3)
+        }
       }
     }
     expect(GLOBAL_CSS).toContain('outline: 2px solid var(--color-focus-ring)')
   })
 
   it('keeps meaning colours visible on the page', () => {
+    const accentTokens = [
+      '--accent-gold-primary',
+      '--accent-copper-primary',
+      '--accent-sage-primary',
+      '--accent-blue-primary',
+      '--accent-plum-primary',
+    ]
     for (const appearance of ['light', 'dark'] as const) {
       for (const token of [
+        ...accentTokens,
         '--color-destructive',
         '--color-success',
         '--color-note',
       ]) {
-        expect(
-          ratio(token, '--color-page', appearance),
-          `${appearance} ${token}`,
-        ).toBeGreaterThanOrEqual(2.9)
+        for (const surface of [
+          '--color-page',
+          '--color-page-warm',
+          '--color-surface',
+          '--color-surface-alt',
+          '--color-details-panel',
+        ] as const) {
+          expect(
+            ratio(token, surface, appearance),
+            `${appearance} ${token} on ${surface}`,
+          ).toBeGreaterThanOrEqual(4.5)
+        }
       }
     }
   })
 
   it('uses compliant text tokens for normal Settings copy', () => {
     expect(LAYOUT_CSS).toMatch(
-      /\.archive-health-card__facts dt\s*\{[^}]*color:\s*var\(--color-text-secondary\)/s,
+      /\.settings-value-list dt\s*\{[^}]*color:\s*var\(--color-text-secondary\)/s,
     )
     expect(LAYOUT_CSS).toMatch(
       /\.settings-group__footer\s*\{[^}]*color:\s*var\(--color-text-secondary\)/s,
@@ -258,7 +421,7 @@ describe('the responsive breakpoints', () => {
 
   it('reflows Settings facts and wraps archive actions at compact widths', () => {
     expect(LAYOUT_CSS).toMatch(
-      /@media \(max-width: 680px\)[\s\S]*?\.settings-value-list > div\s*\{[^}]*grid-template-columns:\s*1fr/,
+      /@media \(max-width: 680px\)[\s\S]*?\.settings-value-list > div,\s*\.settings-row\s*\{[^}]*grid-template-columns:\s*1fr/,
     )
     expect(LAYOUT_CSS).toMatch(
       /\.archive-import__actions,\s*\.archive-operation__actions\s*\{[^}]*flex-wrap:\s*wrap/s,
@@ -272,8 +435,13 @@ describe('the responsive breakpoints', () => {
 describe('delivery safety', () => {
   it('asks for no font, image, or stylesheet over the network', () => {
     for (const css of ALL_CSS) {
-      expect(css).not.toContain('@font-face')
       expect(css).not.toMatch(/url\(\s*['"]?(https?:)?\/\//i)
+    }
+    expect(GLOBAL_CSS).toMatch(
+      /@font-face\s*\{[^}]*url\(['"]?data:font\/woff2;base64,/s,
+    )
+    for (const css of [TOKENS_CSS, LAYOUT_CSS, TYPOGRAPHY_CSS]) {
+      expect(css).not.toContain('@font-face')
     }
   })
 

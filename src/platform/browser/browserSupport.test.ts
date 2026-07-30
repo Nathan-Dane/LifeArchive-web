@@ -8,15 +8,15 @@ import {
 
 const accepted: BrowserAdmissionEnvironment = {
   engine: 'chromium',
-  majorVersion: 151,
+  majorVersion: 137,
   deviceClass: 'desktop',
   storageMode: 'regular',
 }
 
 describe('v0.1 browser support admission', () => {
   it.each([
-    ['chromium', 151],
-    ['chromium', 152],
+    ['chromium', 137],
+    ['chromium', 150],
     ['firefox', 153],
     ['firefox', 154],
   ] as const)(
@@ -35,7 +35,7 @@ describe('v0.1 browser support admission', () => {
   })
 
   it.each([
-    [{ ...accepted, engine: 'chromium', majorVersion: 150 }, 'version-too-old'],
+    [{ ...accepted, engine: 'chromium', majorVersion: 136 }, 'version-too-old'],
     [{ ...accepted, engine: 'firefox', majorVersion: 152 }, 'version-too-old'],
     [{ ...accepted, engine: 'webkit', majorVersion: 26 }, 'engine-unsupported'],
     [
@@ -56,7 +56,7 @@ describe('v0.1 browser support admission', () => {
   it('keeps the accepted minimum versions in one exported authority', () => {
     expect(WEB_V0_1_BROWSER_SUPPORT).toEqual({
       engines: {
-        chromium: { minimumMajorVersion: 151 },
+        chromium: { minimumMajorVersion: 137 },
         firefox: { minimumMajorVersion: 153 },
       },
       deviceClass: 'desktop',
@@ -68,8 +68,8 @@ describe('v0.1 browser support admission', () => {
 describe('browser fact classification', () => {
   it.each([
     [
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
-      { engine: 'chromium', majorVersion: 151, deviceClass: 'desktop' },
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+      { engine: 'chromium', majorVersion: 137, deviceClass: 'desktop' },
     ],
     [
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:153.0) Gecko/20100101 Firefox/153.0',

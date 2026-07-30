@@ -1,4 +1,11 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type UIEvent as ReactUIEvent,
+} from 'react'
 import { useFocusTrap, useMediaQuery } from '../../accessibility'
 import { useTranslate } from '../../i18n'
 import { ShellIcon } from './ShellIcon'
@@ -8,6 +15,61 @@ const REGION_LABELS = {
   navigation: 'app.panel.navigation',
   details: 'app.panel.details',
 } as const
+
+const TRANSIENT_SCROLLBARS = [
+  {
+    key: 'navigation',
+    selector: '.record-objects__groups',
+  },
+  {
+    key: 'content',
+    selector: '.workspace__content',
+  },
+  {
+    key: 'details',
+    selector: '.record-details',
+  },
+] as const
+type TransientScrollbarKey = (typeof TRANSIENT_SCROLLBARS)[number]['key']
+interface ScrollbarDrag {
+  readonly pointerId: number
+  readonly startScrollTop: number
+  readonly startY: number
+  readonly target: HTMLElement
+}
+
+const SCROLLBAR_HIDE_DELAY_MS = 300
+const SCROLLBAR_EDGE_INSET_PX = 2
+const SCROLLBAR_MIN_THUMB_HEIGHT_PX = 24
+
+function positionScrollbarOverlay(
+  workspace: HTMLElement,
+  target: HTMLElement,
+  overlay: HTMLElement,
+) {
+  const workspaceBox = workspace.getBoundingClientRect()
+  const targetBox = target.getBoundingClientRect()
+  const trackHeight = Math.max(
+    0,
+    targetBox.height - SCROLLBAR_EDGE_INSET_PX * 2,
+  )
+  const thumbHeight = Math.min(
+    trackHeight,
+    Math.max(
+      SCROLLBAR_MIN_THUMB_HEIGHT_PX,
+      trackHeight * (target.clientHeight / target.scrollHeight),
+    ),
+  )
+  const scrollRange = target.scrollHeight - target.clientHeight
+  const thumbRange = trackHeight - thumbHeight
+  const thumbOffset =
+    scrollRange > 0 ? (target.scrollTop / scrollRange) * thumbRange : 0
+
+  overlay.style.left = `${targetBox.right - workspaceBox.left - SCROLLBAR_EDGE_INSET_PX - overlay.offsetWidth}px`
+  overlay.style.top = `${targetBox.top - workspaceBox.top + SCROLLBAR_EDGE_INSET_PX + thumbOffset}px`
+  overlay.style.height = `${thumbHeight}px`
+  overlay.dataset.visible = scrollRange > 0 ? 'true' : 'false'
+}
 
 export interface WorkspaceLayoutProps {
   readonly children: ReactNode
@@ -40,6 +102,104 @@ export function WorkspaceLayout({
   const hasDetails = details !== undefined
   const navigationIsDrawer = useMediaQuery('(max-width: 820px)')
   const detailsIsDrawer = useMediaQuery('(max-width: 1120px)')
+  const workspace = useRef<HTMLDivElement>(null)
+  const scrollbarOverlays = useRef(
+    new Map<TransientScrollbarKey, HTMLSpanElement>(),
+  )
+  const scrollbarTargets = useRef(new Map<TransientScrollbarKey, HTMLElement>())
+  const scrollbarDrag = useRef<ScrollbarDrag>(null)
+  const scrollbarTimers = useRef(
+    new Map<HTMLElement, ReturnType<typeof globalThis.setTimeout>>(),
+  )
+
+  const hideScrollbarSoon = useCallback(
+    (target: HTMLElement, overlay: HTMLElement) => {
+      const pending = scrollbarTimers.current.get(target)
+      if (pending !== undefined) globalThis.clearTimeout(pending)
+      const timer = globalThis.setTimeout(() => {
+        delete target.dataset.scrollbarVisible
+        overlay.dataset.visible = 'false'
+        scrollbarTimers.current.delete(target)
+      }, SCROLLBAR_HIDE_DELAY_MS)
+      scrollbarTimers.current.set(target, timer)
+    },
+    [],
+  )
+
+  const revealActiveScrollbar = useCallback(
+    (event: ReactUIEvent<HTMLElement>) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement)) return
+
+      const scrollbar = TRANSIENT_SCROLLBARS.find(({ selector }) =>
+        target.matches(selector),
+      )
+      const overlay = scrollbar
+        ? scrollbarOverlays.current.get(scrollbar.key)
+        : undefined
+      if (!scrollbar || !overlay || !workspace.current) return
+
+      scrollbarTargets.current.set(scrollbar.key, target)
+      target.dataset.scrollbarVisible = 'true'
+      positionScrollbarOverlay(workspace.current, target, overlay)
+      hideScrollbarSoon(target, overlay)
+    },
+    [hideScrollbarSoon],
+  )
+
+  const startScrollbarDrag = useCallback(
+    (key: TransientScrollbarKey, event: ReactPointerEvent<HTMLSpanElement>) => {
+      const target = scrollbarTargets.current.get(key)
+      if (!target) return
+
+      const pending = scrollbarTimers.current.get(target)
+      if (pending !== undefined) globalThis.clearTimeout(pending)
+      event.currentTarget.setPointerCapture(event.pointerId)
+      scrollbarDrag.current = {
+        pointerId: event.pointerId,
+        startScrollTop: target.scrollTop,
+        startY: event.clientY,
+        target,
+      }
+      event.preventDefault()
+    },
+    [],
+  )
+
+  const moveScrollbarDrag = useCallback(
+    (event: ReactPointerEvent<HTMLSpanElement>) => {
+      const drag = scrollbarDrag.current
+      if (!drag || drag.pointerId !== event.pointerId) return
+
+      const trackHeight = Math.max(
+        0,
+        drag.target.getBoundingClientRect().height -
+          SCROLLBAR_EDGE_INSET_PX * 2,
+      )
+      const thumbRange = trackHeight - event.currentTarget.offsetHeight
+      const scrollRange = drag.target.scrollHeight - drag.target.clientHeight
+      if (thumbRange <= 0 || scrollRange <= 0) return
+
+      drag.target.scrollTop =
+        drag.startScrollTop +
+        ((event.clientY - drag.startY) / thumbRange) * scrollRange
+    },
+    [],
+  )
+
+  const finishScrollbarDrag = useCallback(
+    (event: ReactPointerEvent<HTMLSpanElement>) => {
+      const drag = scrollbarDrag.current
+      if (!drag || drag.pointerId !== event.pointerId) return
+
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+      scrollbarDrag.current = null
+      hideScrollbarSoon(drag.target, event.currentTarget)
+    },
+    [hideScrollbarSoon],
+  )
 
   useEffect(() => {
     const panels: WorkspacePanel[] = []
@@ -58,14 +218,26 @@ export function WorkspaceLayout({
     }
   }, [close, detailsIsDrawer, navigationIsDrawer, open])
 
+  useEffect(
+    () => () => {
+      for (const timer of scrollbarTimers.current.values()) {
+        globalThis.clearTimeout(timer)
+      }
+      scrollbarTimers.current.clear()
+    },
+    [],
+  )
+
   return (
     <div
+      ref={workspace}
       className="workspace"
       data-navigation={hasNavigation ? 'available' : 'none'}
       data-details={hasDetails ? 'available' : 'none'}
       data-open={open ?? 'none'}
       inert={inert || undefined}
       aria-disabled={inert || undefined}
+      onScrollCapture={revealActiveScrollbar}
     >
       {hasNavigation ? (
         <WorkspaceRegion
@@ -97,6 +269,23 @@ export function WorkspaceLayout({
           onClick={close}
         />
       ) : null}
+      {TRANSIENT_SCROLLBARS.map(({ key }) => (
+        <span
+          key={key}
+          ref={(overlay) => {
+            if (overlay) scrollbarOverlays.current.set(key, overlay)
+            else scrollbarOverlays.current.delete(key)
+          }}
+          className="workspace__scrollbar-overlay"
+          data-scrollbar-for={key}
+          data-visible="false"
+          aria-hidden="true"
+          onPointerDown={(event) => startScrollbarDrag(key, event)}
+          onPointerMove={moveScrollbarDrag}
+          onPointerUp={finishScrollbarDrag}
+          onPointerCancel={finishScrollbarDrag}
+        />
+      ))}
     </div>
   )
 }

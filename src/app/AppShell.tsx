@@ -306,6 +306,7 @@ function ArchiveWorkspace({
       <AppRoutes
         key={generation}
         client={client}
+        developmentMock={developmentMock}
         inert={recovering || undefined}
       />
     </Frame>

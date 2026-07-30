@@ -166,6 +166,8 @@ export interface TimeWindowFields {
   /** Exact inclusive civil bounds produced by core for boundary requests. */
   readonly startDate: CivilDate
   readonly endDate: CivilDate
+  /** Core-produced week ordinal for Day/Week; Month/Year have no single week. */
+  readonly weekNumber: number | null
   readonly calendarId: string
   readonly timeZoneId: string
 }
@@ -405,6 +407,8 @@ export interface StructuredSummary {
   readonly iconId: SemanticId
   readonly tags: StructuredTags
   readonly trackId: StableId | null
+  /** Core-projected count for compact navigation when the contract provides it. */
+  readonly mediaCount?: number
 }
 
 export interface StructuredObject {
@@ -618,6 +622,11 @@ export interface TrackWithFirstMemberRequest {
   readonly newMemberId: StableId
   readonly track: TrackDraft
   readonly member: StructuredDraft
+  /**
+   * True only when the capture UI never supplied tag state. The core may then
+   * apply the Track suggestion. An explicit empty collection remains empty.
+   */
+  readonly tagStateOmitted?: boolean
   readonly nowMs: Instant
 }
 
@@ -633,6 +642,7 @@ export interface TrackMemberCreateRequest {
   readonly expectedInvalidation: InvalidationToken
   readonly newMemberId: StableId
   readonly member: StructuredDraft
+  readonly tagStateOmitted?: boolean
   readonly nowMs: Instant
 }
 
@@ -1075,9 +1085,9 @@ export interface ArchiveCloseResult {
   readonly outcome: 'closed' | 'already-closed'
 }
 
-/** Ordinary entry scales the core counts, including ones v0.1 does not edit. */
-export type CountedEntryScale =
-  'moment' | 'day' | 'week' | 'month' | 'year' | 'custom'
+/** Active Entry kinds counted by the archive overview contract. */
+export type CountedEntryKind =
+  'day' | 'week' | 'month' | 'year' | 'event' | 'span'
 
 /**
  * Health facts as the current product surface reports them on success. A new
@@ -1097,7 +1107,7 @@ export interface ArchiveOverview {
   readonly storeSchemaVersion: string
   readonly storeContract: string
   readonly visibleEntryCount: number
-  readonly entryCounts: Readonly<Record<CountedEntryScale, number>>
+  readonly entryCounts: Readonly<Record<CountedEntryKind, number>>
   readonly structuredCounts: {
     readonly events: number
     readonly spans: number

@@ -25,5 +25,8 @@ export async function bootstrapAppClient(): Promise<AppBootstrapResult> {
       developmentMock: true,
     }
   }
-  return { state: 'runtime', runtime: await new RuntimeLoader().load() }
+  return {
+    state: 'runtime',
+    runtime: await new RuntimeLoader({ source: selection.source }).load(),
+  }
 }

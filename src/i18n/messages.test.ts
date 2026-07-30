@@ -16,6 +16,12 @@ const PHRASES = Object.entries(enMessages).flatMap(
           .map((phrase) => [key, phrase] as const),
 )
 
+const RESULT_DERIVED_PERSISTENCE_CLAIM_KEYS = new Set([
+  'record.editor.status.saved',
+  'record.event.status.saved',
+  'record.span.status.saved',
+])
+
 describe('the English catalog', () => {
   it('is the locale it says it is', () => {
     expect(CATALOG_LOCALE).toBe('en')
@@ -33,7 +39,7 @@ describe('the English catalog', () => {
 
   it('namespaces every key under its feature', () => {
     for (const key of Object.keys(enMessages)) {
-      expect(key, key).toMatch(/^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$/)
+      expect(key, key).toMatch(/^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9-]+)+$/)
     }
   })
 
@@ -52,12 +58,12 @@ describe('the English catalog', () => {
     }
   })
 
-  it('claims nothing about durability or availability', () => {
+  it('keeps persistence claims limited to result-derived status keys', () => {
     for (const [key, phrase] of PHRASES) {
-      for (const claim of [
-        ...FORBIDDEN_PERSISTENCE_CLAIMS,
-        ...FORBIDDEN_AVAILABILITY_CLAIMS,
-      ]) {
+      const claims = RESULT_DERIVED_PERSISTENCE_CLAIM_KEYS.has(key)
+        ? FORBIDDEN_AVAILABILITY_CLAIMS
+        : [...FORBIDDEN_PERSISTENCE_CLAIMS, ...FORBIDDEN_AVAILABILITY_CLAIMS]
+      for (const claim of claims) {
         expect(claim.test(phrase), `${key} matches ${String(claim)}`).toBe(
           false,
         )
