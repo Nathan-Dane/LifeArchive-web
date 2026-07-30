@@ -385,7 +385,6 @@ export const runtimeBoundary = {
     'structured.delete',
     ({ id, expectedRevision, nowMs }) =>
       noTransfers({
-        contractVersion: 2,
         id,
         expectedRevision,
         nowMs,
