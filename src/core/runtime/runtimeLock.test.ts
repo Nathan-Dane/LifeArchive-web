@@ -78,14 +78,14 @@ describe('runtime state', () => {
     expect(() => parseRuntimeLock(runtimeLock)).not.toThrow()
   })
 
-  it('pins the reviewed Runtime 0.1.0 release', () => {
+  it('pins the reviewed Runtime 0.1.1 release', () => {
     expect(runtimeLock.status).toBe('pinned')
-    expect(runtimeLock.runtimeVersion).toBe('0.1.0')
+    expect(runtimeLock.runtimeVersion).toBe('0.1.1')
     expect(runtimeLock.artifactUrl).toBe(
-      'https://lifearchive-runtime.pages.dev/releases/0.1.0/lifearchive-runtime-web-0.1.0.tar.gz',
+      'https://lifearchive-runtime.pages.dev/releases/0.1.1/lifearchive-runtime-web-0.1.1.tar.gz',
     )
     expect(runtimeLock.sha256).toBe(
-      'b7880b44395d48aecdfeb5b6e93bda0252aa2ecd06ce97f12d44c9875b52d613',
+      '35255c427125aa4c0657f4eab981f1cfa5640a29c97526b309fd86e24aa7520d',
     )
     expect(runtimeLock.productContract).toBe('5')
     expect(runtimeLock.bindingsAbi).toBe('1')
@@ -94,7 +94,7 @@ describe('runtime state', () => {
   it('uses an exact immutable artifact URL', () => {
     expect(runtimeLock.artifactUrl).not.toMatch(/(?:latest|redirect)/)
     expect(new URL(runtimeLock.artifactUrl).pathname).toBe(
-      '/releases/0.1.0/lifearchive-runtime-web-0.1.0.tar.gz',
+      '/releases/0.1.1/lifearchive-runtime-web-0.1.1.tar.gz',
     )
   })
 

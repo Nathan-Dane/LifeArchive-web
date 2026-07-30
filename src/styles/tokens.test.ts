@@ -377,7 +377,13 @@ describe('contrast in both appearances', () => {
 })
 
 describe('the responsive breakpoints', () => {
-  const breakpoints = ['details', 'navigation', 'compact', 'tight'] as const
+  const breakpoints = [
+    'details',
+    'management',
+    'navigation',
+    'compact',
+    'tight',
+  ] as const
 
   it('records every breakpoint as a token', () => {
     for (const name of breakpoints) {
