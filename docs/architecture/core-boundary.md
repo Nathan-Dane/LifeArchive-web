@@ -73,6 +73,10 @@ Layer responsibilities:
   Wire DTOs, generated bindings, and transport envelopes are internal to the
   client module. Feature code imports ergonomic values only. A generated type
   appearing in a component's props is a boundary violation.
+- **Week ordinals are core values, not formatted-date guesses.** Day and Week
+  windows may carry the Rust projection's `weekNumber`; React localizes it as
+  `Week {n}` or `W{n}` and renders nothing when an older compatible runtime
+  omits it. It never derives a replacement from civil bounds.
 
 ### Worker protocol
 

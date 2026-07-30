@@ -32,6 +32,7 @@ const window = coreTimeWindow({
   endMs: 1_785_225_600_000,
   startDate: civilDate('2026-07-26'),
   endDate: civilDate('2026-07-26'),
+  weekNumber: 30,
   calendarId: 'gregorian',
   timeZoneId: 'Europe/Copenhagen',
 })
@@ -446,6 +447,44 @@ const cases = {
       },
     })
     expect(mapped).toEqual(window)
+
+    const compatible = exercise(
+      runtimeBoundary.timeWindow,
+      request,
+      { ...window, weekNumber: undefined },
+      {
+        operation: 'time.window',
+        request: {
+          contractVersion: 1,
+          scale: 'day',
+          anchorDate: '2026-07-26',
+          calendarIdentifier: 'gregorian',
+          timeZoneIdentifier: 'Europe/Copenhagen',
+          firstWeekday: 2,
+          minimumDaysInFirstWeek: 4,
+        },
+      },
+    )
+    expect(compatible.weekNumber).toBeNull()
+    expect(() =>
+      exercise(
+        runtimeBoundary.timeWindow,
+        request,
+        { ...window, weekNumber: 54 },
+        {
+          operation: 'time.window',
+          request: {
+            contractVersion: 1,
+            scale: 'day',
+            anchorDate: '2026-07-26',
+            calendarIdentifier: 'gregorian',
+            timeZoneIdentifier: 'Europe/Copenhagen',
+            firstWeekday: 2,
+            minimumDaysInFirstWeek: 4,
+          },
+        },
+      ),
+    ).toThrow('Malformed time window week number')
   },
 
   timeStep: () => {

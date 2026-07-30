@@ -69,6 +69,18 @@ test.describe('verified local development runtime', () => {
     await expect(
       page.getByRole('heading', { name: 'Time navigation is unavailable' }),
     ).toHaveCount(0)
+    await expect(page.locator('.record-navigation__week-number')).toHaveText(
+      /^W\d{1,2}$/,
+    )
+
+    await page.getByRole('button', { name: 'Week', exact: true }).click()
+    const weekPeriods = page
+      .getByRole('group', { name: 'Periods around the selected period' })
+      .getByRole('button')
+    await expect(weekPeriods).toHaveCount(5)
+    for (const period of await weekPeriods.all()) {
+      await expect(period).toHaveText(/^W\d{1,2}$/)
+    }
 
     for (const scale of ['Day', 'Week', 'Month', 'Year']) {
       await page.getByRole('button', { name: scale, exact: true }).click()

@@ -118,6 +118,45 @@ describe('runtime state', () => {
     ).toThrow()
   })
 
+  it('admits the reviewed 0.1.1 dependency profile without breaking 0.1.0', () => {
+    const nextLock = {
+      ...pinnedLock,
+      runtimeVersion: '0.1.1',
+      artifactUrl:
+        'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.1.tar.gz',
+    }
+    const nextManifest = {
+      ...manifest,
+      runtimeVersion: '0.1.1',
+      dependencyVersions: {
+        ...manifest.dependencyVersions,
+        sqliteSchema: '8',
+      },
+    }
+
+    expect(assertRuntimeCompatibility(nextManifest, nextLock)).toEqual(
+      nextManifest,
+    )
+    expect(() =>
+      assertRuntimeCompatibility(
+        {
+          ...nextManifest,
+          dependencyVersions: manifest.dependencyVersions,
+        },
+        nextLock,
+      ),
+    ).toThrow()
+    expect(() =>
+      assertRuntimeCompatibility(
+        {
+          ...manifest,
+          dependencyVersions: nextManifest.dependencyVersions,
+        },
+        pinnedLock,
+      ),
+    ).toThrow()
+  })
+
   it('rejects duplicate capabilities even when the list length is unchanged', () => {
     const capabilities = [...manifest.capabilities]
     capabilities[1] = capabilities[0]

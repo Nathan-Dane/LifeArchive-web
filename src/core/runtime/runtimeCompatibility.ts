@@ -19,6 +19,10 @@ export const WEB_V0_1_CAPABILITIES = webRuntimePolicy.capabilities.map(
   ({ name, version }) => [name, version] as const,
 )
 
+const WEB_V0_1_DEPENDENCY_PROFILES: Readonly<
+  Record<string, Readonly<Record<string, string>>>
+> = webRuntimePolicy.dependencyProfiles
+
 const unpinnedRuntimeLockSchema = z.strictObject({
   manifestVersion: z.literal(1),
   runtimeVersion: z.null(),
@@ -139,30 +143,24 @@ export const runtimeManifestSchema = z
       })
     }
 
-    const expectedDependencies = {
-      domain: '4',
-      timeNavigation: '1',
-      durableMedia: '1',
-      archiveApplication: '5',
-      applicationQuery: '4',
-      providerNeutralAI: '3',
-      archiveOverviewExport: '5',
-      store: '5',
-      rootLayout: '1',
-      sqliteSchema: '7',
-      archiveFormat: '0.4.1',
-    }
+    const runtimeSeries = manifest.runtimeVersion.split('-', 1)[0]
+    const expectedDependencies =
+      WEB_V0_1_DEPENDENCY_PROFILES[runtimeSeries ?? '']
     if (
+      expectedDependencies === undefined ||
+      Object.keys(manifest.dependencyVersions).length !==
+        Object.keys(expectedDependencies).length ||
       Object.entries(expectedDependencies).some(
         ([name, version]) =>
           manifest.dependencyVersions[
-            name as keyof typeof expectedDependencies
+            name as keyof typeof manifest.dependencyVersions
           ] !== version,
       )
     ) {
       context.addIssue({
         code: 'custom',
-        message: 'dependency versions must match product contract 5',
+        message:
+          'dependency versions must match the approved runtime version profile',
         path: ['dependencyVersions'],
       })
     }

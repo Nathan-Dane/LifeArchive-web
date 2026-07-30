@@ -33,6 +33,7 @@ const testWindow = coreTimeWindow({
   endMs: 2,
   startDate: civilDate('2026-07-27'),
   endDate: civilDate('2026-07-27'),
+  weekNumber: 31,
   calendarId: 'gregorian',
   timeZoneId: 'Europe/Copenhagen',
 })
@@ -167,6 +168,7 @@ describe('RuntimeLifeArchiveClient', () => {
       endMs: 2,
       startDate: civilDate('2026-07-20'),
       endDate: civilDate('2026-07-26'),
+      weekNumber: 30,
       calendarId: 'gregorian',
       timeZoneId: 'Europe/Copenhagen',
     })

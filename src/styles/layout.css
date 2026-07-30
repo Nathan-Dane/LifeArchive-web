@@ -239,7 +239,6 @@
   flex: 1 1 auto;
   padding: 30px 30px 48px 28px;
   grid-column: 2;
-  scrollbar-gutter: stable;
 }
 
 .workspace__details {
@@ -1710,6 +1709,12 @@
   white-space: nowrap;
 }
 
+.record-navigation__week-number {
+  color: var(--color-text-secondary);
+  font-size: var(--text-record-meta);
+  font-weight: var(--weight-medium);
+}
+
 .record-navigation__anchor {
   display: flex;
   overflow: hidden;
@@ -1981,10 +1986,21 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.record-navigation__period-carousel[data-period-count='5']
+  .record-navigation__period-strip {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .record-navigation__period-strip[data-transition-track='true'] {
   width: calc(400% / 3);
   grid-template-columns: repeat(4, minmax(0, 1fr));
   will-change: transform;
+}
+
+.record-navigation__period-carousel[data-period-count='5']
+  .record-navigation__period-strip[data-transition-track='true'] {
+  width: 120%;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .record-navigation__period-carousel[data-transition='true'][data-direction='forward']
@@ -1997,6 +2013,16 @@
   .record-navigation__period-strip {
   animation: record-period-shift-backward var(--motion-horizontal)
     var(--motion-ease-emphasized) both;
+}
+
+.record-navigation__period-carousel[data-period-count='5'][data-transition='true'][data-direction='forward']
+  .record-navigation__period-strip {
+  animation-name: record-period-shift-forward-five;
+}
+
+.record-navigation__period-carousel[data-period-count='5'][data-transition='true'][data-direction='backward']
+  .record-navigation__period-strip {
+  animation-name: record-period-shift-backward-five;
 }
 
 .record-navigation__period-strip > button {
@@ -2092,6 +2118,26 @@
   }
 }
 
+@keyframes record-period-shift-forward-five {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-100% / 6));
+  }
+}
+
+@keyframes record-period-shift-backward-five {
+  from {
+    transform: translateX(calc(-100% / 6));
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
 /*
  * Record's object menu.
  *
@@ -2103,7 +2149,7 @@
 .record-page {
   display: grid;
   align-content: start;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   max-width: 100%;
   margin-inline: auto;
   font-family: var(--font-interface);
@@ -2463,7 +2509,7 @@
 
 .record-editor {
   display: grid;
-  gap: var(--space-compact);
+  gap: var(--space-xs);
   min-height: 30rem;
 }
 
@@ -2849,21 +2895,20 @@
 
 .record-objects__transition-stack {
   position: relative;
-  overflow: hidden;
+  overflow: clip;
   min-height: 0;
   flex: 1 1 auto;
 }
 
 .record-objects__groups {
   display: grid;
-  overflow-x: hidden;
+  overflow-x: clip;
   overflow-y: auto;
   height: 100%;
   min-height: 0;
   align-content: start;
-  padding: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
   gap: 0;
-  scrollbar-gutter: stable;
 }
 
 .record-objects__group {
@@ -2915,7 +2960,7 @@
 
 .record-objects__item-shell-inner {
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .record-objects__item-shell[data-presence='entering'],
@@ -2938,6 +2983,7 @@
   > .record-objects__item-shell-inner,
 .record-objects__item-shell[data-presence='exiting']
   > .record-objects__item-shell-inner {
+  overflow: hidden;
   animation-duration: var(--motion-quick);
   animation-fill-mode: both;
   animation-timing-function: var(--motion-ease-emphasized);
@@ -3038,10 +3084,14 @@
 
 .record-objects__ordinary-stack {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   min-width: 0;
   min-height: var(--size-record-ordinary-row);
   border-radius: var(--radius-panel);
+}
+
+.record-objects__ordinary-stack[data-transition='true'] {
+  overflow: hidden;
 }
 
 .record-objects__ordinary-layer {
@@ -3332,6 +3382,10 @@
   background: var(--color-surface);
 }
 
+.record-objects__notice {
+  margin-inline: var(--space-md);
+}
+
 .record-objects__message {
   flex: 1 1 20ch;
   margin: 0;
@@ -3447,6 +3501,57 @@
   font-family: var(--font-interface);
   font-size: var(--text-record-ui);
   line-height: var(--leading-record-ui);
+}
+
+/*
+ * The three persistent workspace scrollers reserve no gutter. Their thumbs
+ * appear while scroll events are arriving, then return to transparent shortly
+ * after scrolling stops so the panels regain their quiet edges.
+ */
+.workspace :is(.record-objects__groups, .workspace__content, .record-details) {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+.workspace
+  :is(
+    .record-objects__groups,
+    .workspace__content,
+    .record-details
+  )[data-scrollbar-visible='true'] {
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.workspace
+  :is(
+    .record-objects__groups,
+    .workspace__content,
+    .record-details
+  )::-webkit-scrollbar {
+  width: var(--space-sm);
+  height: var(--space-sm);
+}
+
+.workspace
+  :is(
+    .record-objects__groups,
+    .workspace__content,
+    .record-details
+  )::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  background-clip: padding-box;
+}
+
+.workspace
+  :is(
+    .record-objects__groups,
+    .workspace__content,
+    .record-details
+  )[data-scrollbar-visible='true']::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  background-clip: padding-box;
 }
 
 @media (max-width: 1120px) {

@@ -68,9 +68,9 @@ export interface TemporalCursorState {
    */
   readonly view: TemporalView | null
   /**
-   * The core-returned period before and after the settled window. Broader
-   * scale strips render these around the current window without calculating
-   * any neighbouring boundary in the browser.
+   * The core-returned periods around the settled window. Week and Month keep
+   * two on either side; Year keeps one. Every boundary still comes from a
+   * `time.step` answer rather than browser date arithmetic.
    */
   readonly periods: readonly TimeWindow[]
   readonly failure: ClientFailure | null
@@ -366,27 +366,59 @@ export function useTemporalCursor(
       return
     }
 
-    void Promise.all([
-      client.time.step({
-        window,
-        step: 'previous',
-        weekRules: device.weekRules,
-      }),
-      client.time.step({
-        window,
-        step: 'next',
-        weekRules: device.weekRules,
-      }),
-    ]).then(([previous, next]) => {
-      if (requested !== periodGeneration.current) return
-      setPeriodAnswer({
-        toWindowId: window.id,
-        periods:
-          previous.status === 'ok' && next.status === 'ok'
-            ? [previous.value, window, next.value]
-            : [],
-      })
-    })
+    void (async () => {
+      const [previous, next] = await Promise.all([
+        client.time.step({
+          window,
+          step: 'previous',
+          weekRules: device.weekRules,
+        }),
+        client.time.step({
+          window,
+          step: 'next',
+          weekRules: device.weekRules,
+        }),
+      ])
+      if (
+        requested !== periodGeneration.current ||
+        previous.status !== 'ok' ||
+        next.status !== 'ok'
+      ) {
+        return
+      }
+
+      let periods: readonly TimeWindow[] = [previous.value, window, next.value]
+      if (target.scale === 'week' || target.scale === 'month') {
+        const [earlier, later] = await Promise.all([
+          client.time.step({
+            window: previous.value,
+            step: 'previous',
+            weekRules: device.weekRules,
+          }),
+          client.time.step({
+            window: next.value,
+            step: 'next',
+            weekRules: device.weekRules,
+          }),
+        ])
+        if (
+          requested !== periodGeneration.current ||
+          earlier.status !== 'ok' ||
+          later.status !== 'ok'
+        ) {
+          return
+        }
+        periods = [
+          earlier.value,
+          previous.value,
+          window,
+          next.value,
+          later.value,
+        ]
+      }
+
+      setPeriodAnswer({ toWindowId: window.id, periods })
+    })()
   }, [client, device, settled, target.scale, window])
 
   const step = useCallback(

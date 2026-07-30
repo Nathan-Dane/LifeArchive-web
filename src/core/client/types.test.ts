@@ -30,6 +30,7 @@ function dayWindow(): TimeWindow {
     endMs: 86_400_000,
     startDate: civilDate('1970-01-01'),
     endDate: civilDate('1970-01-01'),
+    weekNumber: 1,
     calendarId: 'gregorian',
     timeZoneId: 'UTC',
   })

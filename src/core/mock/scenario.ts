@@ -194,6 +194,7 @@ function dayWindow([date, startMs, endMs]: DayFixture): TimeWindow {
     endMs,
     startDate: civilDate(date),
     endDate: civilDate(date),
+    weekNumber: 24,
     calendarId: 'gregory',
     timeZoneId: 'UTC',
   })
@@ -233,6 +234,7 @@ const WEEK_WINDOW = coreTimeWindow({
   endMs: 1750032000000,
   startDate: civilDate('2025-06-09'),
   endDate: civilDate('2025-06-15'),
+  weekNumber: 24,
   calendarId: 'gregory',
   timeZoneId: 'UTC',
 })
@@ -242,6 +244,7 @@ function fixedPeriodWindow(
   scale: Exclude<TimeScale, 'day'>,
   startDate: string,
   endDate: string,
+  weekNumber: number | null = null,
 ): TimeWindow {
   return coreTimeWindow({
     id,
@@ -250,6 +253,7 @@ function fixedPeriodWindow(
     endMs: 0,
     startDate: civilDate(startDate),
     endDate: civilDate(endDate),
+    weekNumber,
     calendarId: 'gregory',
     timeZoneId: 'UTC',
   })
@@ -260,12 +264,28 @@ const WEEK_PREVIOUS = fixedPeriodWindow(
   'week',
   '2025-06-02',
   '2025-06-08',
+  23,
+)
+const WEEK_EARLIER = fixedPeriodWindow(
+  'week:2025-W22',
+  'week',
+  '2025-05-26',
+  '2025-06-01',
+  22,
 )
 const WEEK_NEXT = fixedPeriodWindow(
   'week:2025-W25',
   'week',
   '2025-06-16',
   '2025-06-22',
+  25,
+)
+const WEEK_LATER = fixedPeriodWindow(
+  'week:2025-W26',
+  'week',
+  '2025-06-23',
+  '2025-06-29',
+  26,
 )
 const MONTH_WINDOW = fixedPeriodWindow(
   'month:2025-06',
@@ -279,11 +299,23 @@ const MONTH_PREVIOUS = fixedPeriodWindow(
   '2025-05-01',
   '2025-05-31',
 )
+const MONTH_EARLIER = fixedPeriodWindow(
+  'month:2025-04',
+  'month',
+  '2025-04-01',
+  '2025-04-30',
+)
 const MONTH_NEXT = fixedPeriodWindow(
   'month:2025-07',
   'month',
   '2025-07-01',
   '2025-07-31',
+)
+const MONTH_LATER = fixedPeriodWindow(
+  'month:2025-08',
+  'month',
+  '2025-08-01',
+  '2025-08-31',
 )
 const YEAR_WINDOW = fixedPeriodWindow(
   'year:2025',
@@ -587,6 +619,9 @@ export interface MockScenario {
     readonly windows: Readonly<Record<TimeScale, TimeWindow>>
     readonly steps: Readonly<
       Record<TimeScale, Readonly<Record<WindowStep, TimeWindow>>>
+    >
+    readonly outerSteps?: Readonly<
+      Partial<Record<TimeScale, Readonly<Record<WindowStep, TimeWindow>>>>
     >
   }
   readonly results: MockResults
@@ -921,6 +956,10 @@ export const DEVELOPMENT_MOCK_SCENARIO: MockScenario = {
       week: { previous: WEEK_PREVIOUS, next: WEEK_NEXT },
       month: { previous: MONTH_PREVIOUS, next: MONTH_NEXT },
       year: { previous: YEAR_PREVIOUS, next: YEAR_NEXT },
+    },
+    outerSteps: {
+      week: { previous: WEEK_EARLIER, next: WEEK_LATER },
+      month: { previous: MONTH_EARLIER, next: MONTH_LATER },
     },
   },
   results: RESULTS,
