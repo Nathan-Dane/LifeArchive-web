@@ -18,7 +18,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   civilDate,
   clientFailure,
@@ -35,12 +35,14 @@ import {
   type StructuredObject,
   type StructuredObjectState,
   type StructuredSummary,
+  type TimeWindowRequest,
 } from '../../../core/client'
 import { I18nProvider } from '../../../i18n'
 import { setClientMedia } from '../../../test/clientMedia'
 import { renderAppAt } from '../../../test/render'
 import { TestLifeArchiveClient } from '../../../test/TestLifeArchiveClient'
 import { coreWindow } from '../../../test/timeFixtures'
+import { resetRememberedRecordCursor } from '../navigation/temporalCursor'
 import { RecordObjectDetails } from './RecordObjectDetails'
 import {
   OBJECT_PAGE_LIMIT,
@@ -495,6 +497,9 @@ describe('the exact object in the location', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('scales wider than a day', () => {
+  beforeEach(resetRememberedRecordCursor)
+  afterEach(resetRememberedRecordCursor)
+
   it('keeps the categorized bounded list visible', async () => {
     const user = userEvent.setup()
     const client = openArchive()
@@ -521,32 +526,46 @@ describe('scales wider than a day', () => {
     ).toBeInTheDocument()
   })
 
-  it('hands off to the object s own day and selects it there', async () => {
-    const user = userEvent.setup()
-    const client = openArchive()
-    renderRecord(
-      recordClient(
-        client,
-        ...listing(ok(page([])), ok(page(overlappingSpans()))),
-      ),
-    )
-    await railReady()
+  it.each([
+    ['Week', 'week'],
+    ['Month', 'month'],
+    ['Year', 'year'],
+  ] as const)(
+    'edits a Span from %s view without moving the temporal cursor',
+    async (scaleLabel, scale) => {
+      const user = userEvent.setup()
+      const client = openArchive()
+      renderRecord(
+        recordClient(
+          client,
+          ...listing(ok(page([])), ok(page(overlappingSpans()))),
+        ),
+      )
+      await railReady()
+      const dayRequest = client.calls.to('time.window').at(-1)
+        ?.request as TimeWindowRequest
+      expect(dayRequest).toMatchObject({ scale: 'day' })
 
-    await user.click(screen.getByRole('button', { name: 'Month' }))
-    await waitFor(() => expect(tabFor(STUDIO)).toBeInTheDocument())
-    await user.click(tabFor(STUDIO))
-
-    /* One move: the scale and the civil location change together. */
-    await waitFor(() =>
+      await user.click(screen.getByRole('button', { name: scaleLabel }))
+      await waitFor(() => expect(tabFor(STUDIO)).toBeInTheDocument())
+      const windowRequests = client.calls.countOf('time.window')
       expect(client.calls.to('time.window').at(-1)?.request).toMatchObject({
-        scale: 'day',
-        containing: '2025-01-01',
-      }),
-    )
-    await waitFor(() =>
-      expect(tabFor(STUDIO)).toHaveAttribute('aria-pressed', 'true'),
-    )
-  })
+        scale,
+        containing: dayRequest.containing,
+      })
+
+      await user.click(tabFor(STUDIO))
+
+      await waitFor(() =>
+        expect(tabFor(STUDIO)).toHaveAttribute('aria-pressed', 'true'),
+      )
+      expect(client.calls.countOf('time.window')).toBe(windowRequests)
+      expect(client.calls.to('time.window').at(-1)?.request).toMatchObject({
+        scale,
+        containing: dayRequest.containing,
+      })
+    },
+  )
 })
 
 /* -------------------------------------------------------------------------- */

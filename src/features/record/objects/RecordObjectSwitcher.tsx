@@ -269,8 +269,11 @@ export function RecordObjectSwitcher({
   )
 
   const choose = (object: StructuredSummary) => {
-    if (scale === 'day') objects.selectObject(object)
-    else objects.goToObject(object)
+    if (scale === 'day' || object.placement.kind === 'span') {
+      objects.selectObject(object)
+    } else {
+      objects.goToObject(object)
+    }
     onNavigate?.()
   }
 
