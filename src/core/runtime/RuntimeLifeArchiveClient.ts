@@ -23,7 +23,7 @@ import type {
   ArchiveIdentity,
   ArchiveImportRequest,
   ArchiveVerifyRequest,
-  CalendarContext,
+  CalendarContextRequest,
   CancellationRequestResult,
   MediaContentRequest,
   MediaDeleteRequest,
@@ -40,6 +40,7 @@ import type {
   StructuredLoadRequest,
   StructuredSaveRequest,
   TimeWindow,
+  TimeWindowRequest,
   TimelineFocusRequest,
   TimelineIndexRequest,
   TimelineStructuredDetailRequest,
@@ -53,6 +54,7 @@ import type {
   TrackMembershipRequest,
   TrackSaveRequest,
   TrackWithFirstMemberRequest,
+  WindowStepRequest,
 } from '../client'
 import {
   WorkerTransportError,
@@ -337,9 +339,12 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
   }
 
   readonly time: LifeArchiveClient['time'] = {
-    window: () => unsupportedClientCapability<TimeWindow>(),
-    step: () => unsupportedClientCapability<TimeWindow>(),
-    calendarContext: () => unsupportedClientCapability<CalendarContext>(),
+    window: (request: TimeWindowRequest) =>
+      this.invoke(runtimeBoundary.timeWindow, request),
+    step: (request: WindowStepRequest) =>
+      this.invoke(runtimeBoundary.timeStep, request),
+    calendarContext: (request: CalendarContextRequest) =>
+      this.invoke(runtimeBoundary.timeCalendarContext, request),
   }
 
   readonly record: LifeArchiveClient['record'] = {
@@ -691,20 +696,6 @@ function sameInvalidation(
   return (
     left.storeInstanceId === right.storeInstanceId &&
     left.revision === right.revision
-  )
-}
-
-function unsupportedClientCapability<Value>(): Promise<ClientResult<Value>> {
-  return Promise.resolve(
-    failed(
-      clientFailure({
-        area: 'compatibility',
-        code: 'unsupportedCapability',
-        phase: 'negotiation',
-        retryable: false,
-        durableOutcome: 'not-started',
-      }),
-    ),
   )
 }
 

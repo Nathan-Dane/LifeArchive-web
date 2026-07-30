@@ -10,17 +10,17 @@ domain, time, persistence, media, and archive behaviour belongs to the core.
 
 ## Status
 
-**Pre-release frontend.** Product surfaces and browser/runtime boundaries are
-under active implementation and are not ready for real archive use.
+**Pre-release frontend.** Product surfaces are under active implementation and
+are not ready for real personal archive use.
 
-- **Production archive persistence is not integrated.**
-  `runtime/runtime.lock.json` records `"status": "not-integrated"`, so no
-  production runtime or durable store is available.
-- Browser adapter tests use simulated opaque runtime payloads. They do not prove
-  Rust archive behaviour, persistence, or production runtime acceptance.
-- **The current UI must not be trusted for real archive storage.** Nothing you
-  type into it is saved anywhere durable. Do not use this build for a real
-  archive.
+- Runtime 0.1.0 is exactly pinned and the archive-lifecycle foundation has a
+  qualified pilot record. Record and Timeline product acceptance remains
+  incomplete.
+- Browser adapter tests use simulated opaque runtime payloads where
+  appropriate; the pilot record, not those fixtures, is the production runtime
+  evidence.
+- **Do not use development mock mode or unfinished product surfaces for real
+  personal writing.**
 
 What this repository currently establishes is scope and boundaries for the work
 that follows — see [Documentation](#documentation).
@@ -73,6 +73,9 @@ pnpm install
 | Script              | Purpose                                        |
 | ------------------- | ---------------------------------------------- |
 | `pnpm dev`          | Vite dev server                                |
+| `VITE_LIFEARCHIVE_CLIENT=development-mock pnpm dev` | Visible fixed non-durable mock |
+| `VITE_LIFEARCHIVE_CLIENT=local-runtime pnpm dev` | Verified ignored local runtime artifact |
+| `pnpm runtime:install-local <archive> <sidecar>` | Verify and install packaged local runtime bytes |
 | `pnpm build`        | Type-check project references, then build      |
 | `pnpm preview`      | Serve the production build                     |
 | `pnpm lint`         | ESLint                                         |

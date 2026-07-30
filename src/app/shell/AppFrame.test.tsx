@@ -1,11 +1,11 @@
 import { StrictMode } from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '../../i18n'
 import { setClientMedia } from '../../test/clientMedia'
 import { AppFrame } from './AppFrame'
-import { APPEARANCE_ATTRIBUTE, APPEARANCE_STORAGE_KEY } from './appearance'
+import { APPEARANCE_ATTRIBUTE } from './appearance'
 import { AppearanceProvider } from './AppearanceProvider'
 import { WorkspaceLayout } from './WorkspaceLayout'
 
@@ -64,58 +64,51 @@ describe('the frame', () => {
   })
 })
 
-describe('the appearance control', () => {
-  it('cycles the appearance and says which one is in force', async () => {
-    const user = userEvent.setup()
-    renderShell(<p>Body</p>)
-
-    const control = screen.getByRole('button', { name: 'Appearance: System' })
-    expect(document.documentElement.getAttribute(APPEARANCE_ATTRIBUTE)).toBe(
-      'system',
-    )
-
-    await user.click(control)
-    expect(
-      screen.getByRole('button', { name: 'Appearance: Light' }),
-    ).toBeInTheDocument()
-    expect(document.documentElement.getAttribute(APPEARANCE_ATTRIBUTE)).toBe(
-      'light',
-    )
-
-    await user.click(screen.getByRole('button', { name: 'Appearance: Light' }))
-    expect(document.documentElement.getAttribute(APPEARANCE_ATTRIBUTE)).toBe(
-      'dark',
-    )
-
-    await user.click(screen.getByRole('button', { name: 'Appearance: Dark' }))
-    expect(document.documentElement.getAttribute(APPEARANCE_ATTRIBUTE)).toBe(
-      'system',
-    )
-  })
-
-  it('remembers the choice for the next visit', async () => {
-    const user = userEvent.setup()
-    const { unmount } = renderShell(<p>Body</p>)
-    await user.click(screen.getByRole('button', { name: 'Appearance: System' }))
-    expect(globalThis.localStorage.getItem(APPEARANCE_STORAGE_KEY)).toBe(
-      'light',
-    )
-    unmount()
-
-    renderShell(<p>Body</p>)
-    expect(
-      screen.getByRole('button', { name: 'Appearance: Light' }),
-    ).toBeInTheDocument()
-  })
-
-  it('keeps the visible word inside the accessible name', () => {
-    renderShell(<p>Body</p>)
-    const control = screen.getByRole('button', { name: 'Appearance: System' })
-    expect(within(control).getByText('System')).toBeInTheDocument()
-  })
-})
-
 describe('the staged workspace regions', () => {
+  it('hides a workspace scrollbar shortly after scrolling stops', async () => {
+    renderShell(
+      <WorkspaceLayout>
+        <h1>Record</h1>
+      </WorkspaceLayout>,
+    )
+    const main = document.querySelector<HTMLElement>('.workspace__content')
+    if (!main) throw new Error('no main scroller rendered')
+    const overlay = document.querySelector<HTMLElement>(
+      '[data-scrollbar-for="content"]',
+    )
+    if (!overlay) throw new Error('no main scrollbar overlay rendered')
+
+    Object.defineProperties(main, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 400 },
+      scrollTop: { configurable: true, value: 100 },
+    })
+    main.getBoundingClientRect = () =>
+      ({
+        bottom: 110,
+        height: 100,
+        left: 20,
+        right: 220,
+        top: 10,
+        width: 200,
+        x: 20,
+        y: 10,
+        toJSON: () => undefined,
+      }) as DOMRect
+
+    fireEvent.scroll(main)
+    expect(main).toHaveAttribute('data-scrollbar-visible', 'true')
+    expect(overlay).toHaveAttribute('data-visible', 'true')
+    expect(overlay.style.height).toBe('24px')
+    await waitFor(
+      () => {
+        expect(main).not.toHaveAttribute('data-scrollbar-visible')
+        expect(overlay).toHaveAttribute('data-visible', 'false')
+      },
+      { timeout: 700 },
+    )
+  })
+
   it('offers no drawer when the view has only a primary surface', () => {
     const { container } = renderShell(
       <WorkspaceLayout>

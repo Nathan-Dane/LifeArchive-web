@@ -3,8 +3,7 @@
 How the compiled LifeArchive runtime reaches this repository, how it is pinned
 and verified, how it is loaded, and how it behaves when it is missing.
 
-Nothing described here is integrated yet. `runtime/runtime.lock.json` currently
-records `"status": "not-integrated"`.
+Runtime 0.1.0 is integrated and pinned in `runtime/runtime.lock.json`.
 
 ## Artifact contents
 
@@ -45,8 +44,8 @@ The artifact is verified against `sha256` before it is used:
 - at fetch time, by the script that downloads it — a mismatch aborts and leaves
   nothing installed;
 - in CI, before any job that depends on the runtime;
-- optionally at load time in the worker, where the platform makes the bytes
-  available for hashing.
+- at browser load before archive extraction, compatibility checks, or worker
+  startup.
 
 An unverified artifact is never loaded, and a checksum mismatch is a hard
 failure. There is no "continue anyway" path.
@@ -66,6 +65,12 @@ about the artifact — it is not a second copy of the contracts. Versions are
 exact, never ranges or aliases. Capabilities and environment features are
 ordered and duplicate-free. Module, licence, and notices paths must name
 distinct hashed files inside the bundle.
+
+`runtime/web-runtime-policy.json` records the exact dependency profile admitted
+for each reviewed runtime release series. This lets the tracked 0.1.0
+production pin retain its schema-7 profile while a verified local 0.1.1 runtime
+uses schema 8. An unknown release series or a dependency mismatch is rejected
+before worker startup; local selection does not weaken this check.
 
 The build ID never exposes a private commit SHA, branch, source path, lockfile
 hash, or internal artifact identity. Private release validation scans payload
@@ -144,6 +149,48 @@ Development, tests, and previews may select a mock client implementing the same
 - development-only — excluded from production builds;
 - policy-free — it returns fixed values or records calls; it does not
   reimplement Rust-owned behaviour.
+
+## Development runtime acquisition
+
+Development has exactly three source selections:
+
+- absent `VITE_LIFEARCHIVE_CLIENT` selects the hosted artifact pinned by
+  `runtime/runtime.lock.json`;
+- `VITE_LIFEARCHIVE_CLIENT=development-mock` dynamically loads the visible,
+  non-durable fixed mock;
+- `VITE_LIFEARCHIVE_CLIENT=local-runtime` requires a verified local receipt and
+  artifact installed by `pnpm runtime:install-local`.
+
+Any other development value is an error. Runtime failure never changes the
+selection, and there is no fallback edge between the three sources.
+
+The hosted development path keeps the production artifact's exact versioned
+path but resolves it against the current Vite origin. Vite proxies only that
+path to the HTTPS origin recorded in `runtime.lock.json`. This avoids widening
+the public artifact's CORS policy to arbitrary localhost ports.
+
+The proxy is transport only. The browser still rejects redirects and verifies
+the whole-artifact SHA-256, archive allowlist, manifest identity, per-file
+checksums, compatibility, and capability negotiation before starting the
+worker. Production builds do not contain or use the development proxy and
+continue to fetch the immutable URL from the lock directly.
+
+The local installer consumes an already packaged artifact plus its exact
+checksum sidecar. It verifies the sidecar, archive allowlist, manifest identity,
+frontend contract and ABI, ordered capability inventory, and every payload
+hash before atomically writing ignored material under `runtime/installed/`.
+The receipt contains its own exact lock and artifact filename. The browser
+loads that artifact through a checksum-qualified same-origin URL and then uses
+the same verification and negotiation path as hosted bytes.
+
+Local selection never edits or depends on the tracked production lock. A
+missing, stale, malformed, or incompatible receipt or artifact fails as local
+runtime selection; it does not try the hosted pin or the mock. A changed
+checksum changes the artifact URL and verification-cache identity.
+
+Production ignores `VITE_LIFEARCHIVE_CLIENT` and always selects the tracked
+pin. Mock code, the local resolver, receipts, and installed artifacts are
+excluded from production output.
 
 ## Update flow
 

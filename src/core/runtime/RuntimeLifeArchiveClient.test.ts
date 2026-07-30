@@ -9,7 +9,11 @@ import {
 } from '../client'
 import packageMetadata from '../../../package.json'
 import { RuntimeLifeArchiveClient } from './RuntimeLifeArchiveClient'
-import { WorkerTransport, WorkerTransportError } from './worker/WorkerTransport'
+import {
+  WorkerTransport,
+  WorkerTransportError,
+  type WorkerRequestOptions,
+} from './worker/WorkerTransport'
 import { FixedWorker } from './worker/fixtures/FixedWorker'
 
 const runtime = {
@@ -29,6 +33,7 @@ const testWindow = coreTimeWindow({
   endMs: 2,
   startDate: civilDate('2026-07-27'),
   endDate: civilDate('2026-07-27'),
+  weekNumber: 31,
   calendarId: 'gregorian',
   timeZoneId: 'Europe/Copenhagen',
 })
@@ -66,12 +71,12 @@ function runtimeOverviewResult(
     token: { storeInstanceId, revision: tokenRevision },
     visibleEntryCount: 0,
     entryCounts: {
-      moment: 0,
       day: 0,
       week: 0,
       month: 0,
       year: 0,
-      custom: 0,
+      event: 0,
+      span: 0,
     },
     structuredCounts: { events: 0, spans: 0 },
     trackCounts: { active: 0, archived: 0, ongoingMembers: 0 },
@@ -121,8 +126,33 @@ async function openClientWithWorker(generation: string) {
 }
 
 describe('RuntimeLifeArchiveClient', () => {
-  it('never dispatches operations outside the approved browser ABI', async () => {
-    const request = vi.fn()
+  it('maps all three Record time operations through the approved browser ABI', async () => {
+    const request = vi.fn(({ operation }: WorkerRequestOptions) =>
+      Promise.resolve({
+        outcome: 'success',
+        result:
+          operation === 'time.calendarContext'
+            ? {
+                focused: testWindow,
+                focusedDate: '2026-07-27',
+                week: [
+                  {
+                    date: '2026-07-27',
+                    window: testWindow,
+                    withinFocusedMonth: true,
+                  },
+                ],
+                month: [
+                  {
+                    date: '2026-07-27',
+                    window: testWindow,
+                    withinFocusedMonth: true,
+                  },
+                ],
+              }
+            : testWindow,
+      }),
+    )
     const client = new RuntimeLifeArchiveClient({
       runtime,
       transport: {
@@ -138,6 +168,7 @@ describe('RuntimeLifeArchiveClient', () => {
       endMs: 2,
       startDate: civilDate('2026-07-20'),
       endDate: civilDate('2026-07-26'),
+      weekNumber: 30,
       calendarId: 'gregorian',
       timeZoneId: 'Europe/Copenhagen',
     })
@@ -152,6 +183,13 @@ describe('RuntimeLifeArchiveClient', () => {
         estimate: null,
       },
     })
+    const resolvedWindow = await client.time.window({
+      scale: 'day',
+      containing: civilDate('2026-07-27'),
+      timeZoneId: 'Europe/Copenhagen',
+      weekRules,
+    })
+    expect(resolvedWindow).toEqual({ status: 'ok', value: testWindow })
     await expect(
       client.time.window({
         scale: 'day',
@@ -159,16 +197,10 @@ describe('RuntimeLifeArchiveClient', () => {
         timeZoneId: 'Europe/Copenhagen',
         weekRules,
       }),
-    ).resolves.toMatchObject({
-      status: 'failed',
-      failure: { code: 'unsupportedCapability' },
-    })
+    ).resolves.toEqual({ status: 'ok', value: testWindow })
     await expect(
       client.time.step({ window, step: 'next', weekRules }),
-    ).resolves.toMatchObject({
-      status: 'failed',
-      failure: { code: 'unsupportedCapability' },
-    })
+    ).resolves.toEqual({ status: 'ok', value: testWindow })
     await expect(
       client.time.calendarContext({
         focusedDate: civilDate('2026-07-27'),
@@ -176,10 +208,32 @@ describe('RuntimeLifeArchiveClient', () => {
         weekRules,
       }),
     ).resolves.toMatchObject({
-      status: 'failed',
-      failure: { code: 'unsupportedCapability' },
+      status: 'ok',
+      value: {
+        focusedDate: '2026-07-27',
+        week: [{ date: '2026-07-27' }],
+        month: [{ date: '2026-07-27' }],
+      },
     })
-    expect(request).not.toHaveBeenCalled()
+    expect(request.mock.calls.map(([call]) => call.operation)).toEqual([
+      'time.window',
+      'time.window',
+      'time.step',
+      'time.calendarContext',
+    ])
+    expect(request.mock.calls[0]?.[0]).toMatchObject({
+      payload: {
+        request: {
+          contractVersion: 1,
+          scale: 'day',
+          anchorDate: '2026-07-27',
+          calendarIdentifier: 'gregorian',
+          timeZoneIdentifier: 'Europe/Copenhagen',
+          firstWeekday: 1,
+          minimumDaysInFirstWeek: 4,
+        },
+      },
+    })
   })
 
   it('maps the runtime archive overview vocabulary into ergonomic facts', async () => {
@@ -202,14 +256,14 @@ describe('RuntimeLifeArchiveClient', () => {
                 storeInstanceId: 'overview-wire-test',
                 revision: '9',
               },
-              visibleEntryCount: 12,
+              visibleEntryCount: 21,
               entryCounts: {
-                moment: 1,
-                day: 2,
-                week: 3,
-                month: 4,
-                year: 1,
-                custom: 1,
+                day: 1,
+                week: 2,
+                month: 3,
+                year: 4,
+                event: 5,
+                span: 6,
               },
               structuredCounts: { events: 5, spans: 6 },
               trackCounts: {
@@ -241,14 +295,14 @@ describe('RuntimeLifeArchiveClient', () => {
         storeId,
         storeSchemaVersion: '7',
         storeContract: '5',
-        visibleEntryCount: 12,
+        visibleEntryCount: 21,
         entryCounts: {
-          moment: 1,
-          day: 2,
-          week: 3,
-          month: 4,
-          year: 1,
-          custom: 1,
+          day: 1,
+          week: 2,
+          month: 3,
+          year: 4,
+          event: 5,
+          span: 6,
         },
         structuredCounts: { events: 5, spans: 6 },
         trackCounts: {

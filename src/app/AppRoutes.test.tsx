@@ -2,7 +2,8 @@ import { StrictMode } from 'react'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { useLocation } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clientFailure,
   failed,
@@ -21,6 +22,8 @@ import {
 import { enMessages } from '../i18n/messages/en'
 import { renderAppAt } from '../test/render'
 import { TestLifeArchiveClient } from '../test/TestLifeArchiveClient'
+import { setClientMedia } from '../test/clientMedia'
+import { BROWSER_PREFERENCE_STORAGE_KEYS } from '../features/settings'
 import { AppShell } from './AppShell'
 import { AppStateProvider } from './providers/AppStateProvider'
 
@@ -28,7 +31,15 @@ const ROUTES = [
   { path: '/', heading: 'Record' },
   { path: '/record', heading: 'Record' },
   { path: '/timeline', heading: 'Timeline' },
-  { path: '/settings', heading: 'Settings' },
+  { path: '/settings', heading: 'Overview' },
+  { path: '/settings/overview', heading: 'Overview' },
+  { path: '/settings/life-details', heading: 'Life Details' },
+  { path: '/settings/general', heading: 'General' },
+  { path: '/settings/appearance', heading: 'Appearance' },
+  { path: '/settings/record', heading: 'Record' },
+  { path: '/settings/timeline', heading: 'Timeline' },
+  { path: '/settings/about', heading: 'About' },
+  { path: '/settings/not-a-destination', heading: 'Overview' },
   { path: '/settings/archive', heading: 'Manage Archive' },
   { path: '/not-a-route', heading: 'Record' },
 ] as const
@@ -42,6 +53,10 @@ const OPEN_ARCHIVE: OpenArchive = {
 }
 
 const OPEN_SESSION: ArchiveSession = { state: 'open', archive: OPEN_ARCHIVE }
+
+beforeEach(() => {
+  globalThis.localStorage.clear()
+})
 
 function clientWithSession(session: ArchiveSession): TestLifeArchiveClient {
   return new TestLifeArchiveClient(session)
@@ -75,11 +90,239 @@ describe('ready application routes', () => {
     const user = userEvent.setup()
     renderAppAt('/')
     const nav = await screen.findByRole('navigation', { name: 'Main' })
+    const settings = within(nav).getByRole('link', { name: 'Settings' })
+    expect(
+      settings.querySelector('[data-material-icon="settings"]'),
+    ).toBeInTheDocument()
 
-    for (const heading of ['Timeline', 'Settings', 'Record']) {
-      await user.click(within(nav).getByRole('link', { name: heading }))
+    for (const heading of ['Timeline', 'Overview', 'Record']) {
+      const linkName = heading === 'Overview' ? 'Settings' : heading
+      await user.click(within(nav).getByRole('link', { name: linkName }))
       expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
     }
+  })
+
+  it('resolves the Settings index and invalid destinations to Overview', async () => {
+    function LocationProbe() {
+      return <output>{useLocation().pathname}</output>
+    }
+
+    const indexView = renderAppAt('/settings', undefined, {
+      within: <LocationProbe />,
+    })
+    expect(
+      await screen.findByRole('heading', { name: 'Overview' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('/settings/overview', { selector: 'output' }),
+    ).toBeInTheDocument()
+    indexView.unmount()
+
+    renderAppAt('/settings/unknown', undefined, {
+      within: <LocationProbe />,
+    })
+    expect(
+      await screen.findByRole('heading', { name: 'Overview' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('/settings/overview', { selector: 'output' }),
+    ).toBeInTheDocument()
+  })
+
+  it('applies the browser startup destination only at the root address', async () => {
+    globalThis.localStorage.setItem(
+      BROWSER_PREFERENCE_STORAGE_KEYS.openAppTo,
+      'timeline',
+    )
+    renderAppAt('/')
+    expect(
+      await screen.findByRole('heading', { name: 'Timeline' }),
+    ).toBeInTheDocument()
+  })
+
+  it('restores the last Record or Timeline destination at startup', async () => {
+    globalThis.localStorage.setItem(
+      BROWSER_PREFERENCE_STORAGE_KEYS.openAppTo,
+      'last',
+    )
+    globalThis.localStorage.setItem(
+      BROWSER_PREFERENCE_STORAGE_KEYS.lastOpenedPage,
+      'timeline',
+    )
+    renderAppAt('/')
+    expect(
+      await screen.findByRole('heading', { name: 'Timeline' }),
+    ).toBeInTheDocument()
+  })
+
+  it('navigates Settings destinations and keeps Settings active globally', async () => {
+    const user = userEvent.setup()
+    renderAppAt('/settings/overview')
+
+    const main = await screen.findByRole('navigation', { name: 'Main' })
+    expect(
+      within(main).getByRole('link', { name: 'Settings' }),
+    ).toHaveAttribute('aria-current', 'page')
+    const settings = screen.getByRole('navigation', { name: 'Settings' })
+    expect(
+      within(settings).getByRole('link', { name: 'Overview' }),
+    ).toHaveAttribute('aria-current', 'page')
+
+    await user.click(within(settings).getByRole('link', { name: 'Appearance' }))
+    expect(
+      screen.getByRole('heading', { name: 'Appearance' }),
+    ).toBeInTheDocument()
+    expect(
+      within(settings).getByRole('link', { name: 'Appearance' }),
+    ).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('restores archive management in Settings with all four operations', async () => {
+    renderAppAt('/settings/archive')
+
+    expect(
+      await screen.findByRole('heading', { name: 'Manage Archive' }),
+    ).toBeInTheDocument()
+    for (const heading of ['Export', 'Verify', 'Import', 'Erase archive']) {
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+    }
+    expect(screen.queryByText('Portable archive')).toBeNull()
+    expect(screen.queryByText('Archive lifecycle')).toBeNull()
+    expect(screen.queryByText('Read-only check')).toBeNull()
+    expect(
+      within(screen.getByRole('navigation', { name: 'Settings' })).getByRole(
+        'link',
+        { name: 'Manage Archive' },
+      ),
+    ).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('keeps unimplemented Record and Timeline controls visibly disabled', async () => {
+    const record = renderAppAt('/settings/record')
+    expect(
+      await screen.findByRole('combobox', { name: 'Initial scale' }),
+    ).toBeEnabled()
+    expect(
+      screen.getByRole('switch', { name: /Show scale buttons/ }),
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('combobox', { name: 'Page greeting' }),
+    ).toBeDisabled()
+    record.unmount()
+
+    renderAppAt('/settings/timeline')
+    await screen.findByRole('heading', { name: 'Timeline' })
+    for (const control of [
+      ...screen.getAllByRole('switch'),
+      ...screen.getAllByRole('combobox'),
+    ]) {
+      expect(control).toBeDisabled()
+    }
+  })
+
+  it('saves complete life details while preserving stable identity IDs', async () => {
+    const client = clientWithSession(OPEN_SESSION)
+    const save = vi
+      .spyOn(client.client.identity, 'save')
+      .mockImplementation(async (identity) =>
+        ok({
+          outcome: 'updated',
+          identity,
+          invalidation: {
+            storeInstanceId: 'identity-test',
+            revision: revision('2'),
+          },
+        }),
+      )
+    const user = userEvent.setup()
+    renderAppAt('/settings/life-details', clientBootstrap(client))
+
+    const archiveName = await screen.findByRole('textbox', {
+      name: 'Archive name',
+    })
+    await user.clear(archiveName)
+    expect(archiveName).toHaveAttribute(
+      'placeholder',
+      'Sample Subject’s Archive',
+    )
+    await user.type(archiveName, 'Our family archive')
+    await user.clear(screen.getByRole('textbox', { name: 'Display name' }))
+    await user.type(
+      screen.getByRole('textbox', { name: 'Display name' }),
+      'Ada Example',
+    )
+    await user.click(screen.getByRole('button', { name: 'Save life details' }))
+
+    await waitFor(() => expect(save).toHaveBeenCalledOnce())
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Our family archive',
+        subject: expect.objectContaining({
+          displayName: 'Ada Example',
+        }),
+      }),
+    )
+    const request = save.mock.calls[0]?.[0]
+    expect(request?.id).toBeTruthy()
+    expect(request?.subject.id).toBeTruthy()
+    expect(await screen.findByText('Life details updated.')).toBeInTheDocument()
+  })
+
+  it('hides future Backup, Sync, and AI sections', async () => {
+    renderAppAt('/settings/overview')
+    await screen.findByRole('heading', { name: 'Overview' })
+    const settings = screen.getByRole('navigation', { name: 'Settings' })
+    expect(within(settings).queryByText(/backup/i)).toBeNull()
+    expect(within(settings).queryByText(/sync/i)).toBeNull()
+    expect(within(settings).queryByText(/^ai$/i)).toBeNull()
+  })
+
+  it('shares one archive overview read between the Settings rail and content', async () => {
+    const client = clientWithSession(OPEN_SESSION)
+    const overview = vi.spyOn(client.client.archive, 'overview')
+    const identity = vi.spyOn(client.client.identity, 'load')
+    const storage = vi.spyOn(client.client.runtime, 'storage')
+
+    renderAppAt('/settings/overview', clientBootstrap(client))
+    await screen.findByRole('heading', { name: 'Overview' })
+    await waitFor(() => expect(overview).toHaveBeenCalledOnce())
+
+    expect(identity).toHaveBeenCalledOnce()
+    expect(storage).toHaveBeenCalledOnce()
+  })
+
+  it('applies theme changes from Appearance settings', async () => {
+    globalThis.localStorage.clear()
+    const user = userEvent.setup()
+    renderAppAt('/settings/appearance')
+
+    const theme = await screen.findByRole('combobox', { name: 'Theme' })
+    expect(theme).toHaveValue('system')
+    expect(screen.queryByRole('button', { name: /Appearance:/ })).toBeNull()
+
+    await user.selectOptions(theme, 'dark')
+    expect(document.documentElement).toHaveAttribute('data-appearance', 'dark')
+    expect(theme).toHaveValue('dark')
+  })
+
+  it('closes the compact Settings drawer after selecting a destination', async () => {
+    setClientMedia('(max-width: 820px)')
+    const user = userEvent.setup()
+    const { container } = renderAppAt('/settings/overview')
+
+    await screen.findByRole('heading', { name: 'Overview' })
+    await user.click(await screen.findByRole('button', { name: 'Navigation' }))
+    const workspace = container.querySelector<HTMLElement>('.workspace')
+    expect(workspace).toHaveAttribute('data-open', 'navigation')
+
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Settings' })).getByRole(
+        'link',
+        { name: 'General' },
+      ),
+    )
+    expect(workspace).toHaveAttribute('data-open', 'none')
+    expect(screen.getByRole('heading', { name: 'General' })).toBeInTheDocument()
   })
 
   it('keeps a direct deep link after asynchronous boot', async () => {
@@ -629,7 +872,7 @@ describe('application availability states', () => {
     ).toBeInTheDocument()
     act(() => client.emitSession(OPEN_SESSION))
     expect(
-      await screen.findByRole('heading', { name: 'Settings' }),
+      await screen.findByRole('heading', { name: 'Overview' }),
     ).toBeInTheDocument()
   })
 })

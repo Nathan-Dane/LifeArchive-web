@@ -32,6 +32,7 @@ const window = coreTimeWindow({
   endMs: 1_785_225_600_000,
   startDate: civilDate('2026-07-26'),
   endDate: civilDate('2026-07-26'),
+  weekNumber: 30,
   calendarId: 'gregorian',
   timeZoneId: 'Europe/Copenhagen',
 })
@@ -105,6 +106,7 @@ const runtimeStructuredSummary = {
   title: 'Runtime event',
   metadata: runtimeStructuredMetadata,
   mutationRevision: '4',
+  attachmentCount: 2,
 }
 
 const runtimeStructuredSnapshot = {
@@ -269,12 +271,12 @@ const cases = {
         storeContractVersion: 5,
         visibleEntryCount: 1,
         entryCounts: {
-          moment: 0,
-          day: 1,
+          day: 0,
           week: 0,
           month: 0,
           year: 0,
-          custom: 0,
+          event: 1,
+          span: 0,
         },
         structuredCounts: { events: 1, spans: 0 },
         trackCounts: { active: 1, archived: 0, ongoingMembers: 0 },
@@ -293,6 +295,14 @@ const cases = {
       { operation: 'archive.overview', request: {} },
     )
     expect(mapped.health.integrity).toBe('verified')
+    expect(mapped.entryCounts).toEqual({
+      day: 0,
+      week: 0,
+      month: 0,
+      year: 0,
+      event: 1,
+      span: 0,
+    })
   },
 
   archiveVerify: () => {
@@ -425,6 +435,119 @@ const cases = {
     expect(mapped.outcome).toBe('updated')
   },
 
+  timeWindow: () => {
+    const request = {
+      scale: 'day' as const,
+      containing: civilDate('2026-07-26'),
+      timeZoneId: 'Europe/Copenhagen',
+      weekRules,
+    }
+    const mapped = exercise(runtimeBoundary.timeWindow, request, window, {
+      operation: 'time.window',
+      request: {
+        contractVersion: 1,
+        scale: 'day',
+        anchorDate: '2026-07-26',
+        calendarIdentifier: 'gregorian',
+        timeZoneIdentifier: 'Europe/Copenhagen',
+        firstWeekday: 2,
+        minimumDaysInFirstWeek: 4,
+      },
+    })
+    expect(mapped).toEqual(window)
+
+    const compatible = exercise(
+      runtimeBoundary.timeWindow,
+      request,
+      { ...window, weekNumber: undefined },
+      {
+        operation: 'time.window',
+        request: {
+          contractVersion: 1,
+          scale: 'day',
+          anchorDate: '2026-07-26',
+          calendarIdentifier: 'gregorian',
+          timeZoneIdentifier: 'Europe/Copenhagen',
+          firstWeekday: 2,
+          minimumDaysInFirstWeek: 4,
+        },
+      },
+    )
+    expect(compatible.weekNumber).toBeNull()
+    expect(() =>
+      exercise(
+        runtimeBoundary.timeWindow,
+        request,
+        { ...window, weekNumber: 54 },
+        {
+          operation: 'time.window',
+          request: {
+            contractVersion: 1,
+            scale: 'day',
+            anchorDate: '2026-07-26',
+            calendarIdentifier: 'gregorian',
+            timeZoneIdentifier: 'Europe/Copenhagen',
+            firstWeekday: 2,
+            minimumDaysInFirstWeek: 4,
+          },
+        },
+      ),
+    ).toThrow('Malformed time window week number')
+  },
+
+  timeStep: () => {
+    const request = { window, step: 'next' as const, weekRules }
+    const mapped = exercise(runtimeBoundary.timeStep, request, window, {
+      operation: 'time.step',
+      request: {
+        contractVersion: 1,
+        scale: 'day',
+        anchorDate: '2026-07-26',
+        step: 'next',
+        calendarIdentifier: 'gregorian',
+        timeZoneIdentifier: 'Europe/Copenhagen',
+        firstWeekday: 2,
+        minimumDaysInFirstWeek: 4,
+      },
+    })
+    expect(mapped).toEqual(window)
+  },
+
+  timeCalendarContext: () => {
+    const request = {
+      focusedDate: civilDate('2026-07-26'),
+      timeZoneId: 'Europe/Copenhagen',
+      weekRules,
+    }
+    const day = {
+      date: '2026-07-26',
+      window,
+      withinFocusedMonth: true,
+    }
+    const mapped = exercise(
+      runtimeBoundary.timeCalendarContext,
+      request,
+      {
+        focused: window,
+        focusedDate: '2026-07-26',
+        week: [day],
+        month: [day],
+      },
+      {
+        operation: 'time.calendarContext',
+        request: {
+          contractVersion: 1,
+          focusedDate: '2026-07-26',
+          calendarIdentifier: 'gregorian',
+          timeZoneIdentifier: 'Europe/Copenhagen',
+          firstWeekday: 2,
+          minimumDaysInFirstWeek: 4,
+        },
+      },
+    )
+    expect(mapped.week[0]?.window).toEqual(window)
+  },
+
   recordLoad: () => {
     const mapped = exercise(
       runtimeBoundary.recordLoad,
@@ -517,6 +640,7 @@ const cases = {
       },
     )
     expect(mapped.objects).toHaveLength(1)
+    expect(mapped.objects[0]?.mediaCount).toBe(2)
   },
 
   structuredLoad: () => {
@@ -609,7 +733,7 @@ const cases = {
       },
       {
         operation: 'structured.delete',
-        request: { contractVersion: 2, ...request },
+        request,
       },
     )
     expect(mapped.outcome).toBe('deleted')
@@ -771,6 +895,7 @@ const cases = {
       newMemberId: objectId,
       track: trackDraft,
       member: structuredDraft,
+      tagStateOmitted: true,
       nowMs: 1_785_139_200_019,
     }
     const mapped = exercise(
@@ -788,7 +913,7 @@ const cases = {
           memberId: objectId,
           track: runtimeTrackDraft,
           member: runtimeStructuredDraft,
-          tagStateOmitted: false,
+          tagStateOmitted: true,
           nowMs: request.nowMs,
         },
       },
@@ -915,6 +1040,7 @@ const cases = {
       expectedInvalidation: token,
       newMemberId: objectId,
       member: structuredDraft,
+      tagStateOmitted: true,
       nowMs: 1_785_139_200_022,
     }
     const mapped = exercise(
@@ -933,7 +1059,7 @@ const cases = {
           expectedToken: token,
           memberId: objectId,
           member: runtimeStructuredDraft,
-          tagStateOmitted: false,
+          tagStateOmitted: true,
           nowMs: request.nowMs,
         },
       },

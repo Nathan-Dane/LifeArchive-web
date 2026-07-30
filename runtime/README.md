@@ -1,11 +1,12 @@
 # Runtime
 
 This directory pins the compiled LifeArchive runtime that the web frontend
-talks to. It currently pins nothing: `runtime.lock.json` records
-`"status": "not-integrated"`.
+talks to. `runtime.lock.json` records the exact production release, immutable
+artifact URL, checksum, product contract, and bindings ABI.
 
-Tracked here: `runtime.lock.json` and this README. Everything else in this
-directory is a downloaded artifact and is ignored by Git.
+Tracked here: `runtime.lock.json`, `web-runtime-policy.json`, and this README.
+Everything under `runtime/installed/` is downloaded or locally installed
+artifact material and is ignored by Git.
 
 The full delivery model is in
 [`docs/architecture/runtime-delivery.md`](../docs/architecture/runtime-delivery.md).
@@ -27,13 +28,14 @@ to `runtime.lock.json`.
 ## Checksums must be verified
 
 The `sha256` in the lock file is verified before the artifact is used — on
-fetch, in CI, and where the platform allows it, at load. A mismatch is a hard
-failure that installs and loads nothing. There is no override.
+fetch, in CI, and at browser load. A mismatch is a hard failure that installs
+and loads nothing. There is no override.
 
 The whole-bundle pin is separate from manifest format 1's per-file hashes.
 `src/core/runtime/runtimeCompatibility.ts` validates both lock states, the
 manifest shape and ordered capability inventory, and exact lock/manifest
-identity compatibility. The current lock remains deliberately unpinned.
+identity compatibility. The current lock is pinned and the same checks apply
+to every acquisition path.
 
 `pnpm runtime:fetch` is the only CI fetch path. With no pin it exits
 successfully without using the network. With a reviewed pin it refuses
@@ -50,44 +52,65 @@ in-memory extraction may be reused only under the exact artifact URL plus
 whole-artifact SHA-256 identity; failed or partial verification is never
 cached.
 
-For a private/public sibling development workspace, a developer may install an
-already packaged runtime without pretending it is a production pin:
+With a pinned release, ordinary `pnpm run dev` proxies only the artifact's exact
+versioned path through the Vite origin. This avoids granting public runtime
+CORS access to arbitrary localhost ports. The browser still verifies the
+whole-artifact checksum, archive allowlist, manifest identity, and per-file
+checksums before it starts the worker.
+
+## Explicit development modes
+
+Development accepts exactly three selections:
+
+| Command | Selected source |
+|---|---|
+| `pnpm run dev` | Hosted artifact identified by tracked `runtime.lock.json` |
+| `VITE_LIFEARCHIVE_CLIENT=development-mock pnpm run dev` | Fixed, visible, non-durable mock |
+| `VITE_LIFEARCHIVE_CLIENT=local-runtime pnpm run dev` | Verified artifact and receipt under ignored `runtime/installed/` |
+
+Any other selector fails clearly. Missing or incompatible material never
+causes fallback to another row. Production builds ignore the selector and
+always use the tracked hosted pin.
+
+To run exact packaged bytes from the current private sibling checkout without
+publishing them or editing the tracked pin:
 
 ```bash
+../LifeArchive/Shared/Rust/scripts/package-web.sh
+../LifeArchive/Shared/Rust/scripts/verify-web-artifact.sh \
+  ../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-0.1.0.tar.gz
 pnpm runtime:install-local \
   ../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-0.1.0.tar.gz \
   ../LifeArchive/Shared/Rust/generated/web-release/lifearchive-runtime-web-0.1.0.tar.gz.sha256
-pnpm run dev
+VITE_LIFEARCHIVE_CLIENT=local-runtime pnpm run dev
 ```
 
 The installer requires the exact checksum sidecar, then runs the same archive
-allowlist, manifest identity, whole-bundle checksum, and per-file verification
-as `runtime:fetch`. It writes only ignored files under `runtime/installed/`.
-Development may consume the resulting verification receipt while the tracked
-lock is still `not-integrated`; production builds never do. This is a real
-runtime path, not mock selection and not a substitute for the reviewed Step 18
-publication and pin.
+allowlist, manifest identity, whole-bundle checksum, frontend contract/ABI and
+capability compatibility, and per-file verification as the hosted path. It
+writes only ignored files under `runtime/installed/`; the receipt checksum is
+part of the browser URL and cache identity. Changing the packaged bytes forces
+reinstallation and browser re-verification. This is a real runtime path, not
+mock selection and not a substitute for publication and pin.
 
 ## Runtime acceptance status
 
-There is no repository-local production runtime acceptance evidence while the
-tracked lock remains `not-integrated`. Playwright runs the qualified Chromium
-151 and Firefox 153 engines and covers the production browser archive adapter,
-but its archive output fixture simulates the runtime side of that handoff.
-Those tests do not prove runtime instantiation, durable persistence, archive
-format correctness, atomic application, or restart recovery.
+Production Runtime 0.1.0 acceptance is recorded in
+[`docs/operations/browser-local-pilot.md`](../docs/operations/browser-local-pilot.md).
+Playwright's ordinary browser suite still uses fixed test boundaries where
+appropriate; it is not a replacement for deployed production acceptance.
 
-After installing a licensed, verified local artifact as described above, an
-opt-in smoke can establish only that artifact's machine-local development
-loader instantiation and negotiation:
+An opt-in smoke can establish the selected local artifact's machine-local
+loader instantiation and negotiation through Vite after installation:
 
 ```bash
-LIFEARCHIVE_LOCAL_RUNTIME_E2E=1 pnpm exec playwright test \
+VITE_LIFEARCHIVE_CLIENT=local-runtime \
+  LIFEARCHIVE_LOCAL_RUNTIME_E2E=1 pnpm exec playwright test \
   e2e/local-runtime-smoke.spec.ts
 ```
 
-The receipt and artifact remain ignored and unpublished. A passing local smoke
-is not reproducible production acceptance and does not alter the tracked lock.
+The artifact and receipt remain ignored. A passing local smoke is not
+reproducible production acceptance and does not alter the tracked lock.
 
 ## Public UI builds must work without the runtime
 

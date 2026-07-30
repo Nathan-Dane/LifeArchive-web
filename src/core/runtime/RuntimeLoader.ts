@@ -27,8 +27,14 @@ export interface RuntimeLoaderOptions {
   readonly fetch?: typeof fetch
   readonly isSecureContext?: boolean
   readonly createWorker?: (manifest: RuntimeManifest) => Worker
+  /** The selector is the only application code that chooses this value. */
+  readonly source?: 'hosted' | 'local-runtime'
   readonly installedBaseUrl?: string
-  readonly allowDevelopmentRuntime?: boolean
+  /**
+   * Routes a pinned artifact through the current Vite development origin.
+   * Production never enables this; injected loaders must opt in explicitly.
+   */
+  readonly useDevelopmentArtifactProxy?: boolean
   readonly createObjectUrl?: (blob: Blob) => string
   readonly revokeObjectUrl?: (url: string) => void
   /**
@@ -58,34 +64,39 @@ export class RuntimeLoader {
   async load(): Promise<RuntimeLoadState> {
     this.state = { state: 'checking' }
     const fetchImpl = this.options.fetch ?? fetch
-    const baseUrl =
-      this.options.installedBaseUrl ??
-      new URL('/runtime/installed/', globalThis.location?.href).href
     let lockInput: unknown = this.options.lock ?? runtimeLockInput
-    let localArtifactUrl: string | null = null
-    const allowDevelopmentRuntime =
-      (import.meta.env.DEV || import.meta.env.MODE === 'test') &&
-      (this.options.allowDevelopmentRuntime ??
-        (!this.options.lock && !this.options.fetch))
-    if (
-      allowDevelopmentRuntime &&
-      isRecord(lockInput) &&
-      lockInput.status === 'not-integrated'
-    ) {
-      try {
-        const local = await readDevelopmentRuntime(baseUrl, fetchImpl)
-        if (local) {
-          lockInput = local.lock
-          localArtifactUrl = local.artifactUrl
-        }
-      } catch {
+    let selectedArtifactUrl: string | null = null
+    const source = this.options.source ?? 'hosted'
+    if (source === 'local-runtime') {
+      if (!(import.meta.env.DEV || import.meta.env.MODE === 'test')) {
+        return this.finish({ state: 'unavailable', reason: 'download-failed' })
+      }
+      const { loadLocalRuntimeSource } = await import('./localRuntimeSource')
+      const baseUrl =
+        this.options.installedBaseUrl ??
+        new URL('/runtime/installed/', globalThis.location?.href).href
+      const local = await loadLocalRuntimeSource(baseUrl, fetchImpl)
+      if (local.state === 'missing') {
+        return this.finish({ state: 'unavailable', reason: 'missing' })
+      }
+      if (local.state === 'invalid') {
         return this.finish({
           state: 'incompatible',
           reason: 'manifest-mismatch',
         })
       }
+      lockInput = local.lock
+      selectedArtifactUrl = local.artifactUrl
     }
-    const lock = parseRuntimeLock(lockInput)
+    let lock: ReturnType<typeof parseRuntimeLock>
+    try {
+      lock = parseRuntimeLock(lockInput)
+    } catch {
+      return this.finish({
+        state: 'incompatible',
+        reason: 'manifest-mismatch',
+      })
+    }
     if (lock.status === 'not-integrated') {
       return this.finish({ state: 'unavailable', reason: 'not-integrated' })
     }
@@ -120,7 +131,19 @@ export class RuntimeLoader {
       })
     }
 
-    const artifactUrl = localArtifactUrl ?? lock.artifactUrl
+    const useDevelopmentArtifactProxy =
+      source === 'hosted' &&
+      import.meta.env.DEV &&
+      (this.options.useDevelopmentArtifactProxy ??
+        (!this.options.lock && !this.options.fetch))
+    const artifactUrl =
+      selectedArtifactUrl ??
+      (useDevelopmentArtifactProxy
+        ? developmentArtifactProxyUrl(
+            lock.artifactUrl,
+            this.options.installedBaseUrl ?? globalThis.location?.href,
+          )
+        : lock.artifactUrl)
     const cacheKey = `${artifactUrl}\u0000${lock.sha256}`
     let extracted =
       this.verifiedArtifact?.key === cacheKey
@@ -302,6 +325,16 @@ export class RuntimeLoader {
   }
 }
 
+function developmentArtifactProxyUrl(
+  artifactUrl: string,
+  installedBaseUrl: string,
+): string {
+  const pinned = new URL(artifactUrl)
+  const local = new URL(pinned.pathname, installedBaseUrl)
+  local.search = pinned.search
+  return local.href
+}
+
 function copyBuffer(bytes: Uint8Array): ArrayBuffer {
   const copy = new Uint8Array(bytes.byteLength)
   copy.set(bytes)
@@ -330,52 +363,6 @@ function supportsEnvironment(
   return manifest.requiredEnvironment.features.every(
     (feature) => available[feature] === true,
   )
-}
-
-async function readDevelopmentRuntime(
-  baseUrl: string,
-  fetchImpl: typeof fetch,
-): Promise<{
-  readonly lock: unknown
-  readonly artifactUrl: string
-} | null> {
-  const response = await fetchImpl(
-    new URL('local-runtime.json', baseUrl).href,
-    { cache: 'no-store' },
-  )
-  if (response.status === 404) return null
-  if (!response.ok) throw new Error('development runtime receipt unavailable')
-  const receipt = (await response.json()) as unknown
-  if (
-    !isRecord(receipt) ||
-    !isRecord(receipt.lock) ||
-    typeof receipt.lock.sha256 !== 'string' ||
-    typeof receipt.artifactFile !== 'string' ||
-    receipt.artifactFile !==
-      `lifearchive-runtime-web-${String(receipt.lock.runtimeVersion)}.tar.gz`
-  ) {
-    throw new Error('development runtime receipt is invalid')
-  }
-  return {
-    lock: receipt.lock,
-    artifactUrl: installedRuntimeUrl(
-      receipt.artifactFile,
-      baseUrl,
-      receipt.lock.sha256,
-    ),
-  }
-}
-
-function installedRuntimeUrl(
-  path: string,
-  baseUrl: string,
-  developmentRevision: string | null,
-): string {
-  const url = new URL(path, baseUrl)
-  if (developmentRevision) {
-    url.searchParams.set('local-runtime', developmentRevision)
-  }
-  return url.href
 }
 
 function validateNegotiation(

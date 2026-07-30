@@ -1,6 +1,7 @@
 import packageMetadata from '../../../package.json'
 import {
   civilDate,
+  coreTimeWindow,
   coreTrackHistoryCursor,
   isCivilDate,
   isRevision,
@@ -22,6 +23,9 @@ import {
   type ArchiveVerification,
   type ArchiveVerifyRequest,
   type BoundaryMarker,
+  type CalendarContext,
+  type CalendarContextRequest,
+  type CalendarDay,
   type InvalidationToken,
   type MediaContent,
   type MediaContentRequest,
@@ -59,6 +63,7 @@ import {
   type StructuredSaveRequest,
   type StructuredSummary,
   type TimeWindow,
+  type TimeWindowRequest,
   type TimelineFocusRequest,
   type TimelineFocusResult,
   type TimelineIndexRequest,
@@ -86,6 +91,7 @@ import {
   type TrackSummary,
   type TrackWithFirstMember,
   type TrackWithFirstMemberRequest,
+  type WindowStepRequest,
 } from '../client'
 
 export interface PreparedRuntimeRequest {
@@ -248,6 +254,59 @@ export const runtimeBoundary = {
       }
     },
   ),
+  timeWindow: boundary<TimeWindowRequest, TimeWindow>(
+    'time.window',
+    ({ scale, containing, timeZoneId, weekRules }) =>
+      noTransfers({
+        contractVersion: 1,
+        scale,
+        anchorDate: containing,
+        calendarIdentifier: 'gregorian',
+        timeZoneIdentifier: timeZoneId,
+        firstWeekday: weekRules.firstWeekday,
+        minimumDaysInFirstWeek: weekRules.minimumDaysInFirstWeek,
+      }),
+    (value) => mapTimeWindow(record(value, 'time window result')),
+  ),
+  timeStep: boundary<WindowStepRequest, TimeWindow>(
+    'time.step',
+    ({ window, step, weekRules }) =>
+      noTransfers({
+        contractVersion: 1,
+        scale: window.scale,
+        anchorDate: window.startDate,
+        step,
+        calendarIdentifier: window.calendarId,
+        timeZoneIdentifier: window.timeZoneId,
+        firstWeekday: weekRules.firstWeekday,
+        minimumDaysInFirstWeek: weekRules.minimumDaysInFirstWeek,
+      }),
+    (value) => mapTimeWindow(record(value, 'time step result')),
+  ),
+  timeCalendarContext: boundary<CalendarContextRequest, CalendarContext>(
+    'time.calendarContext',
+    ({ focusedDate, timeZoneId, weekRules }) =>
+      noTransfers({
+        contractVersion: 1,
+        focusedDate,
+        calendarIdentifier: 'gregorian',
+        timeZoneIdentifier: timeZoneId,
+        firstWeekday: weekRules.firstWeekday,
+        minimumDaysInFirstWeek: weekRules.minimumDaysInFirstWeek,
+      }),
+    (value) => {
+      const result = record(value, 'time calendar context result')
+      return {
+        focused: mapTimeWindow(record(result.focused, 'focused time window')),
+        focusedDate: requiredCivilDate(
+          result.focusedDate,
+          'focused civil date',
+        ),
+        week: array(result.week, 'calendar week').map(mapCalendarDay),
+        month: array(result.month, 'calendar month').map(mapCalendarDay),
+      }
+    },
+  ),
   recordLoad: boundary<TimeWindow, OrdinaryEntryState>(
     'record.loadSpan',
     (window) =>
@@ -326,7 +385,6 @@ export const runtimeBoundary = {
     'structured.delete',
     ({ id, expectedRevision, nowMs }) =>
       noTransfers({
-        contractVersion: 2,
         id,
         expectedRevision,
         nowMs,
@@ -415,13 +473,13 @@ export const runtimeBoundary = {
     TrackWithFirstMember
   >(
     'track.createWithFirstMember',
-    ({ newTrackId, newMemberId, track, member, nowMs }) =>
+    ({ newTrackId, newMemberId, track, member, tagStateOmitted, nowMs }) =>
       noTransfers({
         trackId: newTrackId,
         memberId: newMemberId,
         track: mapTrackDraft(track),
         member: mapStructuredDraft(member),
-        tagStateOmitted: false,
+        tagStateOmitted: tagStateOmitted ?? false,
         nowMs,
       }),
     (value) => {
@@ -498,6 +556,7 @@ export const runtimeBoundary = {
       expectedInvalidation,
       newMemberId,
       member,
+      tagStateOmitted,
       nowMs,
     }) =>
       noTransfers({
@@ -506,7 +565,7 @@ export const runtimeBoundary = {
         expectedToken: mapInvalidationRequest(expectedInvalidation),
         memberId: newMemberId,
         member: mapStructuredDraft(member),
-        tagStateOmitted: false,
+        tagStateOmitted: tagStateOmitted ?? false,
         nowMs,
       }),
     (value) =>
@@ -690,6 +749,41 @@ function mapOpenArchive(result: Record<string, unknown>): OpenArchive {
     storeSchemaVersion: string(result.schemaVersion, 'store schema version'),
     rootLayoutVersion: string(result.rootLayoutVersion, 'root layout version'),
     invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapTimeWindow(result: Record<string, unknown>): TimeWindow {
+  const scale = literal(
+    result.scale,
+    ['day', 'week', 'month', 'year'] as const,
+    'time window scale',
+  )
+  const weekNumber = nullableWeekNumber(result.weekNumber)
+  if (weekNumber !== null && scale !== 'day' && scale !== 'week') {
+    throw new TypeError('Malformed time window week number')
+  }
+  return coreTimeWindow({
+    id: string(result.id, 'time window identifier'),
+    scale,
+    startMs: integer(result.startMs, 'time window start'),
+    endMs: integer(result.endMs, 'time window end'),
+    startDate: requiredCivilDate(result.startDate, 'time window start date'),
+    endDate: requiredCivilDate(result.endDate, 'time window end date'),
+    weekNumber,
+    calendarId: string(result.calendarId, 'time window calendar'),
+    timeZoneId: string(result.timeZoneId, 'time window time zone'),
+  })
+}
+
+function mapCalendarDay(value: unknown): CalendarDay {
+  const day = record(value, 'calendar day')
+  return {
+    date: requiredCivilDate(day.date, 'calendar day date'),
+    window: mapTimeWindow(record(day.window, 'calendar day window')),
+    withinFocusedMonth: boolean(
+      day.withinFocusedMonth,
+      'calendar day month membership',
+    ),
   }
 }
 
@@ -1055,6 +1149,11 @@ function mapStructuredSummary(value: unknown): StructuredSummary {
       ),
     },
     trackId: nullableStableId(metadata.trackId, 'structured track identifier'),
+    ...(summary.attachmentCount === undefined
+      ? {}
+      : {
+          mediaCount: count(summary.attachmentCount, 'structured media count'),
+        }),
   }
 }
 
@@ -1591,12 +1690,12 @@ function mapArchiveOverview(result: Record<string, unknown>): ArchiveOverview {
       'archive visible entry count',
     ),
     entryCounts: {
-      moment: count(entryCounts.moment, 'moment entry count'),
       day: count(entryCounts.day, 'day entry count'),
       week: count(entryCounts.week, 'week entry count'),
       month: count(entryCounts.month, 'month entry count'),
       year: count(entryCounts.year, 'year entry count'),
-      custom: count(entryCounts.custom, 'custom entry count'),
+      event: count(entryCounts.event, 'event entry count'),
+      span: count(entryCounts.span, 'span entry count'),
     },
     structuredCounts: {
       events: count(structuredCounts.events, 'event count'),
@@ -1922,6 +2021,14 @@ function nullableCount(value: unknown, description: string): number | null {
   return value === null || value === undefined
     ? null
     : count(value, description)
+}
+
+function nullableWeekNumber(value: unknown): number | null {
+  const number = nullableCount(value, 'time window week number')
+  if (number !== null && (number < 1 || number > 53)) {
+    throw new TypeError('Malformed time window week number')
+  }
+  return number
 }
 
 function nullableString(value: unknown, description: string): string | null {

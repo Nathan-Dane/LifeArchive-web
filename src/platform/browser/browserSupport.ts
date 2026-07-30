@@ -7,7 +7,7 @@
  */
 export const WEB_V0_1_BROWSER_SUPPORT = {
   engines: {
-    chromium: { minimumMajorVersion: 151 },
+    chromium: { minimumMajorVersion: 137 },
     firefox: { minimumMajorVersion: 153 },
   },
   deviceClass: 'desktop',

@@ -99,7 +99,7 @@ export type {
   CivilDate,
   ClientMode,
   ContentSource,
-  CountedEntryScale,
+  CountedEntryKind,
   DurableOutcome,
   Instant,
   InvalidationToken,

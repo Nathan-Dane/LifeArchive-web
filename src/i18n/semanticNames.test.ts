@@ -6,9 +6,8 @@ import { enMessages } from './messages/en'
 import { semanticName, semanticNameKey } from './semanticNames'
 
 /**
- * Record and Timeline own semantic names, and v0.1.0 has no approved semantic
- * IDs yet, so the named case is exercised with a catalog a feature could
- * plausibly ship rather than with invented product copy.
+ * Record and Timeline own semantic names. The named case exercises the
+ * complete Record catalogue and a Timeline-local extension.
  */
 const withNames = createLocalisation('en', {
   ...enMessages,
@@ -42,7 +41,7 @@ describe('semantic names', () => {
 
   it('keeps an unknown ID exactly as the core spelled it', () => {
     for (const value of [
-      'birthday',
+      'birthday.future',
       'Anniversary_2',
       'core.icon.unheard-of',
       'ÅRSDAG',

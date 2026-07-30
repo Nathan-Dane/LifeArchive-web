@@ -17,8 +17,10 @@ import { useArchiveErase } from './eraseController'
 
 export function ArchiveErasePanel({
   client,
+  compact = false,
 }: {
   readonly client: LifeArchiveClient
+  readonly compact?: boolean
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
@@ -62,7 +64,9 @@ export function ArchiveErasePanel({
 
   return (
     <section
-      className="archive-erase"
+      className={
+        compact ? 'archive-erase archive-erase--compact' : 'archive-erase'
+      }
       aria-labelledby="archive-erase-title"
       aria-busy={
         state.phase === 'erasing' || state.phase === 'refreshing' || undefined
@@ -70,12 +74,16 @@ export function ArchiveErasePanel({
     >
       <div className="archive-operation__heading">
         <div>
-          <p className="eyebrow">{t('archive.erase.eyebrow')}</p>
+          {!compact ? (
+            <p className="eyebrow">{t('archive.erase.eyebrow')}</p>
+          ) : null}
           <h2 id="archive-erase-title" className="display">
-            {t('archive.erase.title')}
+            {t(compact ? 'archive.erase.compactTitle' : 'archive.erase.title')}
           </h2>
         </div>
-        <p className="archive-operation__detail">{t('archive.erase.detail')}</p>
+        <p className="archive-operation__detail">
+          {t(compact ? 'archive.erase.compactDetail' : 'archive.erase.detail')}
+        </p>
       </div>
 
       <div

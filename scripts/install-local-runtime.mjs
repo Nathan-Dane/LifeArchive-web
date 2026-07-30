@@ -14,11 +14,13 @@ import {
 import path from 'node:path'
 import process from 'node:process'
 import { tmpdir } from 'node:os'
+import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 import { fetchRuntime } from './fetch-runtime.mjs'
 
 const execFileAsync = promisify(execFile)
-const root = path.resolve(import.meta.dirname, '..')
+const DEFAULT_ROOT = path.resolve(import.meta.dirname, '..')
+const LOCAL_RUNTIME_SOURCE_MARKER = 'lifearchive:local-runtime-source:v1'
 
 function fail(message) {
   throw new Error(`local runtime install: ${message}`)
@@ -28,8 +30,47 @@ function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex')
 }
 
-async function main() {
-  const [artifactInput, sidecarInput] = process.argv.slice(2)
+function validateWebCompatibility(manifest, policy) {
+  if (
+    manifest.manifestVersion !== policy.manifestVersion ||
+    manifest.productContract !== policy.productContract
+  ) {
+    fail('product contract is incompatible with this frontend')
+  }
+  if (manifest.bindingsAbi !== policy.bindingsAbi) {
+    fail('bindings ABI is incompatible with this frontend')
+  }
+  if (
+    !Array.isArray(manifest.capabilities) ||
+    JSON.stringify(manifest.capabilities) !==
+      JSON.stringify(policy.capabilities)
+  ) {
+    fail('capability inventory is incompatible with this frontend')
+  }
+  const runtimeSeries =
+    typeof manifest.runtimeVersion === 'string'
+      ? manifest.runtimeVersion.split('-', 1)[0]
+      : null
+  const expectedDependencies =
+    runtimeSeries === null ? null : policy.dependencyProfiles?.[runtimeSeries]
+  if (
+    !expectedDependencies ||
+    !manifest.dependencyVersions ||
+    Object.keys(manifest.dependencyVersions).length !==
+      Object.keys(expectedDependencies).length ||
+    Object.entries(expectedDependencies).some(
+      ([name, version]) => manifest.dependencyVersions[name] !== version,
+    )
+  ) {
+    fail('dependency versions are incompatible with this frontend')
+  }
+}
+
+export async function installLocalRuntime({
+  artifactInput,
+  sidecarInput,
+  root = DEFAULT_ROOT,
+}) {
   if (!artifactInput || !sidecarInput) {
     fail(
       'usage: pnpm runtime:install-local <artifact.tar.gz> <artifact.tar.gz.sha256>',
@@ -51,6 +92,13 @@ async function main() {
     `${path.basename(artifact).replace(/\.tar\.gz$/, '')}/runtime-manifest.json`,
   ])
   const manifest = JSON.parse(stdout)
+  const policy = JSON.parse(
+    await readFile(
+      path.join(root, 'runtime', 'web-runtime-policy.json'),
+      'utf8',
+    ),
+  )
+  validateWebCompatibility(manifest, policy)
   const lock = {
     manifestVersion: manifest.manifestVersion,
     runtimeVersion: manifest.runtimeVersion,
@@ -93,7 +141,12 @@ async function main() {
     await writeFile(
       path.join(staged, 'local-runtime.json'),
       `${JSON.stringify(
-        { lock, artifactFile: path.basename(artifact) },
+        {
+          receiptVersion: 1,
+          source: LOCAL_RUNTIME_SOURCE_MARKER,
+          lock,
+          artifactFile: path.basename(artifact),
+        },
         null,
         2,
       )}\n`,
@@ -103,12 +156,22 @@ async function main() {
     console.log(
       `local runtime install: verified and installed ${path.basename(artifact)}`,
     )
+    return {
+      installed,
+      receipt: { lock, artifactFile: path.basename(artifact) },
+    }
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true })
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error)
-  process.exitCode = 1
-})
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  const [artifactInput, sidecarInput] = process.argv.slice(2)
+  installLocalRuntime({ artifactInput, sidecarInput }).catch((error) => {
+    console.error(error instanceof Error ? error.message : error)
+    process.exitCode = 1
+  })
+}
