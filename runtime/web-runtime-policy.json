@@ -28,6 +28,19 @@
       "rootLayout": "1",
       "sqliteSchema": "8",
       "archiveFormat": "0.4.1"
+    },
+    "0.1.2": {
+      "domain": "4",
+      "timeNavigation": "1",
+      "durableMedia": "1",
+      "archiveApplication": "5",
+      "applicationQuery": "4",
+      "providerNeutralAI": "3",
+      "archiveOverviewExport": "5",
+      "store": "5",
+      "rootLayout": "1",
+      "sqliteSchema": "8",
+      "archiveFormat": "0.4.1"
     }
   },
   "capabilities": [

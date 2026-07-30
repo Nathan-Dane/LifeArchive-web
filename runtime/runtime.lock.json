@@ -1,8 +1,8 @@
 {
   "manifestVersion": 1,
-  "runtimeVersion": "0.1.1",
-  "artifactUrl": "https://lifearchive-runtime.pages.dev/releases/0.1.1/lifearchive-runtime-web-0.1.1.tar.gz",
-  "sha256": "35255c427125aa4c0657f4eab981f1cfa5640a29c97526b309fd86e24aa7520d",
+  "runtimeVersion": "0.1.2",
+  "artifactUrl": "https://lifearchive-runtime.pages.dev/releases/0.1.2/lifearchive-runtime-web-0.1.2.tar.gz",
+  "sha256": "ae5e651859ae2b17be56130586ebbb2330f9f1476cddcae62781cac8b627e4fa",
   "productContract": "5",
   "bindingsAbi": "1",
   "status": "pinned"
