@@ -733,7 +733,7 @@ const cases = {
       },
       {
         operation: 'structured.delete',
-        request: { contractVersion: 2, ...request },
+        request,
       },
     )
     expect(mapped.outcome).toBe('deleted')
