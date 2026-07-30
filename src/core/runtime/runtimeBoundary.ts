@@ -1691,12 +1691,12 @@ function mapArchiveOverview(result: Record<string, unknown>): ArchiveOverview {
       'archive visible entry count',
     ),
     entryCounts: {
-      moment: count(entryCounts.moment, 'moment entry count'),
       day: count(entryCounts.day, 'day entry count'),
       week: count(entryCounts.week, 'week entry count'),
       month: count(entryCounts.month, 'month entry count'),
       year: count(entryCounts.year, 'year entry count'),
-      custom: count(entryCounts.custom, 'custom entry count'),
+      event: count(entryCounts.event, 'event entry count'),
+      span: count(entryCounts.span, 'span entry count'),
     },
     structuredCounts: {
       events: count(structuredCounts.events, 'event count'),

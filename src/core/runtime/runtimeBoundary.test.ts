@@ -271,12 +271,12 @@ const cases = {
         storeContractVersion: 5,
         visibleEntryCount: 1,
         entryCounts: {
-          moment: 0,
-          day: 1,
+          day: 0,
           week: 0,
           month: 0,
           year: 0,
-          custom: 0,
+          event: 1,
+          span: 0,
         },
         structuredCounts: { events: 1, spans: 0 },
         trackCounts: { active: 1, archived: 0, ongoingMembers: 0 },
@@ -295,6 +295,14 @@ const cases = {
       { operation: 'archive.overview', request: {} },
     )
     expect(mapped.health.integrity).toBe('verified')
+    expect(mapped.entryCounts).toEqual({
+      day: 0,
+      week: 0,
+      month: 0,
+      year: 0,
+      event: 1,
+      span: 0,
+    })
   },
 
   archiveVerify: () => {
