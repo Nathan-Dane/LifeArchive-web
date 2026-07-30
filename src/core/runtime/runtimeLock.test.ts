@@ -78,14 +78,14 @@ describe('runtime state', () => {
     expect(() => parseRuntimeLock(runtimeLock)).not.toThrow()
   })
 
-  it('pins the reviewed Runtime 0.1.0 release', () => {
+  it('pins the reviewed Runtime 0.1.2 release', () => {
     expect(runtimeLock.status).toBe('pinned')
-    expect(runtimeLock.runtimeVersion).toBe('0.1.0')
+    expect(runtimeLock.runtimeVersion).toBe('0.1.2')
     expect(runtimeLock.artifactUrl).toBe(
-      'https://lifearchive-runtime.pages.dev/releases/0.1.0/lifearchive-runtime-web-0.1.0.tar.gz',
+      'https://lifearchive-runtime.pages.dev/releases/0.1.2/lifearchive-runtime-web-0.1.2.tar.gz',
     )
     expect(runtimeLock.sha256).toBe(
-      'b7880b44395d48aecdfeb5b6e93bda0252aa2ecd06ce97f12d44c9875b52d613',
+      'ae5e651859ae2b17be56130586ebbb2330f9f1476cddcae62781cac8b627e4fa',
     )
     expect(runtimeLock.productContract).toBe('5')
     expect(runtimeLock.bindingsAbi).toBe('1')
@@ -94,7 +94,7 @@ describe('runtime state', () => {
   it('uses an exact immutable artifact URL', () => {
     expect(runtimeLock.artifactUrl).not.toMatch(/(?:latest|redirect)/)
     expect(new URL(runtimeLock.artifactUrl).pathname).toBe(
-      '/releases/0.1.0/lifearchive-runtime-web-0.1.0.tar.gz',
+      '/releases/0.1.2/lifearchive-runtime-web-0.1.2.tar.gz',
     )
   })
 
@@ -118,7 +118,7 @@ describe('runtime state', () => {
     ).toThrow()
   })
 
-  it('admits the reviewed 0.1.1 dependency profile without breaking 0.1.0', () => {
+  it('admits the reviewed 0.1.1 and 0.1.2 dependency profiles without breaking 0.1.0', () => {
     const nextLock = {
       ...pinnedLock,
       runtimeVersion: '0.1.1',
@@ -137,6 +137,20 @@ describe('runtime state', () => {
     expect(assertRuntimeCompatibility(nextManifest, nextLock)).toEqual(
       nextManifest,
     )
+    expect(
+      assertRuntimeCompatibility(
+        {
+          ...nextManifest,
+          runtimeVersion: '0.1.2',
+        },
+        {
+          ...nextLock,
+          runtimeVersion: '0.1.2',
+          artifactUrl:
+            'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.2.tar.gz',
+        },
+      ),
+    ).toMatchObject({ runtimeVersion: '0.1.2' })
     expect(() =>
       assertRuntimeCompatibility(
         {

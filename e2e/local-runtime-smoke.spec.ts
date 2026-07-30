@@ -96,6 +96,7 @@ test.describe('verified local development runtime', () => {
     await page.getByRole('button', { name: 'Next year' }).click()
     await page.getByRole('button', { name: 'Today', exact: true }).click()
 
+    await page.getByRole('button', { name: 'Day', exact: true }).click()
     await page
       .getByRole('button', { name: 'Show the surrounding month' })
       .click()
@@ -103,6 +104,10 @@ test.describe('verified local development runtime', () => {
       page.getByRole('group', { name: 'Month around the selected date' }),
     ).toBeVisible()
 
+    await page.getByRole('button', { name: 'Year', exact: true }).click()
+    await expect(
+      page.getByRole('button', { name: 'Year', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true')
     const location = await page
       .locator('.record-navigation__location')
       .innerText()
