@@ -153,6 +153,7 @@ export class MockLifeArchiveClient implements LifeArchiveClient {
     close: () => this.answer('archive.close', null),
     overview: () => this.answer('archive.overview', null),
     verify: (request) => this.answer('archive.verify', request),
+    inspectImport: (request) => this.answer('archive.inspectImport', request),
     import: (request) => this.answer('archive.import', request),
     export: (request) => this.answer('archive.export', request),
     erase: (request) => this.answer('archive.erase', request),

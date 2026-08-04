@@ -24,6 +24,7 @@ export const CLIENT_SURFACE = {
     'close',
     'overview',
     'verify',
+    'inspectImport',
     'import',
     'export',
     'erase',

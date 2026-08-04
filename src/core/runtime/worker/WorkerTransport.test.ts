@@ -169,7 +169,7 @@ describe('WorkerTransport', () => {
     const active = transport
       .request({
         requestId: 'active',
-        operation: 'archive.apply',
+        operation: 'archive.import.apply',
         payload: null,
         signal: controller.signal,
       })

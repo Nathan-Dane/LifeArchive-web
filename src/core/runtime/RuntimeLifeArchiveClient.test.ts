@@ -666,6 +666,8 @@ describe('RuntimeLifeArchiveClient', () => {
       client.archive.import({
         operationId: operationId('A1000000-0000-4000-8000-000000000022'),
         archive,
+        expectedPlanId: 'plan-22',
+        resolutions: { selections: [] },
       }),
       client.archive.export({
         operationId: operationId('A1000000-0000-4000-8000-000000000023'),
@@ -801,6 +803,8 @@ describe('RuntimeLifeArchiveClient', () => {
     const imported = client.archive.import({
       operationId: importOperationId,
       archive,
+      expectedPlanId: 'cancel-plan',
+      resolutions: { selections: [] },
     })
     await vi.waitFor(() => expect(importSignal).toBeDefined())
     expect(await client.operations.requestCancel(importOperationId)).toEqual({
@@ -823,7 +827,7 @@ describe('RuntimeLifeArchiveClient', () => {
         skippedAttachmentIds: [],
         skippedTrackIds: [],
         issues: [],
-        identityOutcome: 'legacyPreserved',
+        identityOutcome: 'preserved',
         identityConflicts: [],
         identityFilledFields: [],
         token: invalidation,
@@ -891,7 +895,7 @@ describe('RuntimeLifeArchiveClient', () => {
                         id: null,
                       },
                     ],
-              identityOutcome: 'legacyPreserved',
+              identityOutcome: 'preserved',
               identityConflicts: [],
               identityFilledFields: [],
               token: afterTrack,
@@ -907,6 +911,8 @@ describe('RuntimeLifeArchiveClient', () => {
     const trackOnly = await client.archive.import({
       operationId: operationId('A1000000-0000-4000-8000-000000000088'),
       archive,
+      expectedPlanId: 'track-plan',
+      resolutions: { selections: [] },
     })
     expect(trackOnly).toMatchObject({
       status: 'ok',
@@ -922,6 +928,8 @@ describe('RuntimeLifeArchiveClient', () => {
     const recoveryOnly = await client.archive.import({
       operationId: operationId('A1000000-0000-4000-8000-000000000089'),
       archive,
+      expectedPlanId: 'recovery-plan',
+      resolutions: { selections: [] },
     })
     expect(recoveryOnly).toMatchObject({
       status: 'ok',
@@ -1033,6 +1041,8 @@ describe('RuntimeLifeArchiveClient', () => {
     const imported = await client.archive.import({
       operationId: operationId('A1000000-0000-4000-8000-000000000013'),
       archive: new File([Uint8Array.from([1])], 'Failed.lifearchive.tar'),
+      expectedPlanId: 'failed-plan',
+      resolutions: { selections: [] },
     })
 
     expect(imported).toMatchObject({

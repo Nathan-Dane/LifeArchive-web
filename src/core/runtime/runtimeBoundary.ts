@@ -16,6 +16,8 @@ import {
   type ArchiveIdentity,
   type ArchiveIdentitySaveResult,
   type ArchiveIdentityState,
+  type ArchiveImportInspectRequest,
+  type ArchiveImportInspection,
   type ArchiveImportIssue,
   type ArchiveImportRequest,
   type ArchiveImportResult,
@@ -169,10 +171,28 @@ export const runtimeBoundary = {
     ({ archive }) => ({ request: {}, transfers: [], archive }),
     (value) => mapArchiveVerification(record(value, 'archive verification')),
   ),
+  archiveImportInspect: boundary<
+    ArchiveImportInspectRequest,
+    ArchiveImportInspection
+  >(
+    'archive.import.inspect',
+    ({ archive }) => ({ request: {}, transfers: [], archive }),
+    (value) =>
+      mapArchiveImportInspection(record(value, 'archive import inspection')),
+  ),
   archiveImport: boundary<ArchiveImportBoundaryRequest, ArchiveImportResult>(
-    'archive.apply',
+    'archive.import.apply',
     ({ input }) => ({
-      request: { operationId: input.operationId },
+      request: {
+        operationId: input.operationId,
+        expectedPlanId: input.expectedPlanId,
+        resolutions: {
+          selections: input.resolutions.selections.map((selection) => ({
+            issueId: selection.issueId,
+            optionId: selection.optionId,
+          })),
+        },
+      },
       transfers: [],
       archive: input.archive,
     }),
@@ -1828,7 +1848,13 @@ function mapArchiveImport(
     const kind = issue.recordKind
     return {
       code: string(issue.code, 'archive import issue code'),
+      causeCode: nullableString(
+        issue.causeCode,
+        'archive import issue cause code',
+      ),
       field: nullableString(issue.field, 'archive import issue field'),
+      path: nullableString(issue.path, 'archive import issue path'),
+      line: nullableInteger(issue.line, 'archive import issue line'),
       recordKind: mapImportRecordKind(kind),
       id: nullableStableId(issue.id, 'archive import issue identifier'),
     }
@@ -1867,13 +1893,154 @@ function mapImportRecordKind(value: unknown): ArchiveImportIssue['recordKind'] {
   if (value === null || value === undefined) {
     return null
   }
-  return value === 'attachment'
-    ? 'media'
-    : literal(
-        value,
-        ['entry', 'track'] as const,
-        'archive import issue record kind',
+  const kind = string(value, 'archive import issue record kind')
+  return kind === 'attachment' ? 'media' : kind
+}
+
+function mapArchiveImportInspection(
+  result: Record<string, unknown>,
+): ArchiveImportInspection {
+  const sourceValue = result.source
+  const source =
+    sourceValue === null || sourceValue === undefined
+      ? null
+      : (() => {
+          const value = record(sourceValue, 'archive import source')
+          return {
+            archiveName: nullableString(
+              value.archiveName,
+              'archive import source archive name',
+            ),
+            subjectName: nullableString(
+              value.subjectName,
+              'archive import source subject name',
+            ),
+            createdAt: string(
+              value.createdAt,
+              'archive import source creation time',
+            ),
+            formatVersion: string(
+              value.formatVersion,
+              'archive import source format version',
+            ),
+          }
+        })()
+  return {
+    workflowVersion: literal(
+      result.workflowVersion,
+      ['1'] as const,
+      'archive import workflow version',
+    ),
+    outcome: literal(
+      result.outcome,
+      ['ready', 'needsResolution', 'blocked'] as const,
+      'archive import inspection outcome',
+    ),
+    context: (() => {
+      const context = record(
+        result.context,
+        'archive import inspection context',
       )
+      return {
+        supportedFormatVersion: string(
+          context.supportedFormatVersion,
+          'supported archive format version',
+        ),
+        archiveFormatVersion: nullableString(
+          context.archiveFormatVersion,
+          'selected archive format version',
+        ),
+        formatRelation: literal(
+          context.formatRelation,
+          ['supported', 'older', 'newer', 'unknown'] as const,
+          'archive format relationship',
+        ),
+        sourceSubjectName: nullableString(
+          context.sourceSubjectName,
+          'selected archive subject name',
+        ),
+        destinationSubjectName: nullableString(
+          context.destinationSubjectName,
+          'open archive subject name',
+        ),
+      }
+    })(),
+    planId: nullableString(result.planId, 'archive import plan identifier'),
+    source,
+    counts: {
+      entries: mapArchiveImportInspectionCounts(result.entries, 'entry'),
+      media: mapArchiveImportInspectionCounts(result.attachments, 'media'),
+      tracks: mapArchiveImportInspectionCounts(result.tracks, 'Track'),
+    },
+    issues: array(result.issues, 'archive import inspection issues').map(
+      (entry) => {
+        const issue = record(entry, 'archive import inspection issue')
+        return {
+          issueId: string(issue.issueId, 'archive import inspection issue ID'),
+          code: string(issue.code, 'archive import inspection issue code'),
+          severity: string(
+            issue.severity,
+            'archive import inspection issue severity',
+          ),
+          category: string(
+            issue.category,
+            'archive import inspection issue category',
+          ),
+          disposition: string(
+            issue.disposition,
+            'archive import inspection issue disposition',
+          ),
+          causeCode: nullableString(
+            issue.causeCode,
+            'archive import inspection issue cause code',
+          ),
+          field: nullableString(
+            issue.field,
+            'archive import inspection issue field',
+          ),
+          path: nullableString(
+            issue.path,
+            'archive import inspection issue path',
+          ),
+          line: nullableInteger(
+            issue.line,
+            'archive import inspection issue line',
+          ),
+          recordKind: nullableString(
+            issue.recordKind,
+            'archive import inspection issue record kind',
+          ),
+          id: nullableStableId(
+            issue.id,
+            'archive import inspection issue identifier',
+          ),
+          allowedResolutions: stableStrings(
+            issue.allowedResolutions,
+            'archive import inspection allowed resolutions',
+          ),
+        }
+      },
+    ),
+  }
+}
+
+function mapArchiveImportInspectionCounts(value: unknown, description: string) {
+  const counts = record(value, `archive import ${description} counts`)
+  return {
+    total: count(counts.total, `archive import ${description} total`),
+    importable: count(
+      counts.importable,
+      `archive import ${description} importable`,
+    ),
+    alreadyPresent: count(
+      counts.alreadyPresent,
+      `archive import ${description} already present`,
+    ),
+    needsDecision: count(
+      counts.needsDecision,
+      `archive import ${description} needs decision`,
+    ),
+  }
 }
 
 function mapImportIdentity(
@@ -1907,7 +2074,7 @@ function mapImportIdentity(
           string(record(value, 'identity conflict').field, 'identity field'),
         ),
       }
-    case 'legacyPreserved':
+    case 'preserved':
       return { outcome: 'preserved' }
     default:
       throw new TypeError('Malformed archive import identity outcome')

@@ -118,7 +118,7 @@ describe('runtime state', () => {
     ).toThrow()
   })
 
-  it('admits the reviewed 0.1.1 and 0.1.2 dependency profiles without breaking 0.1.0', () => {
+  it('admits every reviewed dependency profile through 0.1.3 without weakening older pins', () => {
     const nextLock = {
       ...pinnedLock,
       runtimeVersion: '0.1.1',
@@ -151,6 +151,27 @@ describe('runtime state', () => {
         },
       ),
     ).toMatchObject({ runtimeVersion: '0.1.2' })
+    expect(
+      assertRuntimeCompatibility(
+        {
+          ...nextManifest,
+          runtimeVersion: '0.1.3',
+          dependencyVersions: {
+            ...nextManifest.dependencyVersions,
+            sqliteSchema: '9',
+          },
+        },
+        {
+          ...nextLock,
+          runtimeVersion: '0.1.3',
+          artifactUrl:
+            'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.3.tar.gz',
+        },
+      ),
+    ).toMatchObject({
+      runtimeVersion: '0.1.3',
+      dependencyVersions: { sqliteSchema: '9' },
+    })
     expect(() =>
       assertRuntimeCompatibility(
         {
@@ -179,7 +200,7 @@ describe('runtime state', () => {
     ).toThrow()
   })
 
-  it('keeps every ergonomic runtime dispatch inside the approved 42-operation ABI', () => {
+  it('keeps every ergonomic runtime dispatch inside the approved 44-operation ABI', () => {
     const approved = new Set<string>(
       WEB_V0_1_CAPABILITIES.map(([operation]) => operation),
     )
@@ -187,7 +208,7 @@ describe('runtime state', () => {
       (entry) => entry.operation,
     )
 
-    expect(WEB_V0_1_CAPABILITIES).toHaveLength(42)
+    expect(WEB_V0_1_CAPABILITIES).toHaveLength(44)
     expect(new Set(dispatched).size).toBe(dispatched.length)
     expect(dispatched.filter((operation) => !approved.has(operation))).toEqual(
       [],
@@ -195,6 +216,9 @@ describe('runtime state', () => {
     expect(
       new Set([
         ...dispatched,
+        // Kept in the runtime inventory for strict legacy callers. The web UI
+        // exclusively uses the inspect/review/apply workflow.
+        'archive.apply',
         'product.describe',
         'store.invalidation',
         'operation.cancel',

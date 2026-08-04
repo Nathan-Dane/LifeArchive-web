@@ -33,6 +33,8 @@ import type {
   ArchiveIdentity,
   ArchiveIdentitySaveResult,
   ArchiveIdentityState,
+  ArchiveImportInspectRequest,
+  ArchiveImportInspection,
   ArchiveImportRequest,
   ArchiveImportResult,
   ArchiveOverview,
@@ -127,7 +129,11 @@ export interface ArchiveSurface {
   verify(
     request: ArchiveVerifyRequest,
   ): Promise<ClientResult<ArchiveVerification>>
-  /** Validated, atomic, merge-only import. Duplicate stable IDs are skipped. */
+  /** Read-only analysis that returns only core-approved resolution choices. */
+  inspectImport(
+    request: ArchiveImportInspectRequest,
+  ): Promise<ClientResult<ArchiveImportInspection>>
+  /** Atomically applies the exact inspected plan and selected resolutions. */
   import(
     request: ArchiveImportRequest,
   ): Promise<ClientResult<ArchiveImportResult>>

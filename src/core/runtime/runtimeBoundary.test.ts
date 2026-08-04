@@ -319,8 +319,93 @@ const cases = {
     expect(mapped.checkedFiles).toBe(3)
   },
 
+  archiveImportInspect: () => {
+    const mapped = exercise(
+      runtimeBoundary.archiveImportInspect,
+      { archive: archiveFile },
+      {
+        workflowVersion: '1',
+        outcome: 'needsResolution',
+        context: {
+          supportedFormatVersion: '0.4.1',
+          archiveFormatVersion: '0.4.1',
+          formatRelation: 'supported',
+          sourceSubjectName: null,
+          destinationSubjectName: 'Alex',
+        },
+        planId: 'import-plan-1',
+        source: {
+          archiveName: 'Source archive',
+          subjectName: null,
+          createdAt: '2026-08-04T10:00:00Z',
+          formatVersion: '5',
+        },
+        entries: {
+          total: 2,
+          importable: 1,
+          alreadyPresent: 0,
+          needsDecision: 1,
+        },
+        attachments: {
+          total: 1,
+          importable: 1,
+          alreadyPresent: 0,
+          needsDecision: 0,
+        },
+        tracks: {
+          total: 0,
+          importable: 0,
+          alreadyPresent: 0,
+          needsDecision: 0,
+        },
+        issues: [
+          {
+            issueId: 'issue-1',
+            code: 'missingMedia',
+            severity: 'warning',
+            category: 'media',
+            disposition: 'requiresDecision',
+            causeCode: 'fileMissing',
+            field: null,
+            path: 'media/photo.jpg',
+            line: 4,
+            recordKind: 'attachment',
+            id: null,
+            allowedResolutions: ['skip', 'ignore'],
+          },
+        ],
+      },
+      {
+        operation: 'archive.import.inspect',
+        request: {},
+        archive: archiveFile,
+      },
+    )
+    expect(mapped).toMatchObject({
+      workflowVersion: '1',
+      outcome: 'needsResolution',
+      planId: 'import-plan-1',
+      counts: { media: { importable: 1 } },
+      issues: [
+        {
+          causeCode: 'fileMissing',
+          path: 'media/photo.jpg',
+          line: 4,
+          allowedResolutions: ['skip', 'ignore'],
+        },
+      ],
+    })
+  },
+
   archiveImport: () => {
-    const input = { operationId: importOperationId, archive: archiveFile }
+    const input = {
+      operationId: importOperationId,
+      archive: archiveFile,
+      expectedPlanId: 'import-plan-1',
+      resolutions: {
+        selections: [{ issueId: 'issue-1', optionId: 'skip' }],
+      },
+    }
     const request = { input, previousInvalidation: token }
     const mapped = exercise(
       runtimeBoundary.archiveImport,
@@ -337,18 +422,25 @@ const cases = {
         skippedAttachmentIds: [],
         skippedTrackIds: [],
         issues: [],
-        identityOutcome: 'matched',
+        identityOutcome: 'preserved',
         identityConflicts: [],
         identityFilledFields: [],
         token: { ...token, revision: '8' },
       },
       {
-        operation: 'archive.apply',
-        request: { operationId: importOperationId },
+        operation: 'archive.import.apply',
+        request: {
+          operationId: importOperationId,
+          expectedPlanId: 'import-plan-1',
+          resolutions: {
+            selections: [{ issueId: 'issue-1', optionId: 'skip' }],
+          },
+        },
         archive: archiveFile,
       },
     )
     expect(mapped.importedTracks).toBe(1)
+    expect(mapped.identity).toEqual({ outcome: 'preserved' })
   },
 
   archiveExport: () => {

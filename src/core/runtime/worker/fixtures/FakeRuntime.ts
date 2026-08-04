@@ -203,6 +203,47 @@ export class FakeRuntimeModule {
     if (!staged?.finished) {
       throw new Error('runtime received an unfinished archive source')
     }
+    if (request.operation === 'archive.import.inspect') {
+      return this.reply({
+        outcome: 'success',
+        abiVersion: '1',
+        requestId: request.requestId,
+        operation: request.operation,
+        result: {
+          workflowVersion: '1',
+          outcome: 'ready',
+          context: {
+            supportedFormatVersion: '0.4.1',
+            archiveFormatVersion: '0.4.1',
+            formatRelation: 'supported',
+            sourceSubjectName: null,
+            destinationSubjectName: null,
+          },
+          planId: 'fake-import-plan',
+          source: null,
+          entries: {
+            total: 2,
+            importable: 2,
+            alreadyPresent: 0,
+            needsDecision: 0,
+          },
+          attachments: {
+            total: 0,
+            importable: 0,
+            alreadyPresent: 0,
+            needsDecision: 0,
+          },
+          tracks: {
+            total: 0,
+            importable: 0,
+            alreadyPresent: 0,
+            needsDecision: 0,
+          },
+          issues: [],
+        },
+        transfers: [],
+      })
+    }
     this.appliedSources.push(source)
     if (this.script.throwDuringApply) {
       throw new Error('executor failed after apply began')
@@ -230,7 +271,7 @@ export class FakeRuntimeModule {
         outcome: 'failure',
         abiVersion: '1',
         requestId: request.requestId,
-        operation: 'archive.apply',
+        operation: 'archive.import.apply',
         failure: {
           category: 'validation',
           code: this.script.applyFailureCode,
@@ -243,7 +284,7 @@ export class FakeRuntimeModule {
       return this.reply({
         outcome: 'success',
         requestId: 'wrong-request-id',
-        operation: 'archive.apply',
+        operation: 'archive.import.apply',
         result: {},
       })
     }
@@ -251,7 +292,7 @@ export class FakeRuntimeModule {
       outcome: 'success',
       abiVersion: '1',
       requestId: request.requestId,
-      operation: 'archive.apply',
+      operation: 'archive.import.apply',
       result: {
         outcome: 'applied',
         importedEntries: 2,
@@ -347,7 +388,7 @@ export class FakeRuntimeModule {
     this.invocations.delete(invocation)
     if (
       this.script.throwWhenFreeingApplyInvocation &&
-      envelope?.includes('"operation":"archive.apply"')
+      envelope?.includes('"operation":"archive.import.apply"')
     ) {
       throw new Error('executor cleanup failed after apply reply')
     }

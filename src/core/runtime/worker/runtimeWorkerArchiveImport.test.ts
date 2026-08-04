@@ -226,8 +226,27 @@ function importArchive(
     protocolVersion: WORKER_PROTOCOL_VERSION,
     generation: GENERATION,
     requestId,
-    operation: 'archive.apply',
-    payload: { request: { operationId }, transfers: [], archive: file },
+    operation: 'archive.import.apply',
+    payload: {
+      request: {
+        operationId,
+        expectedPlanId: 'fake-import-plan',
+        resolutions: { selections: [] },
+      },
+      transfers: [],
+      archive: file,
+    },
+  } as MainToWorkerMessage)
+}
+
+function inspectArchive(scope: WorkerScope, file: File): void {
+  scope.send({
+    type: 'request',
+    protocolVersion: WORKER_PROTOCOL_VERSION,
+    generation: GENERATION,
+    requestId: 'inspect',
+    operation: 'archive.import.inspect',
+    payload: { request: {}, transfers: [], archive: file },
   } as MainToWorkerMessage)
 }
 
@@ -273,6 +292,28 @@ beforeEach(() => {
 })
 
 describe('production worker archive import bridge', () => {
+  it('stages an opaque archive for read-only inspection', async () => {
+    const bytes = twoEntryArchive()
+    const { file, arrayBuffer } = transportFile(bytes)
+    const scope = await startWorker()
+    await openArchive(scope)
+
+    inspectArchive(scope, file)
+    await vi.waitFor(() =>
+      expect(scope.find('response', 'inspect')).toBeDefined(),
+    )
+
+    expectApplied(scope.find('response', 'inspect'))
+    expect(envelopeOf(scope.find('response', 'inspect')).result).toMatchObject({
+      workflowVersion: '1',
+      outcome: 'ready',
+      planId: 'fake-import-plan',
+    })
+    expect(arrayBuffer).not.toHaveBeenCalled()
+    expect(runtimeModule.appliedSources).toHaveLength(0)
+    expect(runtimeModule.released).toBe(true)
+  })
+
   it('applies a two-entry archive with byte-exact staging and no File.arrayBuffer', async () => {
     const bytes = twoEntryArchive()
     const { file, arrayBuffer } = transportFile(bytes)
