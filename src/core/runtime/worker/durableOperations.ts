@@ -1,5 +1,5 @@
 const DURABLE_MUTATION_OPERATIONS = new Set([
-  'archive.apply',
+  'archive.import.apply',
   'archive.erase',
   'archive.identity.save',
   'media.delete',

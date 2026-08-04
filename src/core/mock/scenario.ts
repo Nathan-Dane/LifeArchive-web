@@ -31,6 +31,7 @@ import type {
   ArchiveIdentity,
   ArchiveIdentitySaveResult,
   ArchiveIdentityState,
+  ArchiveImportInspection,
   ArchiveImportResult,
   ArchiveOverview,
   ArchiveSession,
@@ -564,6 +565,7 @@ export interface MockResults {
   readonly 'archive.close': ClientResult<ArchiveCloseResult>
   readonly 'archive.overview': ClientResult<ArchiveOverview>
   readonly 'archive.verify': ClientResult<ArchiveVerification>
+  readonly 'archive.inspectImport': ClientResult<ArchiveImportInspection>
   readonly 'archive.import': ClientResult<ArchiveImportResult>
   readonly 'archive.export': ClientResult<ArchiveExportResult>
   readonly 'archive.erase': ClientResult<ArchiveEraseResult>
@@ -669,6 +671,45 @@ const RESULTS: MockResults = {
     valid: true,
     issues: [],
     checkedFiles: 214,
+  }),
+  'archive.inspectImport': ok<ArchiveImportInspection>({
+    workflowVersion: '1',
+    outcome: 'ready',
+    context: {
+      supportedFormatVersion: '0.4.1',
+      archiveFormatVersion: '0.4.1',
+      formatRelation: 'supported',
+      sourceSubjectName: 'Sample Subject',
+      destinationSubjectName: 'Sample Subject',
+    },
+    planId: 'development-mock-import-plan',
+    source: {
+      archiveName: 'Sample Archive',
+      subjectName: 'Sample Subject',
+      createdAt: '2025-06-14T18:00:00Z',
+      formatVersion: 'development-mock',
+    },
+    counts: {
+      entries: {
+        total: 14,
+        importable: 12,
+        alreadyPresent: 2,
+        needsDecision: 0,
+      },
+      media: {
+        total: 3,
+        importable: 3,
+        alreadyPresent: 0,
+        needsDecision: 0,
+      },
+      tracks: {
+        total: 1,
+        importable: 1,
+        alreadyPresent: 0,
+        needsDecision: 0,
+      },
+    },
+    issues: [],
   }),
   'archive.import': ok<ArchiveImportResult>({
     changed: true,

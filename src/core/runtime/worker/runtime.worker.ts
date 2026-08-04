@@ -354,7 +354,9 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
     let archiveWriter: RuntimeArchiveSourceWriter | null = null
     let archiveSourceHandle = 0
     if (
-      (operation === 'archive.verify' || operation === 'archive.apply') &&
+      (operation === 'archive.verify' ||
+        operation === 'archive.import.inspect' ||
+        operation === 'archive.import.apply') &&
       isRecord(payload) &&
       payload.archive instanceof File
     ) {

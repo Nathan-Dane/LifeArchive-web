@@ -1175,17 +1175,94 @@ export interface ArchiveExportResult {
   readonly invalidation: InvalidationToken
 }
 
+export interface ArchiveImportInspectRequest {
+  readonly archive: ArchivePackage
+}
+
+/** Counts reported by the core for one kind of importable archive item. */
+export interface ArchiveImportInspectionCounts {
+  readonly total: number
+  readonly importable: number
+  readonly alreadyPresent: number
+  readonly needsDecision: number
+}
+
+/** Safe package identity facts returned by the core for review. */
+export interface ArchiveImportSource {
+  readonly archiveName: string | null
+  readonly subjectName: string | null
+  readonly createdAt: string
+  readonly formatVersion: string
+}
+
+/** Bounded facts used to explain format and person mismatches. */
+export interface ArchiveImportInspectionContext {
+  readonly supportedFormatVersion: string
+  readonly archiveFormatVersion: string | null
+  readonly formatRelation: 'supported' | 'older' | 'newer' | 'unknown'
+  readonly sourceSubjectName: string | null
+  readonly destinationSubjectName: string | null
+}
+
+/**
+ * One issue discovered during read-only inspection. Resolution option IDs are
+ * an ordered core-owned inventory: the browser presents and returns them, but
+ * never invents an option or decides what an option means durably.
+ */
+export interface ArchiveImportInspectionIssue {
+  readonly issueId: string
+  readonly code: string
+  readonly severity: string
+  readonly category: string
+  readonly disposition: string
+  readonly causeCode: string | null
+  readonly field: string | null
+  readonly path: string | null
+  readonly line: number | null
+  readonly recordKind: string | null
+  readonly id: StableId | null
+  readonly allowedResolutions: readonly string[]
+}
+
+/** A read-only plan for the exact selected package and open archive. */
+export interface ArchiveImportInspection {
+  readonly workflowVersion: '1'
+  readonly outcome: 'ready' | 'needsResolution' | 'blocked'
+  readonly context: ArchiveImportInspectionContext
+  readonly planId: string | null
+  readonly source: ArchiveImportSource | null
+  readonly counts: {
+    readonly entries: ArchiveImportInspectionCounts
+    readonly media: ArchiveImportInspectionCounts
+    readonly tracks: ArchiveImportInspectionCounts
+  }
+  readonly issues: readonly ArchiveImportInspectionIssue[]
+}
+
+export interface ArchiveImportResolutionSelection {
+  readonly issueId: string
+  readonly optionId: string
+}
+
 export interface ArchiveImportRequest {
   readonly operationId: OperationId
   readonly archive: ArchivePackage
+  /** The exact plan returned by inspection; the core rejects stale plans. */
+  readonly expectedPlanId: string
+  readonly resolutions: {
+    readonly selections: readonly ArchiveImportResolutionSelection[]
+  }
 }
 
 export interface ArchiveImportIssue {
   readonly code: string
+  readonly causeCode?: string | null
   /** Stable field identity for programmatic recovery; never display text. */
   readonly field: string | null
+  readonly path?: string | null
+  readonly line?: number | null
   /** Absent when the issue is about the package rather than one record. */
-  readonly recordKind: 'entry' | 'media' | 'track' | null
+  readonly recordKind: string | null
   readonly id: StableId | null
 }
 

@@ -70,8 +70,9 @@ export const archiveMessages = {
   'archive.import.compactDetail':
     'Merge writing and media from an archive package.',
   'archive.import.detail':
-    'Choose a supported LifeArchive package. It is checked and applied as one operation; if it cannot be applied, the open archive stays in place.',
+    'Choose a LifeArchive package. Review what can be imported, resolve any issues, then confirm the import.',
   'archive.import.file.label': 'Archive package',
+  'archive.import.file.summary': 'Selected package',
   'archive.import.file.selected': 'Selected: {name}',
   'archive.import.file.invalidExtension':
     'Choose a file ending in .lifearchive.tar.',
@@ -79,18 +80,160 @@ export const archiveMessages = {
     'That file type is not supported. Choose a LifeArchive package.',
   'archive.import.file.empty': 'That package is empty and cannot be imported.',
   'archive.import.action.import': 'Import archive',
+  'archive.import.action.applyReviewed': 'Import reviewed items',
   'archive.import.action.cancel': 'Cancel import',
   'archive.import.action.chooseAnother': 'Choose another package',
+  'archive.import.steps.label': 'Import progress',
+  'archive.import.steps.choose': 'Choose',
+  'archive.import.steps.review': 'Review',
+  'archive.import.steps.apply': 'Import',
   'archive.import.status.progress': 'Archive import progress',
   'archive.import.status.importing': 'Checking and importing the archive',
+  'archive.import.status.inspecting': 'Checking the package',
+  'archive.import.status.inspectionProgress': 'Package check progress',
+  'archive.import.status.reviewReady': 'Package review ready',
+  'archive.import.status.applying': 'Importing the reviewed items',
+  'archive.import.status.applyProgress': 'Reviewed import progress',
   'archive.import.status.cancelling':
     'Requesting cancellation and waiting for a final result',
+  'archive.import.review.ready.title': 'Ready to import',
+  'archive.import.review.ready.detail':
+    'The package can be imported with no decisions needed.',
+  'archive.import.review.needsResolution.title': 'Issues importing archive',
+  'archive.import.review.needsResolution.detail':
+    'Choose how to resolve issues',
+  'archive.import.review.blocked.title': 'Errors importing archive',
+  'archive.import.review.blocked.detail': 'Cannot import this archive',
+  'archive.import.source.label': 'Package details',
+  'archive.import.source.unnamed': 'Unnamed archive',
+  'archive.import.source.format': 'Format {version}',
+  'archive.import.review.count.entries': 'Writing',
+  'archive.import.review.count.media': 'Media',
+  'archive.import.review.count.tracks': 'Tracks',
+  'archive.import.review.count.ofTotal': 'of {total} can be imported',
+  'archive.import.review.count.alreadyPresent': {
+    one: 'One is already here',
+    other: '{count} are already here',
+  },
+  'archive.import.review.count.needsDecision': {
+    one: 'One needs a choice',
+    other: '{count} need a choice',
+  },
+  'archive.import.review.issues.title': 'Issues to review',
+  'archive.import.resolution.legend': 'Choose what to do',
+  'archive.import.resolution.skip': 'Skip this item',
+  'archive.import.resolution.ignore': 'Import it anyway',
+  'archive.import.resolution.preserveDestination':
+    'Keep the version already here',
+  'archive.import.resolution.unknown': 'Choice {number}',
+  'archive.import.resolution.unavailable':
+    'This issue has no available fix in the current import.',
+  'archive.import.resolution.automatic': 'Handled by the import plan.',
+  'archive.import.issue.details': 'Technical details',
+  'archive.import.issue.line': 'Line',
+  'archive.import.issue.path': 'Package path',
+  'archive.import.issue.field': 'Field',
+  'archive.import.issue.reference': 'Reference',
+  'archive.import.issue.itemId': 'Item ID',
+  'archive.import.issue.unknown':
+    'The package reported an issue that needs review.',
+  'archive.import.issue.reportUnknown':
+    'The import report includes an issue for this item.',
+  'archive.import.issue.category.identity':
+    'The package identity does not match the archive here.',
+  'archive.import.issue.category.integrity':
+    'A package integrity check did not pass.',
+  'archive.import.issue.category.format':
+    'This part of the package uses an unsupported format.',
+  'archive.import.issue.category.record':
+    'This item contains data that could not be read normally.',
+  'archive.import.issue.category.media':
+    'A media file is missing or could not be checked.',
+  'archive.import.issue.category.duplicate':
+    'This item is already present and needs no action.',
+  'archive.import.issue.invalidArchive':
+    'The package structure could not be read as a LifeArchive archive.',
+  'archive.import.issue.newerArchiveVersion':
+    'This package was created by a newer LifeArchive format.',
+  'archive.import.issue.checksumMismatch':
+    'This file does not match the package checksum.',
+  'archive.import.issue.missingMedia':
+    'A media file named by the package is missing.',
+  'archive.import.issue.differentArchive':
+    'This package belongs to a different archive identity.',
+  'archive.import.identity.differentBoth':
+    'This archive belongs to {source}. The open archive belongs to {destination}.',
+  'archive.import.identity.differentSource':
+    'This archive belongs to {source}.',
+  'archive.import.identity.differentDestination':
+    'The open archive belongs to {destination}.',
+  'archive.import.version.unknown': 'not detected',
+  'archive.import.version.older':
+    'Archive format {archiveVersion}; this app imports {supportedVersion}. This export is outdated. Create a new export with a current version of LifeArchive.',
+  'archive.import.version.newer':
+    'Archive format {archiveVersion}; this app imports {supportedVersion}. This version of LifeArchive is too old. Update the app to import this archive.',
+  'archive.import.version.unsupported':
+    'Archive format {archiveVersion}; this app imports {supportedVersion}. These versions are not compatible.',
+  'archive.import.issue.archiveFileIgnored':
+    'This non-essential file can be ignored while the safe archive data is imported.',
+  'archive.import.issue.invalidEntrySkipped':
+    'Leave this writing item out and import the readable items.',
+  'archive.import.issue.invalidAttachmentSkipped':
+    'Leave this media item out and import the readable items.',
+  'archive.import.issue.invalidTrackSkipped':
+    'Leave this Track out and import the readable items.',
+  'archive.import.issue.tooManyImportIssues':
+    'There are more damaged items than can be safely reviewed.',
+  'archive.import.issue.unsupportedVersion':
+    'Update LifeArchive or use an export made in a supported format.',
+  'archive.import.issue.missingMediaSource':
+    'The media file named by this item is missing from the package.',
+  'archive.import.issue.mediaChecksumMismatch':
+    'This media file does not match the package checksum.',
+  'archive.import.issue.mediaSizeMismatch':
+    'This media file has a different size from the package record.',
+  'archive.import.issue.mediaHashMismatch':
+    'This media file does not match the item that refers to it.',
+  'archive.import.issueTitle.differentArchive': 'From another life archive',
+  'archive.import.issueTitle.archiveFileIgnored':
+    'A non-essential file is damaged',
+  'archive.import.issueTitle.invalidEntrySkipped':
+    'A writing item can’t be read',
+  'archive.import.issueTitle.invalidAttachmentSkipped':
+    'A media item can’t be read',
+  'archive.import.issueTitle.invalidTrackSkipped': 'A Track can’t be read',
+  'archive.import.issueTitle.tooManyImportIssues': 'Too many damaged items',
+  'archive.import.issueTitle.unsupportedVersion':
+    'Archive version isn’t supported',
+  'archive.import.issueTitle.checksumMismatch': 'File integrity check failed',
+  'archive.import.issueTitle.mediaChecksumMismatch':
+    'Media integrity check failed',
+  'archive.import.issueTitle.missingMedia': 'A media file is missing',
+  'archive.import.issueTitle.missingMediaSource': 'A media file is missing',
+  'archive.import.issueTitle.mediaSizeMismatch': 'A media file is damaged',
+  'archive.import.issueTitle.mediaHashMismatch': 'A media file is damaged',
+  'archive.import.issueTitle.invalidArchiveRoot': 'Not a LifeArchive archive',
+  'archive.import.issueTitle.missingRequiredFile':
+    'A required package file is missing',
+  'archive.import.recordKind.entry': 'Writing item',
+  'archive.import.recordKind.media': 'Media item',
+  'archive.import.recordKind.attachment': 'Media item',
+  'archive.import.recordKind.track': 'Track',
+  'archive.import.recordKind.file': 'Package file',
+  'archive.import.recordKind.package': 'Archive package',
   'archive.import.failed.title': 'The archive was not imported',
+  'archive.import.failed.inspectionTitle': 'The package could not be checked',
+  'archive.import.failed.inspectionReadOnly':
+    'The check was read-only. Nothing was imported.',
+  'archive.import.failed.unknownTitle': 'Check the archive before continuing',
+  'archive.import.failed.unknownOutcome':
+    'The browser lost the final result after the import started. Reopen the archive and check its contents before trying again.',
   'archive.import.failed.unchanged':
     'The archive that was open before this attempt is still open.',
   'archive.import.failed.differentArchive':
     'This package belongs to a different archive identity, so it was not applied.',
   'archive.import.complete.title': 'Import complete',
+  'archive.import.completeWithIssues.title': 'Import complete with a report',
   'archive.import.complete.announcement': 'Archive import complete',
   'archive.import.noOp.title': 'Nothing new to import',
   'archive.import.noOp.detail':
@@ -103,6 +246,11 @@ export const archiveMessages = {
   'archive.import.count.skippedTracks': 'Existing Tracks skipped',
   'archive.import.recovery.pending':
     'The import committed, but recovery cleanup is still pending. Reopen the archive before retrying.',
+  'archive.import.report.issues': {
+    one: 'One reported issue',
+    other: '{count} reported issues',
+  },
+  'archive.import.report.line': 'Line {line}',
   'archive.import.issues': {
     one: 'One invalid item was skipped without changing the rest of the import.',
     other:

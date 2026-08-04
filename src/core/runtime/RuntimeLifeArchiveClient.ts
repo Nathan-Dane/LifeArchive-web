@@ -184,6 +184,10 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       this.runExclusiveArchiveOperation(() =>
         this.invoke(runtimeBoundary.archiveVerify, request),
       ),
+    inspectImport: (request) =>
+      this.runExclusiveArchiveOperation(() =>
+        this.invoke(runtimeBoundary.archiveImportInspect, request),
+      ),
     import: (request: ArchiveImportRequest) =>
       this.runExclusiveArchiveOperation(async () => {
         const controller = new AbortController()

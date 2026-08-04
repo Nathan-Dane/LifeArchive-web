@@ -56,6 +56,7 @@ function createFakeClient(): LifeArchiveClient {
       close: unavailable,
       overview: unavailable,
       verify: unavailable,
+      inspectImport: unavailable,
       import: unavailable,
       export: unavailable,
       erase: unavailable,
