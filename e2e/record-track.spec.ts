@@ -3,44 +3,49 @@ import { expect, test } from '@playwright/test'
 const DEVELOPMENT_MOCK_URL = 'http://localhost:4191/record'
 
 test.describe('Track workflows', () => {
-  test('cancels Track plus first-member capture with the complete draft still local', async ({
+  test('cancels quick Track creation and restores focus to the chooser', async ({
     page,
   }) => {
     await page.goto(DEVELOPMENT_MOCK_URL)
-    await page.getByRole('button', { name: 'New Track' }).click()
-    await page.getByRole('textbox', { name: 'Name' }).fill('Unsubmitted Track')
-    await page
-      .getByRole('checkbox', { name: 'Create with a first member' })
-      .check()
-    await page.getByRole('textbox', { name: 'Title' }).fill('First member')
-    await page
-      .getByRole('textbox', { name: 'Writing' })
-      .fill('Exact local draft')
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: /^Event: Harbour swim/ }).click()
+    const chooser = page.getByRole('button', {
+      name: 'Track: Not in a Track. Choose Track',
+    })
+    await chooser.click()
+    await page.getByRole('menuitem', { name: 'New Track' }).click()
 
-    await expect(
-      page.getByRole('heading', { name: 'Track details' }),
-    ).toHaveCount(0)
-    await expect(
-      page.getByRole('button', { name: /Where I lived/ }),
-    ).toBeVisible()
+    const editor = page.getByRole('dialog', { name: 'New Track' })
+    await editor
+      .getByRole('textbox', { name: 'Icon and title' })
+      .fill('Unsubmitted Track')
+    await editor.getByRole('button', { name: 'Close Track editor' }).click()
+
+    await expect(page.getByRole('dialog', { name: 'New Track' })).toHaveCount(0)
+    await expect(chooser).toBeFocused()
   })
 
   test('shows Rust-ordered mixed history and explicit populated deletion consequences', async ({
     page,
   }) => {
     await page.goto(DEVELOPMENT_MOCK_URL)
-    await page.getByRole('button', { name: /Where I lived/ }).click()
+    await page.getByRole('button', { name: /^Event: Harbour swim/ }).click()
+    await page
+      .getByRole('button', { name: 'Track: Not in a Track. Choose Track' })
+      .click()
+    await page.getByRole('menuitem', { name: 'Manage Tracks' }).click()
+    const manager = page.getByRole('dialog', { name: 'Manage Tracks' })
+    await manager.getByRole('button', { name: /Where I lived/ }).click()
 
-    await expect(
-      page.getByRole('heading', { name: 'Where I lived' }),
-    ).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Edit Track' })).toBeVisible()
+    await page
+      .getByRole('button', { name: /Contained Events and Spans/ })
+      .click()
     await expect(page.locator('[data-member-kind="span"]')).toContainText(
       'Living in Aarhus',
     )
     await expect(
       page
-        .getByRole('region', { name: 'Where I lived' })
+        .getByRole('region', { name: 'Contained Events and Spans' })
         .getByText(/August 1, 2024 to Present/),
     ).toBeVisible()
 
@@ -50,7 +55,7 @@ test.describe('Track workflows', () => {
         'Delete this Track and detach its 3 members? The Events and Spans, including all their writing and metadata, will remain in the archive.',
       ),
     ).toBeVisible()
-    const confirm = page.getByRole('button', { name: 'Delete Track' }).last()
+    const confirm = page.getByRole('button', { name: 'Confirm Delete' })
     await expect(confirm).toBeDisabled()
     await page
       .getByRole('checkbox', {
@@ -65,13 +70,23 @@ test.describe('Track workflows', () => {
   }) => {
     await page.goto(DEVELOPMENT_MOCK_URL)
     await page.getByRole('button', { name: /^Event: Harbour swim/ }).click()
-    await expect(page.getByRole('combobox', { name: 'Track' })).toContainText(
-      'Where I lived',
-    )
+    const eventChooser = page.getByRole('button', {
+      name: 'Track: Not in a Track. Choose Track',
+    })
+    await eventChooser.click()
+    await expect(
+      page.getByRole('menuitemradio', { name: 'Where I lived' }),
+    ).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(eventChooser).toBeFocused()
 
     await page.getByRole('button', { name: /^Span: Living in Aarhus/ }).click()
-    await expect(page.getByRole('combobox', { name: 'Track' })).toContainText(
-      'Where I lived',
-    )
+    const spanChooser = page.getByRole('button', {
+      name: 'Track: Where I lived. Choose Track',
+    })
+    await spanChooser.click()
+    await expect(
+      page.getByRole('menuitemradio', { name: 'Where I lived' }),
+    ).toHaveAttribute('aria-checked', 'true')
   })
 })

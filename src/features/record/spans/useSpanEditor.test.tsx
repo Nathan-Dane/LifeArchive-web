@@ -132,6 +132,7 @@ function editor(
     onDeleted: vi.fn(),
     refreshObjects: vi.fn(),
   },
+  createPeopleSection = false,
 ) {
   let registration: RecordDraftRegistration | null = null
   const rendered = renderHook(
@@ -139,6 +140,7 @@ function editor(
       useSpanEditor(client, {
         selected: current,
         developmentMock: false,
+        createPeopleSection,
         register: (value) => {
           registration = value
           return () => undefined
@@ -317,7 +319,7 @@ describe('the revision-safe Span editor', () => {
         }),
       ),
     )
-    const rendered = editor(testClient({ create }), null)
+    const rendered = editor(testClient({ create }), null, undefined, true)
     act(() => rendered.result.current.startCreate(civilDate('2025-06-14')))
     expect(rendered.result.current.draft).toEqual(
       expect.objectContaining({
@@ -340,6 +342,7 @@ describe('the revision-safe Span editor', () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         newObjectId: NEW_SPAN_ID,
+        creationSectionIds: ['people'],
         draft: expect.objectContaining({
           markdown: 'Do not lose this buffer.',
           iconId: 'span',

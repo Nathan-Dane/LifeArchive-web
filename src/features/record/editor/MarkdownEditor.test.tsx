@@ -24,6 +24,7 @@ import { TestLifeArchiveClient } from '../../../test/TestLifeArchiveClient'
 import { coreWindow } from '../../../test/timeFixtures'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MarkdownWritingSurface } from './MarkdownWritingSurface'
+import { BrowserPreferencesProvider } from '../../settings/preferences'
 
 const WINDOW = coreWindow('day', '2025-06-14')
 const INVALIDATION = {
@@ -446,7 +447,12 @@ describe('MarkdownEditor', () => {
     const user = userEvent.setup()
     render(
       <I18nProvider locale="en">
-        <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+        <BrowserPreferencesProvider
+          storage={null}
+          initialPreferences={{ showPeopleOnNewDay: true }}
+        >
+          <MarkdownEditor client={realClient} window={WINDOW} selected={null} />
+        </BrowserPreferencesProvider>
       </I18nProvider>,
     )
     const textbox = await screen.findByRole('textbox', {
@@ -474,6 +480,7 @@ describe('MarkdownEditor', () => {
     expect(save.mock.calls[0]?.[0]).toMatchObject({
       markdown: 'Café 日本語',
       target: { expectation: 'absent' },
+      creationSectionIds: ['people'],
     })
   })
 

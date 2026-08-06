@@ -7,6 +7,8 @@ import type {
 } from '../../../core/client'
 import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
 import { RecordMedia } from '../media'
+import { RecordPeopleSection } from '../../people'
+import { useBrowserPreferences } from '../../settings/preferences'
 import { useEditorDocument } from './useEditorDocument'
 
 const MarkdownWritingSurface = lazy(async () => {
@@ -37,6 +39,10 @@ export function MarkdownEditor({
 }: MarkdownEditorProps) {
   const t = useTranslate()
   const localisation = useLocalisation()
+  const { preferences } = useBrowserPreferences()
+  const createPeopleSection = window
+    ? preferences[`showPeopleOnNew${capitalizeScale(window.scale)}`]
+    : false
   const {
     document,
     update,
@@ -49,7 +55,14 @@ export function MarkdownEditor({
     conflict,
     mediaOwner,
     adoptMediaRevision,
-  } = useEditorDocument(client, window, selected, developmentMock)
+    adoptEntryRevision,
+  } = useEditorDocument(
+    client,
+    window,
+    selected,
+    developmentMock,
+    createPeopleSection,
+  )
   useEffect(() => {
     if (document.status === 'ready' && selected === null) {
       onSummaryChange?.(document.plainText)
@@ -157,6 +170,25 @@ export function MarkdownEditor({
           onCountChange={onMediaCountChange}
         />
       ) : null}
+      {window ? (
+        <RecordPeopleSection
+          client={client}
+          target={
+            mediaOwner
+              ? { kind: 'entry', entryId: mediaOwner.id }
+              : { kind: 'ordinary', window }
+          }
+          entryKind={window.scale}
+          onEntryRevision={adoptEntryRevision}
+        />
+      ) : null}
     </>
   )
+}
+
+function capitalizeScale(
+  scale: TimeWindow['scale'],
+): 'Day' | 'Week' | 'Month' | 'Year' {
+  return `${scale[0].toUpperCase()}${scale.slice(1)}` as
+    'Day' | 'Week' | 'Month' | 'Year'
 }

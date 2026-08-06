@@ -95,6 +95,7 @@ interface EventEditorOptions {
   readonly onChanged: (summary: StructuredSummary) => void
   readonly onDeleted: (id: StableId) => void
   readonly refreshObjects: () => void
+  readonly createPeopleSection?: boolean
 }
 
 function fieldsFromObject(object: StructuredObject): EventDraftFields {
@@ -187,6 +188,7 @@ export function useEventEditor(
     onChanged,
     onDeleted,
     refreshObjects,
+    createPeopleSection = false,
   }: EventEditorOptions,
 ): EventEditor {
   const models = useRef(new Map<string, EventModel>())
@@ -474,6 +476,7 @@ export function useEventEditor(
     const result = await client.structured.create({
       newObjectId: model.newObjectId,
       draft,
+      creationSectionIds: createPeopleSection ? ['people'] : [],
       nowMs: Date.now(),
     })
     if (models.current.get(key) !== model) return
@@ -510,7 +513,15 @@ export function useEventEditor(
     onCreated(object.summary)
     refreshObjects()
     publish(persisted)
-  }, [client, creationKey, developmentMock, onCreated, publish, refreshObjects])
+  }, [
+    client,
+    createPeopleSection,
+    creationKey,
+    developmentMock,
+    onCreated,
+    publish,
+    refreshObjects,
+  ])
 
   const retrySave = useCallback(() => {
     const model = activeKey ? models.current.get(activeKey) : null

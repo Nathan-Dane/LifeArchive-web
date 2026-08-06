@@ -2,12 +2,15 @@
  * Record's primary region: one exact destination above its Markdown buffer.
  */
 
+import type { CivilDate, StructuredObject } from '../../core/client'
 import { useTranslate } from '../../i18n'
 import { MarkdownEditor } from './editor'
 import { EventWritingEditor } from './events'
 import { useRecordDestination } from './recordDestination'
 import { SpanWritingEditor } from './spans'
 import { RecordMedia } from './media'
+import { RecordPeopleSection } from '../people'
+import { deviceCalendar } from './navigation/deviceCalendar'
 
 const ORDINARY_TITLE = {
   day: 'record.objects.ordinaryDay',
@@ -92,6 +95,19 @@ export function RecordPage() {
           onParentRevision={events.adoptMediaRevision}
           onCountChange={navigationSummary.reportMediaCount}
         />
+        <RecordPeopleSection
+          client={client}
+          target={
+            events.creating || !events.object
+              ? null
+              : { kind: 'entry', entryId: events.object.summary.id }
+          }
+          entryKind="event"
+          contactDateBounds={structuredContactBounds(events.object)}
+          onEntryRevision={(_entryId, revision) =>
+            events.adoptMediaRevision(revision)
+          }
+        />
       </div>
       <div hidden={!spanActive}>
         <SpanWritingEditor span={spans} />
@@ -102,7 +118,33 @@ export function RecordPage() {
           onParentRevision={spans.adoptMediaRevision}
           onCountChange={navigationSummary.reportMediaCount}
         />
+        <RecordPeopleSection
+          client={client}
+          target={
+            spans.creating || !spans.object
+              ? null
+              : { kind: 'entry', entryId: spans.object.summary.id }
+          }
+          entryKind="span"
+          contactDateBounds={structuredContactBounds(spans.object)}
+          onEntryRevision={(_entryId, revision) =>
+            spans.adoptMediaRevision(revision)
+          }
+        />
       </div>
     </div>
   )
+}
+
+function structuredContactBounds(
+  object: StructuredObject | null,
+): { readonly minimum: CivilDate; readonly maximum: CivilDate } | undefined {
+  if (!object) return undefined
+  const placement = object.summary.placement
+  return placement.kind === 'event'
+    ? { minimum: placement.date, maximum: placement.date }
+    : {
+        minimum: placement.startDate,
+        maximum: placement.endDate ?? deviceCalendar().today(),
+      }
 }

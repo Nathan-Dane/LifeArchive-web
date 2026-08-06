@@ -94,7 +94,7 @@ function client(
   }
 }
 
-function tracks(testClient: LifeArchiveClient) {
+function tracks(testClient: LifeArchiveClient, createPeopleSection = false) {
   const callbacks = {
     onMemberCreated: vi.fn(),
     refreshObjects: vi.fn(),
@@ -104,6 +104,7 @@ function tracks(testClient: LifeArchiveClient) {
     rendered: renderHook(() =>
       useTracks(testClient, {
         developmentMock: false,
+        createPeopleSectionForMember: () => createPeopleSection,
         ...callbacks,
       }),
     ),
@@ -171,7 +172,7 @@ describe('Track management and capture', () => {
           }),
         ),
     )
-    const { rendered } = tracks(client({ createWithFirstMember }))
+    const { rendered } = tracks(client({ createWithFirstMember }), true)
     await waitFor(() =>
       expect(rendered.result.current.state.tracks).toHaveLength(1),
     )
@@ -211,6 +212,7 @@ describe('Track management and capture', () => {
         newTrackId: TRACK_ID,
         newMemberId: MEMBER_ID,
         tagStateOmitted: false,
+        memberCreationSectionIds: ['people'],
         track: expect.objectContaining({
           name: 'My exact Track',
           iconId: 'icon.journey',
