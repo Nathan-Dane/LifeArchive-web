@@ -40,6 +40,7 @@ export const settingsMessages = {
     'Applied when the root address is visited.',
   'settings.general.openAppTo.record': 'Record',
   'settings.general.openAppTo.timeline': 'Timeline',
+  'settings.general.openAppTo.people': 'People',
   'settings.general.openAppTo.last': 'Last opened page',
   'settings.general.language.label': 'Language',
   'settings.general.language.detail':
@@ -200,6 +201,15 @@ export const settingsMessages = {
     one: '{count} span',
     other: '{count} spans',
   },
+  'settings.archive.people.label': 'People',
+  'settings.archive.people.active': {
+    one: '{count} active Person',
+    other: '{count} active People',
+  },
+  'settings.archive.people.archived': {
+    one: '{count} archived Person',
+    other: '{count} archived People',
+  },
   'settings.archive.media.label': 'Media',
   'settings.archive.media.summary': {
     one: '{count} item · {size}',
@@ -343,6 +353,7 @@ export const settingsMessages = {
     '{name} now has a fresh identity and an empty local store.',
   'archive.erase.complete.entries': 'Entries',
   'archive.erase.complete.media': 'Media',
+  'archive.erase.complete.people': 'People',
   'archive.erase.complete.announcement':
     'The prior archive was erased and a fresh empty archive was created.',
 } as const

@@ -50,15 +50,15 @@
    * Accent palettes. Components consume only the semantic aliases below;
    * Settings changes which complete adaptive palette supplies those aliases.
    */
-  --accent-gold-primary: light-dark(#d29a17, #ecb643);
+  --accent-gold-primary: light-dark(#7d5700, #ecb643);
   --accent-gold-muted: light-dark(#be821b, #c99b43);
-  --accent-gold-glow: light-dark(#be8b1b, #ffd66b);
+  --accent-gold-glow: light-dark(#8a6300, #ffd66b);
   --accent-gold-on: light-dark(#fffdf8, #14120d);
   --accent-copper-primary: light-dark(#9e491b, #e9a078);
   --accent-copper-muted: light-dark(#704128, #c9845f);
   --accent-copper-glow: light-dark(#8d451e, #ffc09b);
   --accent-copper-on: light-dark(#fffdf8, #1b1710);
-  --accent-sage-primary: light-dark(#40814e, #93c79b);
+  --accent-sage-primary: light-dark(#356f40, #93c79b);
   --accent-sage-muted: light-dark(#406b48, #79aa82);
   --accent-sage-glow: light-dark(#356f40, #b4dfba);
   --accent-sage-on: light-dark(#fffdf8, #152017);

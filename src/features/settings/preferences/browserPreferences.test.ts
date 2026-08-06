@@ -64,6 +64,12 @@ describe('browser preferences', () => {
       lastOpenedPage: 'timeline',
       recordInitialScale: 'month',
       limitTimelineScrolling: false,
+      showPeopleOnNewDay: false,
+      showPeopleOnNewWeek: false,
+      showPeopleOnNewMonth: false,
+      showPeopleOnNewYear: false,
+      showPeopleOnNewEvent: false,
+      showPeopleOnNewSpan: false,
     })
   })
 

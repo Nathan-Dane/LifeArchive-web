@@ -41,6 +41,7 @@ const DATE_FORMAT_LABELS = {
 const OPEN_APP_LABELS = {
   record: 'settings.general.openAppTo.record',
   timeline: 'settings.general.openAppTo.timeline',
+  people: 'settings.general.openAppTo.people',
   last: 'settings.general.openAppTo.last',
 } as const
 
@@ -414,6 +415,32 @@ function RecordSettingsPage() {
           disabled
           onChange={() => undefined}
         />
+      </SettingsSection>
+      <SettingsSection title={t('record.people.preference.section')}>
+        {(
+          [
+            ['day', 'showPeopleOnNewDay'],
+            ['week', 'showPeopleOnNewWeek'],
+            ['month', 'showPeopleOnNewMonth'],
+            ['year', 'showPeopleOnNewYear'],
+            ['event', 'showPeopleOnNewEvent'],
+            ['span', 'showPeopleOnNewSpan'],
+          ] as const
+        ).map(([kind, key]) => (
+          <SettingsToggleRow
+            key={kind}
+            label={t('record.people.preference', {
+              kind: t(
+                kind === 'month'
+                  ? 'record.people.kind.monthRecord'
+                  : `record.people.kind.${kind}`,
+              ),
+            })}
+            detail={t('record.people.preference.detail')}
+            checked={preferences[key]}
+            onChange={(checked) => setPreference(key, checked)}
+          />
+        ))}
       </SettingsSection>
     </SettingsContentPage>
   )

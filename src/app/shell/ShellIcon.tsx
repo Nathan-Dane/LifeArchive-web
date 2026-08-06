@@ -13,6 +13,7 @@ export type ShellIconName =
   | 'details'
   | 'record'
   | 'timeline'
+  | 'people'
   | 'settings'
   | 'appearance-system'
   | 'appearance-light'
@@ -42,6 +43,13 @@ const PATHS: Record<Exclude<ShellIconName, 'settings'>, React.ReactNode> = {
     <>
       <circle cx="10" cy="10" r="6.25" />
       <path d="M10 6.5V10l2.5 1.5" />
+    </>
+  ),
+  people: (
+    <>
+      <circle cx="8" cy="7" r="2.5" />
+      <circle cx="14" cy="8" r="2" />
+      <path d="M3.5 16c.4-3.2 2-4.8 4.5-4.8s4.1 1.6 4.5 4.8M12 12c2.6-.4 4.1.9 4.5 3.5" />
     </>
   ),
   'appearance-system': (
