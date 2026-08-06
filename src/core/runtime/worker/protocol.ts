@@ -1,3 +1,5 @@
+import { isApprovedRuntimeOperation } from './approvedOperations'
+
 export const WORKER_PROTOCOL_VERSION = 1 as const
 
 export type WorkerGeneration = string
@@ -132,7 +134,7 @@ export function isMainToWorkerMessage(
     case 'request':
       return (
         typeof value.requestId === 'string' &&
-        typeof value.operation === 'string' &&
+        isApprovedRuntimeOperation(value.operation) &&
         'payload' in value
       )
     default:

@@ -55,6 +55,18 @@ import type {
   OrdinaryEntry,
   OrdinaryEntryState,
   OrdinarySaveResult,
+  PersonContactHistoryPage,
+  PersonContactSummaryResult,
+  PersonDeleteResult,
+  PersonListPage,
+  PersonLoadResult,
+  PersonMemoriesPage,
+  PersonMergeResult,
+  PersonMutationResult,
+  PersonPhotoMutationResult,
+  PersonSnapshot,
+  RecordPeopleLoadResult,
+  RecordPeopleMutationResult,
   RuntimeFacts,
   RuntimeStatus,
   StableId,
@@ -93,6 +105,10 @@ const SPAN_ID = stableId('7f1c0a10-0000-4000-8000-000000000021')
 const TRACK_ID = stableId('7f1c0a10-0000-4000-8000-000000000030')
 const ARCHIVED_TRACK_ID = stableId('7f1c0a10-0000-4000-8000-000000000031')
 const MEDIA_ID = stableId('7f1c0a10-0000-4000-8000-000000000040')
+const PERSON_ID = stableId('7f1c0a10-0000-4000-8000-000000000050')
+const ARCHIVED_PERSON_ID = stableId('7f1c0a10-0000-4000-8000-000000000051')
+const PERSON_PHOTO_ID = stableId('7f1c0a10-0000-4000-8000-000000000052')
+const CREATED_PERSON_ID = stableId('7f1c0a10-0000-4000-8000-0000000000a1')
 
 /**
  * The identifiers `operations.newStableId` hands out, in order and cycling.
@@ -100,7 +116,7 @@ const MEDIA_ID = stableId('7f1c0a10-0000-4000-8000-000000000040')
  * a test observe the same identifiers.
  */
 const MINTED_STABLE_IDS: readonly StableId[] = [
-  stableId('7f1c0a10-0000-4000-8000-0000000000a1'),
+  CREATED_PERSON_ID,
   stableId('7f1c0a10-0000-4000-8000-0000000000a2'),
   stableId('7f1c0a10-0000-4000-8000-0000000000a3'),
   stableId('7f1c0a10-0000-4000-8000-0000000000a4'),
@@ -500,6 +516,131 @@ const TRACK_STATE: TrackState = {
 }
 
 /* -------------------------------------------------------------------------- */
+/* People fixtures                                                            */
+/* -------------------------------------------------------------------------- */
+
+const PERSON: PersonSnapshot = {
+  person: {
+    id: PERSON_ID,
+    displayName: 'Maya Chen',
+    connectionLabels: ['Friend', 'Cycling club'],
+    about: 'Met through the Saturday cycling group.',
+    otherNames: [{ kindId: 'nickname', value: 'May' }],
+    pronouns: 'she/her',
+    pronunciation: null,
+    lifeStatus: 'living',
+    birthDate: {
+      precision: 'month',
+      year: 1990,
+      month: 8,
+      day: null,
+      approximate: false,
+    },
+    deathDate: null,
+    references: [],
+    isArchived: false,
+    createdAtMs: 1748000000000,
+    updatedAtMs: 1749896400000,
+    deletedAtMs: null,
+    mergedIntoPersonId: null,
+  },
+  revision: revision('7'),
+  profilePhoto: {
+    id: PERSON_PHOTO_ID,
+    personId: PERSON_ID,
+    fileName: 'maya.jpg',
+    mimeType: 'image/jpeg',
+    sha256: null,
+    byteSize: 218_000,
+    createdAtMs: 1748000000000,
+    capturedAtMs: null,
+    width: 800,
+    height: 800,
+  },
+  lastRecordedContactDate: FOCUSED_DATE,
+}
+
+const ARCHIVED_PERSON: PersonSnapshot = {
+  person: {
+    ...PERSON.person,
+    id: ARCHIVED_PERSON_ID,
+    displayName: 'Jon Bell',
+    connectionLabels: ['Former colleague'],
+    about: null,
+    otherNames: [],
+    pronouns: null,
+    birthDate: null,
+    isArchived: true,
+  },
+  revision: revision('3'),
+  profilePhoto: null,
+  lastRecordedContactDate: civilDate('2024-11-04'),
+}
+
+const CREATED_PERSON: PersonSnapshot = {
+  person: {
+    ...PERSON.person,
+    id: CREATED_PERSON_ID,
+    displayName: 'New Person',
+    connectionLabels: [],
+    about: null,
+    otherNames: [],
+    pronouns: null,
+    pronunciation: null,
+    birthDate: null,
+    updatedAtMs: 1749934800000,
+  },
+  revision: revision('1'),
+  profilePhoto: null,
+  lastRecordedContactDate: null,
+}
+
+const RECORD_PEOPLE = {
+  entryId: ENTRY_ID,
+  entryRevision: revision('9'),
+  sectionIds: ['people'],
+  peopleSectionVisible: true,
+  links: [
+    {
+      link: {
+        entryId: ENTRY_ID,
+        personId: PERSON_ID,
+        interactionLevel: 'timeTogether' as const,
+        tookPart: true,
+        isSubject: false,
+        opaqueLegacyRoleId: null,
+        position: 0,
+      },
+      person: PERSON.person,
+      personRevision: PERSON.revision,
+      profilePhoto: PERSON.profilePhoto,
+    },
+  ],
+} as const
+
+const RECORD_PEOPLE_AFTER_MUTATION = {
+  ...RECORD_PEOPLE,
+  entryRevision: revision('10'),
+  links: [
+    ...RECORD_PEOPLE.links,
+    {
+      link: {
+        entryId: ENTRY_ID,
+        personId: CREATED_PERSON_ID,
+        interactionLevel: 'none' as const,
+        tookPart: false,
+        isSubject: false,
+        opaqueLegacyRoleId: null,
+        position: 1,
+      },
+      person: CREATED_PERSON.person,
+      personRevision: CREATED_PERSON.revision,
+      profilePhoto: null,
+    },
+  ],
+} as const
+
+/* -------------------------------------------------------------------------- */
 /* Archive fixtures                                                           */
 /* -------------------------------------------------------------------------- */
 
@@ -593,6 +734,20 @@ export interface MockResults {
   readonly 'tracks.attachMember': ClientResult<StructuredMutationResult>
   readonly 'tracks.detachMember': ClientResult<StructuredMutationResult>
   readonly 'tracks.createMember': ClientResult<StructuredMutationResult>
+  readonly 'people.create': ClientResult<PersonMutationResult>
+  readonly 'people.load': ClientResult<PersonLoadResult>
+  readonly 'people.save': ClientResult<PersonMutationResult>
+  readonly 'people.list': ClientResult<PersonListPage>
+  readonly 'people.memories': ClientResult<PersonMemoriesPage>
+  readonly 'people.contactSummary': ClientResult<PersonContactSummaryResult>
+  readonly 'people.contactHistory': ClientResult<PersonContactHistoryPage>
+  readonly 'people.logContact': ClientResult<RecordPeopleMutationResult>
+  readonly 'people.importPhoto': ClientResult<PersonPhotoMutationResult>
+  readonly 'people.removePhoto': ClientResult<PersonPhotoMutationResult>
+  readonly 'people.merge': ClientResult<PersonMergeResult>
+  readonly 'people.delete': ClientResult<PersonDeleteResult>
+  readonly 'people.loadRecordContext': ClientResult<RecordPeopleLoadResult>
+  readonly 'people.mutateRecordContext': ClientResult<RecordPeopleMutationResult>
   readonly 'timeline.index': ClientResult<TimelinePage>
   readonly 'timeline.focus': ClientResult<TimelineFocusResult>
   readonly 'timeline.structuredDetail': ClientResult<TimelineStructuredDetailResult>
@@ -655,6 +810,7 @@ const RESULTS: MockResults = {
     },
     structuredCounts: { events: 17, spans: 4 },
     trackCounts: { active: 1, archived: 1, ongoingMembers: 1 },
+    personCounts: { active: 1, archived: 1 },
     mediaCount: 6,
     mediaByteTotal: 1_488_204,
     health: {
@@ -673,7 +829,7 @@ const RESULTS: MockResults = {
     checkedFiles: 214,
   }),
   'archive.inspectImport': ok<ArchiveImportInspection>({
-    workflowVersion: '1',
+    workflowVersion: '2',
     outcome: 'ready',
     context: {
       supportedFormatVersion: '0.4.1',
@@ -708,6 +864,12 @@ const RESULTS: MockResults = {
         alreadyPresent: 0,
         needsDecision: 0,
       },
+      people: {
+        total: 2,
+        importable: 2,
+        alreadyPresent: 0,
+        needsDecision: 0,
+      },
     },
     issues: [],
   }),
@@ -717,12 +879,15 @@ const RESULTS: MockResults = {
     importedEntries: 12,
     importedMedia: 3,
     importedTracks: 1,
+    importedPeople: 2,
     skippedEntries: 2,
     skippedMedia: 0,
     skippedTracks: 0,
+    skippedPeople: 0,
     skippedEntryIds: [ENTRY_ID],
     skippedMediaIds: [],
     skippedTrackIds: [],
+    skippedPersonIds: [],
     issues: [],
     identity: { outcome: 'preserved' },
     invalidation: INVALIDATION,
@@ -732,7 +897,7 @@ const RESULTS: MockResults = {
     artifactId: MINTED_STABLE_IDS[0],
     sourceStoreId: ARCHIVE_ID,
     createdAt: '2025-06-14T18:00:00Z',
-    counts: { entries: 128, media: 6, summaries: 21 },
+    counts: { entries: 128, media: 6, summaries: 21, tracks: 2, people: 2 },
     dateRange: { start: '2024-08-01', end: '2025-06-14' },
     filesWritten: 214,
     checkedFiles: 214,
@@ -861,6 +1026,124 @@ const RESULTS: MockResults = {
   'tracks.createMember': ok<StructuredMutationResult>({
     outcome: 'created',
     object: SPAN_OBJECT,
+    invalidation: INVALIDATION,
+  }),
+  'people.create': ok<PersonMutationResult>({
+    outcome: 'created',
+    current: CREATED_PERSON,
+    invalidation: INVALIDATION,
+  }),
+  'people.load': ok<PersonLoadResult>({
+    current: PERSON,
+    invalidation: INVALIDATION,
+  }),
+  'people.save': ok<PersonMutationResult>({
+    outcome: 'updated',
+    current: PERSON,
+    invalidation: INVALIDATION,
+  }),
+  'people.list': ok<PersonListPage>({
+    people: [PERSON, ARCHIVED_PERSON],
+    hasMore: false,
+    nextCursor: null,
+    invalidation: INVALIDATION,
+  }),
+  'people.memories': ok<PersonMemoriesPage>({
+    memories: [
+      {
+        entryId: ENTRY_ID,
+        entryType: 'day',
+        civilStartDate: FOCUSED_DATE,
+        civilEndDate: null,
+        title: null,
+        hasWriting: true,
+        interactionLevel: 'timeTogether',
+        tookPart: true,
+        isSubject: false,
+      },
+    ],
+    hasMore: false,
+    invalidation: INVALIDATION,
+  }),
+  'people.contactSummary': ok<PersonContactSummaryResult>({
+    summary: {
+      lastRecordedContactDate: FOCUSED_DATE,
+      current30DayContactDays: 3,
+      previous30DayContactDays: 2,
+      current30DayTimeTogetherDays: 1,
+    },
+    invalidation: INVALIDATION,
+  }),
+  'people.contactHistory': ok<PersonContactHistoryPage>({
+    days: [
+      {
+        date: FOCUSED_DATE,
+        interactionLevel: 'timeTogether',
+        memories: [
+          {
+            entryId: ENTRY_ID,
+            entryType: 'day',
+            civilStartDate: FOCUSED_DATE,
+            civilEndDate: null,
+            title: null,
+            hasWriting: true,
+            interactionLevel: 'timeTogether',
+            tookPart: true,
+            isSubject: false,
+          },
+        ],
+      },
+    ],
+    hasMore: false,
+    totalContactDays: 3,
+    totalTimeTogetherDays: 1,
+    periodSummaries: [
+      {
+        startDate: civilDate('2025-06-01'),
+        endDate: FOCUSED_DATE,
+        contactDays: 3,
+        timeTogetherDays: 1,
+      },
+    ],
+    invalidation: INVALIDATION,
+  }),
+  'people.logContact': ok<RecordPeopleMutationResult>({
+    outcome: 'updated',
+    current: RECORD_PEOPLE,
+    invalidation: INVALIDATION,
+  }),
+  'people.importPhoto': ok<PersonPhotoMutationResult>({
+    outcome: 'replaced',
+    current: PERSON,
+    invalidation: INVALIDATION,
+  }),
+  'people.removePhoto': ok<PersonPhotoMutationResult>({
+    outcome: 'removed',
+    current: { ...PERSON, profilePhoto: null },
+    invalidation: INVALIDATION,
+  }),
+  'people.merge': ok<PersonMergeResult>({
+    outcome: 'merged',
+    current: PERSON,
+    mergedPersonId: ARCHIVED_PERSON_ID,
+    invalidation: INVALIDATION,
+  }),
+  'people.delete': ok<PersonDeleteResult>({
+    outcome: 'deleted',
+    current: {
+      ...ARCHIVED_PERSON,
+      person: { ...ARCHIVED_PERSON.person, deletedAtMs: 1749934800000 },
+    },
+    invalidation: INVALIDATION,
+  }),
+  'people.loadRecordContext': ok<RecordPeopleLoadResult>({
+    outcome: 'loaded',
+    current: RECORD_PEOPLE,
+    invalidation: INVALIDATION,
+  }),
+  'people.mutateRecordContext': ok<RecordPeopleMutationResult>({
+    outcome: 'updated',
+    current: RECORD_PEOPLE_AFTER_MUTATION,
     invalidation: INVALIDATION,
   }),
   'timeline.index': ok<TimelinePage>({

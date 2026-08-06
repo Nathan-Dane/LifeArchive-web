@@ -18,9 +18,9 @@ import { FixedWorker } from './worker/fixtures/FixedWorker'
 
 const runtime = {
   mode: 'runtime',
-  runtimeVersion: '0.1.0',
+  runtimeVersion: '0.1.3',
   buildId: 'fixed',
-  productContract: '5',
+  productContract: '9',
   browserAbi: '1',
   backend: 'opfs-sqlite',
   durability: 'durable',
@@ -42,11 +42,11 @@ function runtimeOpenResult(
   storeId: ReturnType<typeof stableId>,
   storeInstanceId: string,
   tokenRevision = '1',
-  schemaVersion = '7',
+  schemaVersion = '12',
 ) {
   return {
     outcome: 'opened',
-    productContractVersion: '5',
+    productContractVersion: '9',
     rootLayoutVersion: '1',
     storeId,
     schemaVersion,
@@ -60,14 +60,14 @@ function runtimeOverviewResult(
   storeId: ReturnType<typeof stableId>,
   storeInstanceId: string,
   tokenRevision = '1',
-  schemaVersion = 7,
+  schemaVersion = 12,
 ) {
   return {
-    contractVersion: '5',
+    contractVersion: '9',
     outcome: 'overview',
     storeId,
     schemaVersion,
-    storeContractVersion: 5,
+    storeContractVersion: 8,
     token: { storeInstanceId, revision: tokenRevision },
     visibleEntryCount: 0,
     entryCounts: {
@@ -80,6 +80,7 @@ function runtimeOverviewResult(
     },
     structuredCounts: { events: 0, spans: 0 },
     trackCounts: { active: 0, archived: 0, ongoingMembers: 0 },
+    personCounts: { active: 0, archived: 0 },
     attachmentCount: 0,
     attachmentByteTotal: 0,
     health: {
@@ -126,6 +127,114 @@ async function openClientWithWorker(generation: string) {
 }
 
 describe('RuntimeLifeArchiveClient', () => {
+  it('maps a complete Person mutation and publishes its core invalidation', async () => {
+    const storeId = stableId('A1000000-0000-4000-8000-000000000093')
+    const personId = stableId('A1000000-0000-4000-8000-000000000094')
+    const afterPerson = {
+      storeInstanceId: 'people-runtime-test',
+      revision: '2',
+    }
+    const profile = {
+      displayName: ' Zoë 李 ',
+      connectionLabels: ['Friend', 'Former classmate'],
+      about: 'Exact\r\nabout',
+      otherNames: [{ kindId: 'nickname', value: 'Z' }],
+      pronouns: 'she/her',
+      pronunciation: null,
+      lifeStatus: 'living' as const,
+      birthDate: {
+        precision: 'month' as const,
+        year: 1990,
+        month: 5,
+        day: null,
+        approximate: true,
+      },
+      deathDate: null,
+      references: [],
+    }
+    const request = vi.fn(({ operation }: WorkerRequestOptions) => {
+      if (operation === 'store.open') {
+        return Promise.resolve({
+          outcome: 'success',
+          result: runtimeOpenResult(storeId, 'people-runtime-test'),
+        })
+      }
+      return Promise.resolve({
+        outcome: 'success',
+        result: {
+          outcome: 'created',
+          current: {
+            person: {
+              id: personId,
+              ...profile,
+              isArchived: false,
+              createdAtMs: 1,
+              updatedAtMs: 1,
+              deletedAtMs: null,
+              mergedIntoPersonId: null,
+            },
+            mutationRevision: '1',
+            profilePhoto: null,
+            lastRecordedContactDate: null,
+          },
+          token: afterPerson,
+        },
+      })
+    })
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: { request, close: () => Promise.resolve() },
+    })
+    await client.archive.open()
+    const changes: unknown[] = []
+    client.operations.observeChanges((change) => changes.push(change))
+
+    await expect(
+      client.people.create({ newPersonId: personId, profile, nowMs: 1 }),
+    ).resolves.toMatchObject({
+      status: 'ok',
+      value: {
+        outcome: 'created',
+        current: {
+          person: profile,
+          revision: revision('1'),
+        },
+        invalidation: {
+          storeInstanceId: 'people-runtime-test',
+          revision: revision('2'),
+        },
+      },
+    })
+    expect(request).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        operation: 'person.create',
+        payload: expect.objectContaining({
+          request: expect.objectContaining({
+            id: personId,
+            expectation: 'absent',
+            birthDate: {
+              precision: 'month',
+              year: 1990,
+              month: 5,
+              day: null,
+              approximate: true,
+            },
+          }),
+          transfers: [],
+        }),
+      }),
+    )
+    expect(changes).toEqual([
+      {
+        storeId,
+        invalidation: {
+          storeInstanceId: 'people-runtime-test',
+          revision: revision('2'),
+        },
+      },
+    ])
+  })
+
   it('maps all three Record time operations through the approved browser ABI', async () => {
     const request = vi.fn(({ operation }: WorkerRequestOptions) =>
       Promise.resolve({
@@ -247,11 +356,11 @@ describe('RuntimeLifeArchiveClient', () => {
           return Promise.resolve({
             outcome: 'success',
             result: {
-              contractVersion: '5',
+              contractVersion: '9',
               outcome: 'overview',
               storeId,
               schemaVersion: 7,
-              storeContractVersion: 5,
+              storeContractVersion: 8,
               token: {
                 storeInstanceId: 'overview-wire-test',
                 revision: '9',
@@ -271,6 +380,7 @@ describe('RuntimeLifeArchiveClient', () => {
                 archived: 1,
                 ongoingMembers: 3,
               },
+              personCounts: { active: 7, archived: 2 },
               attachmentCount: 8,
               attachmentByteTotal: 4096,
               health: {
@@ -294,7 +404,7 @@ describe('RuntimeLifeArchiveClient', () => {
       value: {
         storeId,
         storeSchemaVersion: '7',
-        storeContract: '5',
+        storeContract: '8',
         visibleEntryCount: 21,
         entryCounts: {
           day: 1,
@@ -310,6 +420,7 @@ describe('RuntimeLifeArchiveClient', () => {
           archived: 1,
           ongoingMembers: 3,
         },
+        personCounts: { active: 7, archived: 2 },
         mediaCount: 8,
         mediaByteTotal: 4096,
         health: {
@@ -351,7 +462,7 @@ describe('RuntimeLifeArchiveClient', () => {
             envelope: {
               outcome: 'success',
               result: {
-                contractVersion: '5',
+                contractVersion: '9',
                 outcome: 'exported',
                 token: {
                   storeInstanceId: 'export-wire-test',
@@ -364,6 +475,7 @@ describe('RuntimeLifeArchiveClient', () => {
                   attachments: 2,
                   summaries: 0,
                   tracks: 1,
+                  people: 3,
                 },
                 dateRange: {
                   start: '2026-01-01T00:00:00Z',
@@ -398,7 +510,7 @@ describe('RuntimeLifeArchiveClient', () => {
     expect(runtimeRequest).toEqual({
       request: {
         operationId: exportOperationId,
-        contractVersion: '5',
+        contractVersion: '9',
         archiveId: artifactId,
         createdAtMs: 1_785_153_600_000,
         createdBy: {
@@ -416,7 +528,7 @@ describe('RuntimeLifeArchiveClient', () => {
         artifactId,
         sourceStoreId,
         createdAt: '2026-07-27T12:00:00Z',
-        counts: { entries: 4, media: 2, summaries: 0 },
+        counts: { entries: 4, media: 2, summaries: 0, tracks: 1, people: 3 },
         dateRange: {
           start: '2026-01-01T00:00:00Z',
           end: '2026-07-27T23:59:59Z',
@@ -599,7 +711,7 @@ describe('RuntimeLifeArchiveClient', () => {
     )
     const archive = {
       storeId: stableId('A1000000-0000-4000-8000-000000000021'),
-      productContract: '5',
+      productContract: '9',
       storeSchemaVersion: '1',
       rootLayoutVersion: '1',
       invalidation: {
@@ -820,12 +932,15 @@ describe('RuntimeLifeArchiveClient', () => {
         importedEntries: 1,
         importedAttachments: 1,
         importedTracks: 0,
+        importedPeople: 0,
         skippedEntries: 0,
         skippedAttachments: 0,
         skippedTracks: 0,
+        skippedPeople: 0,
         skippedEntryIds: [],
         skippedAttachmentIds: [],
         skippedTrackIds: [],
+        skippedPersonIds: [],
         issues: [],
         identityOutcome: 'preserved',
         identityConflicts: [],
@@ -878,12 +993,15 @@ describe('RuntimeLifeArchiveClient', () => {
               importedEntries: 0,
               importedAttachments: 0,
               importedTracks: importCount === 1 ? 1 : 0,
+              importedPeople: 0,
               skippedEntries: 0,
               skippedAttachments: 0,
               skippedTracks: 0,
+              skippedPeople: 0,
               skippedEntryIds: [],
               skippedAttachmentIds: [],
               skippedTrackIds: [],
+              skippedPersonIds: [],
               issues:
                 importCount === 1
                   ? []
@@ -1545,6 +1663,57 @@ describe('RuntimeLifeArchiveClient', () => {
       }),
     })
     expect(JSON.stringify(result)).not.toContain('privateDiagnostic')
+  })
+
+  it('classifies Person and Entry-context failures without collapsing them to transport', async () => {
+    const personId = stableId('A1000000-0000-4000-8000-000000000091')
+    const entryId = stableId('A1000000-0000-4000-8000-000000000092')
+    const client = new RuntimeLifeArchiveClient({
+      runtime,
+      transport: {
+        request: ({ operation }) =>
+          Promise.resolve({
+            outcome: 'failure',
+            failure: {
+              category: 'validation',
+              code:
+                operation === 'person.load'
+                  ? 'personNotFound'
+                  : 'archivedPerson',
+              details: {
+                area: 'person',
+                phase: 'mutation',
+                retryable: false,
+                entityKind:
+                  operation === 'person.load' ? 'person' : 'entryContext',
+                id: operation === 'person.load' ? personId : entryId,
+              },
+            },
+          }),
+        close: () => Promise.resolve(),
+      },
+    })
+
+    await expect(client.people.load(personId)).resolves.toMatchObject({
+      status: 'failed',
+      failure: {
+        area: 'person',
+        code: 'personNotFound',
+        subject: { kind: 'person', id: personId },
+      },
+    })
+    await expect(
+      client.people.loadRecordContext({
+        target: { kind: 'entry', entryId },
+      }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      failure: {
+        area: 'person',
+        code: 'archivedPerson',
+        subject: { kind: 'entryContext', id: entryId },
+      },
+    })
   })
 
   it('moves media bytes through transfer payloads and maps returned bytes', async () => {

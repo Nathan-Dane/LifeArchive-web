@@ -283,6 +283,12 @@ function FreshArchiveView({
           label={t('archive.erase.complete.media')}
           value={format.number(overview.mediaCount)}
         />
+        <Count
+          label={t('archive.erase.complete.people')}
+          value={format.number(
+            overview.personCounts.active + overview.personCounts.archived,
+          )}
+        />
       </dl>
       <p className="archive-operation__message">
         {t('archive.erase.exportsPreserved')}

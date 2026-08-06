@@ -19,33 +19,33 @@ const payloads = [
 
 const pinnedLock = {
   manifestVersion: 1,
-  runtimeVersion: '0.1.0',
+  runtimeVersion: '0.1.3',
   artifactUrl:
-    'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.0.tar.gz',
+    'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.3.tar.gz',
   sha256: 'f'.repeat(64),
-  productContract: '5',
+  productContract: '9',
   bindingsAbi: '1',
   status: 'pinned',
 } as const
 
 const manifest = {
   manifestVersion: 1,
-  runtimeVersion: '0.1.0',
-  buildId: 'web-runtime-0.1.0-001',
-  productContract: '5',
+  runtimeVersion: '0.1.3',
+  buildId: 'web-runtime-0.1.3-001',
+  productContract: '9',
   bindingsAbi: '1',
   dependencyVersions: {
-    domain: '4',
+    domain: '7',
     timeNavigation: '1',
-    durableMedia: '1',
-    archiveApplication: '5',
-    applicationQuery: '4',
+    durableMedia: '2',
+    archiveApplication: '8',
+    applicationQuery: '7',
     providerNeutralAI: '3',
-    archiveOverviewExport: '5',
-    store: '5',
+    archiveOverviewExport: '9',
+    store: '8',
     rootLayout: '1',
-    sqliteSchema: '7',
-    archiveFormat: '0.4.1',
+    sqliteSchema: '12',
+    archiveFormat: '0.7.0',
   },
   capabilities: WEB_V0_1_CAPABILITIES.map(([name, version]) => ({
     name,
@@ -78,23 +78,23 @@ describe('runtime state', () => {
     expect(() => parseRuntimeLock(runtimeLock)).not.toThrow()
   })
 
-  it('pins the reviewed Runtime 0.1.2 release', () => {
-    expect(runtimeLock.status).toBe('pinned')
-    expect(runtimeLock.runtimeVersion).toBe('0.1.2')
-    expect(runtimeLock.artifactUrl).toBe(
-      'https://lifearchive-runtime.pages.dev/releases/0.1.2/lifearchive-runtime-web-0.1.2.tar.gz',
-    )
-    expect(runtimeLock.sha256).toBe(
-      'ae5e651859ae2b17be56130586ebbb2330f9f1476cddcae62781cac8b627e4fa',
-    )
-    expect(runtimeLock.productContract).toBe('5')
-    expect(runtimeLock.bindingsAbi).toBe('1')
+  it('does not retain the obsolete Product 5 production pin', () => {
+    expect(runtimeLock).toEqual({
+      manifestVersion: 1,
+      runtimeVersion: null,
+      artifactUrl: null,
+      sha256: null,
+      productContract: null,
+      bindingsAbi: null,
+      status: 'not-integrated',
+    })
   })
 
-  it('uses an exact immutable artifact URL', () => {
-    expect(runtimeLock.artifactUrl).not.toMatch(/(?:latest|redirect)/)
-    expect(new URL(runtimeLock.artifactUrl).pathname).toBe(
-      '/releases/0.1.2/lifearchive-runtime-web-0.1.2.tar.gz',
+  it('requires every future production pin to use an exact immutable artifact URL', () => {
+    expect(() => parseRuntimeLock(pinnedLock)).not.toThrow()
+    expect(pinnedLock.artifactUrl).not.toMatch(/(?:latest|redirect)/)
+    expect(new URL(pinnedLock.artifactUrl).pathname).toBe(
+      '/runtime/lifearchive-runtime-web-0.1.3.tar.gz',
     )
   })
 
@@ -118,76 +118,20 @@ describe('runtime state', () => {
     ).toThrow()
   })
 
-  it('admits every reviewed dependency profile through 0.1.3 without weakening older pins', () => {
-    const nextLock = {
-      ...pinnedLock,
-      runtimeVersion: '0.1.1',
-      artifactUrl:
-        'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.1.tar.gz',
-    }
-    const nextManifest = {
-      ...manifest,
-      runtimeVersion: '0.1.1',
-      dependencyVersions: {
-        ...manifest.dependencyVersions,
-        sqliteSchema: '8',
-      },
-    }
-
-    expect(assertRuntimeCompatibility(nextManifest, nextLock)).toEqual(
-      nextManifest,
-    )
-    expect(
-      assertRuntimeCompatibility(
-        {
-          ...nextManifest,
-          runtimeVersion: '0.1.2',
-        },
-        {
-          ...nextLock,
-          runtimeVersion: '0.1.2',
-          artifactUrl:
-            'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.2.tar.gz',
-        },
-      ),
-    ).toMatchObject({ runtimeVersion: '0.1.2' })
-    expect(
-      assertRuntimeCompatibility(
-        {
-          ...nextManifest,
-          runtimeVersion: '0.1.3',
-          dependencyVersions: {
-            ...nextManifest.dependencyVersions,
-            sqliteSchema: '9',
-          },
-        },
-        {
-          ...nextLock,
-          runtimeVersion: '0.1.3',
-          artifactUrl:
-            'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.3.tar.gz',
-        },
-      ),
-    ).toMatchObject({
-      runtimeVersion: '0.1.3',
-      dependencyVersions: { sqliteSchema: '9' },
-    })
-    expect(() =>
-      assertRuntimeCompatibility(
-        {
-          ...nextManifest,
-          dependencyVersions: manifest.dependencyVersions,
-        },
-        nextLock,
-      ),
-    ).toThrow()
+  it('admits only the reviewed current dependency profile', () => {
+    expect(assertRuntimeCompatibility(manifest, pinnedLock)).toEqual(manifest)
     expect(() =>
       assertRuntimeCompatibility(
         {
           ...manifest,
-          dependencyVersions: nextManifest.dependencyVersions,
+          runtimeVersion: '0.1.2',
         },
-        pinnedLock,
+        {
+          ...pinnedLock,
+          runtimeVersion: '0.1.2',
+          artifactUrl:
+            'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.2.tar.gz',
+        },
       ),
     ).toThrow()
   })
@@ -200,7 +144,7 @@ describe('runtime state', () => {
     ).toThrow()
   })
 
-  it('keeps every ergonomic runtime dispatch inside the approved 44-operation ABI', () => {
+  it('keeps every ergonomic runtime dispatch inside the approved 58-operation ABI', () => {
     const approved = new Set<string>(
       WEB_V0_1_CAPABILITIES.map(([operation]) => operation),
     )
@@ -208,7 +152,7 @@ describe('runtime state', () => {
       (entry) => entry.operation,
     )
 
-    expect(WEB_V0_1_CAPABILITIES).toHaveLength(44)
+    expect(WEB_V0_1_CAPABILITIES).toHaveLength(58)
     expect(new Set(dispatched).size).toBe(dispatched.length)
     expect(dispatched.filter((operation) => !approved.has(operation))).toEqual(
       [],

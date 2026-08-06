@@ -41,7 +41,9 @@ async function fixture(root, change = {}) {
     trackedLock,
   )
 
-  const version = '0.1.0-local.1'
+  const versionSeries = Object.keys(policy.dependencyProfiles)[0]
+  assert.ok(versionSeries)
+  const version = `${versionSeries}-local.1`
   const bundleName = `lifearchive-runtime-web-${version}`
   const bundle = path.join(root, bundleName)
   await mkdir(bundle)
@@ -66,7 +68,7 @@ async function fixture(root, change = {}) {
     runtimeVersion: version,
     productContract: policy.productContract,
     bindingsAbi: policy.bindingsAbi,
-    dependencyVersions: policy.dependencyProfiles['0.1.0'],
+    dependencyVersions: policy.dependencyProfiles[versionSeries],
     capabilities: policy.capabilities,
     files,
     ...change,

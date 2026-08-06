@@ -6,6 +6,7 @@ import {
   type WorkerToMainMessage,
 } from './protocol'
 import { mayMutateDurableState } from './durableOperations'
+import { isApprovedRuntimeOperation } from './approvedOperations'
 import { RootOwnership } from './RootOwnership'
 import {
   stageArchiveTransport,
@@ -325,6 +326,13 @@ class WorkerRuntimeExecutor implements RuntimeWorkerExecutor {
     payload: unknown,
     signal: AbortSignal,
   ): Promise<RuntimeWorkerResult> {
+    if (!isApprovedRuntimeOperation(operation)) {
+      throw new RuntimeExecutionError(
+        'unsupported-operation',
+        'The operation is outside the reviewed browser ABI inventory',
+        'not-started',
+      )
+    }
     const evidence: InvocationEvidence = {
       crossedMutationBoundary: false,
       completionEvidence: false,

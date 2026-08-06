@@ -342,6 +342,11 @@ function InspectionView({
           counts={inspection.counts.tracks}
           formatNumber={format.number}
         />
+        <InspectionCount
+          label={t('archive.import.review.count.people')}
+          counts={inspection.counts.people}
+          formatNumber={format.number}
+        />
       </dl>
 
       {inspection.issues.length > 0 ? (
@@ -616,6 +621,10 @@ function ImportResultView({
           value={formatNumber(result.importedTracks)}
         />
         <Count
+          label={t('archive.import.count.importedPeople')}
+          value={formatNumber(result.importedPeople)}
+        />
+        <Count
           label={t('archive.import.count.skippedEntries')}
           value={formatNumber(result.skippedEntries)}
         />
@@ -626,6 +635,10 @@ function ImportResultView({
         <Count
           label={t('archive.import.count.skippedTracks')}
           value={formatNumber(result.skippedTracks)}
+        />
+        <Count
+          label={t('archive.import.count.skippedPeople')}
+          value={formatNumber(result.skippedPeople)}
         />
       </dl>
       {withIssues ? <ImportReportIssues issues={result.issues} /> : null}

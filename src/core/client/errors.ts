@@ -25,6 +25,7 @@ export type FailureArea =
   | 'storage'
   | 'concurrency'
   | 'record'
+  | 'person'
   | 'timeline'
   | 'media'
   | 'archive'
@@ -105,7 +106,15 @@ export function isKnownFailureCode(
 
 /** What a failure is about, when the core says so. */
 export interface FailureSubject {
-  readonly kind: 'archive' | 'entry' | 'object' | 'track' | 'member' | 'media'
+  readonly kind:
+    | 'archive'
+    | 'entry'
+    | 'entryContext'
+    | 'object'
+    | 'track'
+    | 'member'
+    | 'person'
+    | 'media'
   readonly id: StableId | null
 }
 

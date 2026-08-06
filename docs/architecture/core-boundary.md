@@ -47,11 +47,17 @@ Layer responsibilities:
   counts, coverage, and invalidation token already decided. The frontend
   renders them. It does not join, deduplicate, re-sort, re-window, or
   re-aggregate them, and it does not issue one query per row.
+- **React components never reconstruct People aggregates.** Person ordering,
+  archive state, memories, recorded-contact summaries and history, safe merge
+  and delete rules, and per-Entry Person context are core projections and
+  mutations. React renders the returned order and values without sorting,
+  repairing, scoring, or inferring them.
 
 ### Storage
 
 - **Archive content never uses `localStorage`.** Not entries, not writing, not
-  Events, Spans, Tracks, tags, media, drafts, or archive metadata.
+  Events, Spans, Tracks, People, Person photos, tags, media, drafts, or archive
+  metadata.
   `localStorage` is synchronous, small, string-only, and silently evictable —
   it is not archive storage, and using it as one would be a durability lie.
   Archive bytes live where the runtime puts them.
@@ -65,6 +71,10 @@ Layer responsibilities:
 - **Mutations use expected revisions.** Every write carries the revision the
   caller believes it is modifying. A conflict returns enough current state for
   the frontend to preserve and present the user's unsaved buffer.
+- **Byte transfer does not transfer ownership to React.** React acquires a
+  selected Person-photo file and transfers its bytes once. The runtime owns
+  durable publication, replacement, hashes, compensation, export/import, and
+  cleanup. Object URLs are disposable previews only.
 - **Core communication uses coarse, versioned operations.** One named
   product-level operation per user-meaningful action — not fine-grained CRUD,
   not a generic "execute" escape hatch, not a raw store handle. Chatty

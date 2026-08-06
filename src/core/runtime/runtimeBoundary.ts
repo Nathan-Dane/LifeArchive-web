@@ -48,6 +48,39 @@ import {
   type OrdinarySaveRequest,
   type OrdinarySaveResult,
   type PrivacyLevel,
+  type EntryPeopleSnapshot,
+  type Person,
+  type PersonContactHistoryPage,
+  type PersonContactHistoryRequest,
+  type PersonContactSummaryRequest,
+  type PersonContactSummaryResult,
+  type PersonCreateRequest,
+  type PersonDeleteRequest,
+  type PersonDeleteResult,
+  type PersonInteractionLevel,
+  type PersonListPage,
+  type PersonListRequest,
+  type PersonLoadResult,
+  type PersonLogContactRequest,
+  type PersonMemoriesPage,
+  type PersonMemoriesRequest,
+  type PersonMemorySummary,
+  type PersonMergeRequest,
+  type PersonMergeResult,
+  type PersonMutationResult,
+  type PersonPhotoImportRequest,
+  type PersonPhotoMutationResult,
+  type PersonPhotoRemoveRequest,
+  type PersonProfile,
+  type PersonProfilePhoto,
+  type PersonSaveRequest,
+  type PersonSnapshot,
+  type RecordPeopleLoadRequest,
+  type RecordPeopleLoadResult,
+  type RecordPeopleMutation,
+  type RecordPeopleMutationRequest,
+  type RecordPeopleMutationResult,
+  type RecordPeopleTarget,
   type StableId,
   type StructuredConvertRequest,
   type StructuredConflictState,
@@ -330,7 +363,7 @@ export const runtimeBoundary = {
   recordLoad: boundary<TimeWindow, OrdinaryEntryState>(
     'record.loadSpan',
     (window) =>
-      noTransfers({ contractVersion: 1, span: mapRecordSpan(window) }),
+      noTransfers({ contractVersion: 2, span: mapRecordSpan(window) }),
     (value, _transfers, window) =>
       mapRecordLoad(record(value, 'record load result'), window),
   ),
@@ -346,7 +379,7 @@ export const runtimeBoundary = {
     'record.deleteEntry',
     ({ entryId, expectedRevision, nowMs }) =>
       noTransfers({
-        contractVersion: 1,
+        contractVersion: 2,
         entryId,
         expectedRevision,
         nowMs,
@@ -380,11 +413,12 @@ export const runtimeBoundary = {
   ),
   structuredCreate: boundary<StructuredCreateRequest, StructuredMutationResult>(
     'structured.create',
-    ({ newObjectId, draft, nowMs }) =>
+    ({ newObjectId, draft, creationSectionIds, nowMs }) =>
       noTransfers({
         id: newObjectId,
         expectation: 'absent',
         draft: mapStructuredDraft(draft),
+        sectionIds: creationSectionIds ?? [],
         nowMs,
       }),
     (value) => mapStructuredMutation(record(value, 'structured create result')),
@@ -493,12 +527,21 @@ export const runtimeBoundary = {
     TrackWithFirstMember
   >(
     'track.createWithFirstMember',
-    ({ newTrackId, newMemberId, track, member, tagStateOmitted, nowMs }) =>
+    ({
+      newTrackId,
+      newMemberId,
+      track,
+      member,
+      memberCreationSectionIds,
+      tagStateOmitted,
+      nowMs,
+    }) =>
       noTransfers({
         trackId: newTrackId,
         memberId: newMemberId,
         track: mapTrackDraft(track),
         member: mapStructuredDraft(member),
+        memberSectionIds: memberCreationSectionIds ?? [],
         tagStateOmitted: tagStateOmitted ?? false,
         nowMs,
       }),
@@ -576,6 +619,7 @@ export const runtimeBoundary = {
       expectedInvalidation,
       newMemberId,
       member,
+      memberCreationSectionIds,
       tagStateOmitted,
       nowMs,
     }) =>
@@ -585,12 +629,182 @@ export const runtimeBoundary = {
         expectedToken: mapInvalidationRequest(expectedInvalidation),
         memberId: newMemberId,
         member: mapStructuredDraft(member),
+        sectionIds: memberCreationSectionIds ?? [],
         tagStateOmitted: tagStateOmitted ?? false,
         nowMs,
       }),
     (value) =>
       mapStructuredMutation(record(value, 'track create member result')),
     (failure) => mapStructuredConflict(failure, 'track create member'),
+  ),
+  personCreate: boundary<PersonCreateRequest, PersonMutationResult>(
+    'person.create',
+    ({ newPersonId, profile, nowMs }) =>
+      noTransfers({
+        id: newPersonId,
+        expectation: 'absent',
+        ...mapPersonProfileRequest(profile),
+        nowMs,
+      }),
+    (value) => mapPersonMutation(record(value, 'person create result')),
+  ),
+  personLoad: boundary<StableId, PersonLoadResult>(
+    'person.load',
+    (id) => noTransfers({ id }),
+    (value) => {
+      const result = record(value, 'person load result')
+      return {
+        current: mapPersonSnapshot(result.current),
+        invalidation: mapInvalidation(result.token),
+      }
+    },
+  ),
+  personSave: boundary<PersonSaveRequest, PersonMutationResult>(
+    'person.save',
+    ({ id, expectedRevision, profile, isArchived, nowMs }) =>
+      noTransfers({
+        id,
+        expectedRevision,
+        ...mapPersonProfileRequest(profile),
+        isArchived,
+        nowMs,
+      }),
+    (value) => mapPersonMutation(record(value, 'person save result')),
+    (failure) => mapPersonConflict(failure, 'person save'),
+  ),
+  personList: boundary<PersonListRequest, PersonListPage>(
+    'person.list',
+    ({ query, includeArchived, limit, after }) =>
+      noTransfers({
+        query,
+        includeArchived,
+        limit: count(limit, 'person list limit'),
+        after,
+      }),
+    (value) => mapPersonList(record(value, 'person list result')),
+  ),
+  personMemories: boundary<PersonMemoriesRequest, PersonMemoriesPage>(
+    'person.memories',
+    ({ personId, limit, before }) =>
+      noTransfers({
+        personId,
+        limit: count(limit, 'person memories limit'),
+        beforeDate: before?.civilStartDate ?? null,
+        beforeEntryId: before?.entryId ?? null,
+      }),
+    (value) => mapPersonMemories(record(value, 'person memories result')),
+  ),
+  personContactSummary: boundary<
+    PersonContactSummaryRequest,
+    PersonContactSummaryResult
+  >(
+    'person.contactSummary',
+    ({ personId, asOfDate }) => noTransfers({ personId, asOfDate }),
+    (value) => mapPersonContactSummary(record(value, 'person contact summary')),
+  ),
+  personContactHistory: boundary<
+    PersonContactHistoryRequest,
+    PersonContactHistoryPage
+  >(
+    'person.contactHistory',
+    ({ personId, asOfDate, range, limit, beforeDate }) =>
+      noTransfers({
+        personId,
+        asOfDate,
+        range,
+        limit: count(limit, 'person contact history limit'),
+        beforeDate,
+      }),
+    (value) => mapPersonContactHistory(record(value, 'person contact history')),
+  ),
+  personLogContact: boundary<
+    PersonLogContactRequest,
+    RecordPeopleMutationResult
+  >(
+    'person.logContact',
+    ({ personId, interactionLevel, day, newEntryId, nowMs }) => {
+      if (day.scale !== 'day') {
+        throw new TypeError('Log Contact requires an exact Day window')
+      }
+      return noTransfers({
+        personId,
+        interactionLevel,
+        daySpan: mapRecordSpan(day),
+        newEntryId,
+        nowMs,
+      })
+    },
+    (value) => mapRecordPeopleMutation(record(value, 'log contact result')),
+    mapRecordPeopleConflict,
+  ),
+  personPhotoImport: boundary<
+    PersonPhotoImportRequest,
+    PersonPhotoMutationResult
+  >(
+    'person.photo.import',
+    (request) => ({
+      request: {
+        attachmentId: request.newPhotoId,
+        personId: request.personId,
+        expectedRevision: request.expectedRevision,
+        fileName: request.fileName,
+        mimeType: request.mimeType,
+        createdAtMs: request.createdAtMs,
+        capturedAtMs: request.capturedAtMs,
+        width: request.width,
+        height: request.height,
+        sourceTransferId: 'person-photo-source',
+      },
+      transfers: [request.bytes],
+    }),
+    (value) =>
+      mapPersonPhotoMutation(record(value, 'person photo import result')),
+    (failure) => mapPersonPhotoConflict(failure, 'person photo import'),
+  ),
+  personPhotoRemove: boundary<
+    PersonPhotoRemoveRequest,
+    PersonPhotoMutationResult
+  >(
+    'person.photo.remove',
+    ({ personId, expectedRevision, nowMs }) =>
+      noTransfers({ personId, expectedRevision, nowMs }),
+    (value) =>
+      mapPersonPhotoMutation(record(value, 'person photo remove result')),
+    (failure) => mapPersonPhotoConflict(failure, 'person photo remove'),
+  ),
+  personMerge: boundary<PersonMergeRequest, PersonMergeResult>(
+    'person.merge',
+    noTransfers,
+    (value) => mapPersonMerge(record(value, 'person merge result')),
+    mapPersonMergeConflict,
+  ),
+  personDelete: boundary<PersonDeleteRequest, PersonDeleteResult>(
+    'person.delete',
+    noTransfers,
+    (value) => mapPersonDelete(record(value, 'person delete result')),
+    (failure) => mapPersonDeleteConflict(failure, 'person delete'),
+  ),
+  recordPeopleLoad: boundary<RecordPeopleLoadRequest, RecordPeopleLoadResult>(
+    'record.people.load',
+    ({ target }) => noTransfers(mapRecordPeopleTarget(target)),
+    (value) => mapRecordPeopleLoad(record(value, 'record people load result')),
+  ),
+  recordPeopleMutate: boundary<
+    RecordPeopleMutationRequest,
+    RecordPeopleMutationResult
+  >(
+    'record.people.mutate',
+    ({ target, expectedRevision, newEntryId, mutation, nowMs }) =>
+      noTransfers({
+        ...mapRecordPeopleTarget(target),
+        expectedRevision,
+        newEntryId,
+        nowMs,
+        mutation: mapRecordPeopleMutationRequest(mutation),
+      }),
+    (value) =>
+      mapRecordPeopleMutation(record(value, 'record people mutation result')),
+    mapRecordPeopleConflict,
   ),
   timelineIndex: boundary<TimelineIndexRequest, TimelinePage>(
     'timeline.index',
@@ -832,15 +1046,21 @@ function mapRecordSaveRequest(
   request: OrdinarySaveRequest,
 ): Record<string, unknown> {
   const base = {
-    contractVersion: 1,
+    contractVersion: 2,
     span: mapRecordSpan(request.window),
     draft: string(request.markdown, 'record draft'),
+    tagAssignments: null,
     nowMs: integer(request.nowMs, 'record save time'),
   }
   return request.target.expectation === 'absent'
-    ? { ...base, newEntryId: request.target.newEntryId }
+    ? {
+        ...base,
+        sectionIds: request.creationSectionIds ?? [],
+        newEntryId: request.target.newEntryId,
+      }
     : {
         ...base,
+        sectionIds: [],
         entryId: request.target.entryId,
         expectedRevision: request.target.expectedRevision,
       }
@@ -1362,6 +1582,530 @@ function mapTrackMember(value: unknown): TrackMember {
   }
 }
 
+function mapPersonProfileRequest(profile: PersonProfile) {
+  return {
+    displayName: profile.displayName,
+    connectionLabels: [...profile.connectionLabels],
+    about: profile.about,
+    otherNames: profile.otherNames.map(({ kindId, value }) => ({
+      kindId,
+      value,
+    })),
+    pronouns: profile.pronouns,
+    pronunciation: profile.pronunciation,
+    lifeStatus: profile.lifeStatus,
+    birthDate: mapPersonDate(profile.birthDate, 'Person birth date request'),
+    deathDate: mapPersonDate(profile.deathDate, 'Person death date request'),
+    references: profile.references.map(({ kindId, label, url }) => ({
+      kindId,
+      label,
+      url,
+    })),
+  }
+}
+
+function mapPersonDate(value: unknown, description: string) {
+  if (value === null || value === undefined) return null
+  const date = record(value, description)
+  const precision = literal(
+    date.precision,
+    ['year', 'month', 'day'] as const,
+    `${description} precision`,
+  )
+  const month = nullableInteger(date.month, `${description} month`)
+  const day = nullableInteger(date.day, `${description} day`)
+  if (
+    (precision === 'year' && (month !== null || day !== null)) ||
+    (precision === 'month' && (month === null || day !== null)) ||
+    (precision === 'day' && (month === null || day === null))
+  ) {
+    throw new TypeError(`Malformed ${description} components`)
+  }
+  return {
+    precision,
+    year: integer(date.year, `${description} year`),
+    month,
+    day,
+    approximate: boolean(date.approximate, `${description} approximation`),
+  }
+}
+
+function mapPerson(value: unknown): Person {
+  const person = record(value, 'person')
+  return {
+    id: requiredStableId(person.id, 'person identifier'),
+    displayName: string(person.displayName, 'person display name'),
+    connectionLabels: array(person.connectionLabels, 'connection labels').map(
+      (label) => string(label, 'connection label'),
+    ),
+    about: nullableString(person.about, 'person about'),
+    otherNames: array(person.otherNames, 'person other names').map((value) => {
+      const name = record(value, 'person other name')
+      return {
+        kindId: string(name.kindId, 'person other-name kind'),
+        value: string(name.value, 'person other name'),
+      }
+    }),
+    pronouns: nullableString(person.pronouns, 'person pronouns'),
+    pronunciation: nullableString(person.pronunciation, 'person pronunciation'),
+    lifeStatus: literal(
+      person.lifeStatus,
+      ['notSpecified', 'living', 'deceased'] as const,
+      'person life status',
+    ),
+    birthDate: mapPersonDate(person.birthDate, 'person birth date'),
+    deathDate: mapPersonDate(person.deathDate, 'person death date'),
+    references: array(person.references, 'person references').map((value) => {
+      const reference = record(value, 'person reference')
+      return {
+        kindId: string(reference.kindId, 'person reference kind'),
+        label: nullableString(reference.label, 'person reference label'),
+        url: string(reference.url, 'person reference URL'),
+      }
+    }),
+    isArchived: boolean(person.isArchived, 'person archived state'),
+    createdAtMs: integer(person.createdAtMs, 'person creation time'),
+    updatedAtMs: integer(person.updatedAtMs, 'person update time'),
+    deletedAtMs: nullableInteger(person.deletedAtMs, 'person deletion time'),
+    mergedIntoPersonId:
+      person.mergedIntoPersonId === null ||
+      person.mergedIntoPersonId === undefined
+        ? null
+        : requiredStableId(
+            person.mergedIntoPersonId,
+            'merged Person identifier',
+          ),
+  }
+}
+
+function mapPersonPhoto(
+  value: unknown,
+  expectedPersonId: StableId,
+): PersonProfilePhoto | null {
+  if (value === null || value === undefined) return null
+  const photo = record(value, 'person profile photo')
+  const owner = record(photo.owner, 'person profile photo owner')
+  if (
+    owner.kind !== 'personProfile' ||
+    owner.personId !== expectedPersonId ||
+    (owner.entryId !== null && owner.entryId !== undefined) ||
+    photo.mediaType !== 'image'
+  ) {
+    throw new TypeError('Malformed Person profile photo ownership')
+  }
+  return {
+    id: requiredStableId(photo.id, 'person profile photo identifier'),
+    personId: expectedPersonId,
+    fileName: string(photo.fileName, 'person profile photo file name'),
+    mimeType: string(photo.mimeType, 'person profile photo MIME type'),
+    sha256: nullableString(photo.sha256, 'person profile photo checksum'),
+    byteSize: count(photo.byteSize, 'person profile photo byte size'),
+    createdAtMs: integer(
+      photo.createdAtMs,
+      'person profile photo creation time',
+    ),
+    capturedAtMs: nullableInteger(
+      photo.capturedAtMs,
+      'person profile photo capture time',
+    ),
+    width: nullableCount(photo.width, 'person profile photo width'),
+    height: nullableCount(photo.height, 'person profile photo height'),
+  }
+}
+
+function mapPersonSnapshot(value: unknown): PersonSnapshot {
+  const snapshot = record(value, 'person snapshot')
+  const person = mapPerson(snapshot.person)
+  return {
+    person,
+    revision: requiredRevision(snapshot.mutationRevision, 'person revision'),
+    profilePhoto: mapPersonPhoto(snapshot.profilePhoto, person.id),
+    lastRecordedContactDate: nullableCivilDate(
+      snapshot.lastRecordedContactDate,
+      'person last recorded contact date',
+    ),
+  }
+}
+
+function mapPersonMutation(
+  result: Record<string, unknown>,
+): PersonMutationResult {
+  return {
+    outcome: literal(
+      result.outcome,
+      ['created', 'updated', 'unchanged'] as const,
+      'person mutation outcome',
+    ),
+    current: mapPersonSnapshot(result.current),
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapPersonConflict(
+  failure: RuntimeFailure,
+  description: string,
+): PersonMutationResult | null {
+  const revisions = conflictRevisions(failure, description)
+  return revisions
+    ? {
+        outcome: 'conflict',
+        conflict: {
+          ...revisions,
+          current: mapPersonSnapshot(failure.currentState),
+        },
+      }
+    : null
+}
+
+function mapPersonList(result: Record<string, unknown>): PersonListPage {
+  const cursor =
+    result.nextCursor === null || result.nextCursor === undefined
+      ? null
+      : record(result.nextCursor, 'person list cursor')
+  return {
+    people: array(result.people, 'people').map(mapPersonSnapshot),
+    hasMore: boolean(result.hasMore, 'person list has-more state'),
+    nextCursor: cursor
+      ? {
+          displayName: string(cursor.displayName, 'person cursor display name'),
+          createdAtMs: integer(
+            cursor.createdAtMs,
+            'person cursor creation time',
+          ),
+          personId: requiredStableId(
+            cursor.personId,
+            'person cursor identifier',
+          ),
+        }
+      : null,
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapPersonMemory(value: unknown): PersonMemorySummary {
+  const memory = record(value, 'person memory')
+  return {
+    entryId: requiredStableId(memory.entryId, 'person memory Entry identifier'),
+    entryType: literal(
+      memory.entryType,
+      ['day', 'week', 'month', 'year', 'event', 'span'] as const,
+      'person memory Entry type',
+    ),
+    civilStartDate: requiredCivilDate(
+      memory.civilStartDate,
+      'person memory start date',
+    ),
+    civilEndDate: nullableCivilDate(
+      memory.civilEndDate,
+      'person memory end date',
+    ),
+    title: nullableString(memory.title, 'person memory title'),
+    hasWriting: boolean(memory.hasWriting, 'person memory writing state'),
+    interactionLevel: mapPersonInteraction(memory.interactionLevel),
+    tookPart: boolean(memory.tookPart, 'person memory participation'),
+    isSubject: boolean(memory.isSubject, 'person memory subject state'),
+  }
+}
+
+function mapPersonMemories(
+  result: Record<string, unknown>,
+): PersonMemoriesPage {
+  return {
+    memories: array(result.memories, 'person memories').map(mapPersonMemory),
+    hasMore: boolean(result.hasMore, 'person memories has-more state'),
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapPersonContactSummary(
+  result: Record<string, unknown>,
+): PersonContactSummaryResult {
+  const summary = record(result.summary, 'person contact summary value')
+  return {
+    summary: {
+      lastRecordedContactDate: nullableCivilDate(
+        summary.lastRecordedContactDate,
+        'last recorded contact date',
+      ),
+      current30DayContactDays: count(
+        summary.current30DayContactDays,
+        'current contact days',
+      ),
+      previous30DayContactDays: count(
+        summary.previous30DayContactDays,
+        'previous contact days',
+      ),
+      current30DayTimeTogetherDays: count(
+        summary.current30DayTimeTogetherDays,
+        'time-together days',
+      ),
+    },
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapPersonContactHistory(
+  result: Record<string, unknown>,
+): PersonContactHistoryPage {
+  return {
+    days: array(result.days, 'person contact days').map((value) => {
+      const day = record(value, 'person contact day')
+      return {
+        date: requiredCivilDate(day.date, 'person contact day date'),
+        interactionLevel: mapPersonInteraction(day.interactionLevel),
+        memories: array(day.memories, 'person contact-day memories').map(
+          mapPersonMemory,
+        ),
+      }
+    }),
+    hasMore: boolean(result.hasMore, 'person contact history has-more state'),
+    totalContactDays: count(result.totalContactDays, 'total contact days'),
+    totalTimeTogetherDays: count(
+      result.totalTimeTogetherDays,
+      'total time-together days',
+    ),
+    periodSummaries: array(
+      result.periodSummaries,
+      'person contact period summaries',
+    ).map((value) => {
+      const period = record(value, 'person contact period summary')
+      return {
+        startDate: requiredCivilDate(period.startDate, 'contact period start'),
+        endDate: requiredCivilDate(period.endDate, 'contact period end'),
+        contactDays: count(period.contactDays, 'contact period contact days'),
+        timeTogetherDays: count(
+          period.timeTogetherDays,
+          'contact period time-together days',
+        ),
+      }
+    }),
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapPersonInteraction(value: unknown): PersonInteractionLevel {
+  return literal(
+    value,
+    ['none', 'brief', 'timeTogether'] as const,
+    'Person interaction level',
+  )
+}
+
+function mapPersonPhotoMutation(
+  result: Record<string, unknown>,
+): PersonPhotoMutationResult {
+  return {
+    outcome: literal(
+      result.outcome,
+      ['set', 'replaced', 'removed', 'unchanged'] as const,
+      'person photo mutation outcome',
+    ),
+    current: mapPersonSnapshot(result.current),
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapPersonPhotoConflict(
+  failure: RuntimeFailure,
+  description: string,
+): PersonPhotoMutationResult | null {
+  const conflict = mapPersonConflict(failure, description)
+  return conflict?.outcome === 'conflict' ? conflict : null
+}
+
+function mapPersonMerge(result: Record<string, unknown>): PersonMergeResult {
+  literal(result.outcome, ['merged'] as const, 'person merge outcome')
+  return {
+    outcome: 'merged',
+    current: mapPersonSnapshot(result.current),
+    mergedPersonId: requiredStableId(
+      result.mergedPersonId,
+      'merged Person identifier',
+    ),
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapPersonMergeConflict(
+  failure: RuntimeFailure,
+): PersonMergeResult | null {
+  const revisions = conflictRevisions(failure, 'person merge')
+  if (!revisions) return null
+  const current = mapPersonSnapshot(failure.currentState)
+  return {
+    outcome: 'conflict',
+    conflict: {
+      ...revisions,
+      current,
+      personId: current.person.id,
+    },
+  }
+}
+
+function mapPersonDelete(result: Record<string, unknown>): PersonDeleteResult {
+  literal(result.outcome, ['deleted'] as const, 'person delete outcome')
+  return {
+    outcome: 'deleted',
+    current: mapPersonSnapshot(result.current),
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapPersonDeleteConflict(
+  failure: RuntimeFailure,
+  description: string,
+): PersonDeleteResult | null {
+  const revisions = conflictRevisions(failure, description)
+  return revisions
+    ? {
+        outcome: 'conflict',
+        conflict: {
+          ...revisions,
+          current: mapPersonSnapshot(failure.currentState),
+        },
+      }
+    : null
+}
+
+function mapRecordPeopleTarget(target: RecordPeopleTarget) {
+  return target.kind === 'entry'
+    ? { entryId: target.entryId, span: null }
+    : { entryId: null, span: mapRecordSpan(target.window) }
+}
+
+function mapPersonLinkDraft(link: {
+  readonly personId: StableId
+  readonly interactionLevel: PersonInteractionLevel
+  readonly tookPart: boolean
+  readonly isSubject: boolean
+}) {
+  return {
+    personId: link.personId,
+    interactionLevel: link.interactionLevel,
+    tookPart: link.tookPart,
+    isSubject: link.isSubject,
+  }
+}
+
+function mapRecordPeopleMutationRequest(mutation: RecordPeopleMutation) {
+  switch (mutation.kind) {
+    case 'addSection':
+    case 'removeSection':
+      return { kind: mutation.kind, sectionId: mutation.sectionId }
+    case 'addLinks':
+    case 'replaceLinks':
+      return {
+        kind: mutation.kind,
+        links: mutation.links.map(mapPersonLinkDraft),
+      }
+    case 'upsertLink':
+      return { kind: mutation.kind, link: mapPersonLinkDraft(mutation.link) }
+    case 'removePeople':
+      return { kind: mutation.kind, personIds: [...mutation.personIds] }
+    case 'clearLinks':
+      return { kind: mutation.kind }
+  }
+}
+
+function mapEntryPeopleSnapshot(value: unknown): EntryPeopleSnapshot {
+  const snapshot = record(value, 'Entry People snapshot')
+  return {
+    entryId: requiredStableId(
+      snapshot.entryId,
+      'People context Entry identifier',
+    ),
+    entryRevision: requiredRevision(
+      snapshot.entryRevision,
+      'People context Entry revision',
+    ),
+    sectionIds: array(snapshot.sectionIds, 'Entry section identifiers').map(
+      (id) => string(id, 'Entry section identifier'),
+    ),
+    peopleSectionVisible: boolean(
+      snapshot.peopleSectionVisible,
+      'People section visibility',
+    ),
+    links: array(snapshot.links, 'linked People').map((value) => {
+      const linked = record(value, 'linked Person')
+      const link = record(linked.link, 'Entry Person link')
+      const person = mapPerson(linked.person)
+      return {
+        link: {
+          entryId: requiredStableId(
+            link.entryId,
+            'Person link Entry identifier',
+          ),
+          personId: requiredStableId(link.personId, 'Person link identifier'),
+          interactionLevel: mapPersonInteraction(link.interactionLevel),
+          tookPart: boolean(link.tookPart, 'Person link participation'),
+          isSubject: boolean(link.isSubject, 'Person link subject state'),
+          opaqueLegacyRoleId: nullableString(
+            link.opaqueLegacyRoleId,
+            'Person link legacy role',
+          ),
+          position: count(link.position, 'Person link position'),
+        },
+        person,
+        personRevision: requiredRevision(
+          linked.personRevision,
+          'linked Person revision',
+        ),
+        profilePhoto: mapPersonPhoto(linked.profilePhoto, person.id),
+      }
+    }),
+  }
+}
+
+function mapRecordPeopleLoad(
+  result: Record<string, unknown>,
+): RecordPeopleLoadResult {
+  const invalidation = mapInvalidation(result.token)
+  if (result.outcome === 'absent') {
+    if (result.current !== null && result.current !== undefined) {
+      throw new TypeError('Absent People context returned current state')
+    }
+    return { outcome: 'absent', current: null, invalidation }
+  }
+  literal(result.outcome, ['loaded'] as const, 'People context load outcome')
+  return {
+    outcome: 'loaded',
+    current: mapEntryPeopleSnapshot(result.current),
+    invalidation,
+  }
+}
+
+function mapRecordPeopleMutation(
+  result: Record<string, unknown>,
+): RecordPeopleMutationResult {
+  return {
+    outcome: literal(
+      result.outcome,
+      ['created', 'updated', 'unchanged', 'unchangedAbsent'] as const,
+      'People context mutation outcome',
+    ),
+    current:
+      result.current === null || result.current === undefined
+        ? null
+        : mapEntryPeopleSnapshot(result.current),
+    invalidation: mapInvalidation(result.token),
+  }
+}
+
+function mapRecordPeopleConflict(
+  failure: RuntimeFailure,
+): RecordPeopleMutationResult | null {
+  const revisions = conflictRevisions(failure, 'Record People mutation')
+  return revisions
+    ? {
+        outcome: 'conflict',
+        conflict: {
+          ...revisions,
+          current: mapEntryPeopleSnapshot(failure.currentState),
+        },
+      }
+    : null
+}
+
 function mapTimelineIndexRequest(
   request: TimelineIndexRequest,
 ): Record<string, unknown> {
@@ -1694,6 +2438,7 @@ function mapArchiveOverview(result: Record<string, unknown>): ArchiveOverview {
     'archive structured counts',
   )
   const trackCounts = record(result.trackCounts, 'archive track counts')
+  const personCounts = record(result.personCounts, 'archive Person counts')
   const health = record(result.health, 'archive health')
   return {
     storeId: requiredStableId(result.storeId, 'archive overview store ID'),
@@ -1728,6 +2473,10 @@ function mapArchiveOverview(result: Record<string, unknown>): ArchiveOverview {
         trackCounts.ongoingMembers,
         'ongoing track member count',
       ),
+    },
+    personCounts: {
+      active: count(personCounts.active, 'active Person count'),
+      archived: count(personCounts.archived, 'archived Person count'),
     },
     mediaCount: count(result.attachmentCount, 'archive media count'),
     mediaByteTotal: count(
@@ -1770,7 +2519,7 @@ function mapArchiveExportRequest(
 ): Record<string, unknown> {
   return {
     operationId: request.operationId,
-    contractVersion: '5',
+    contractVersion: '9',
     archiveId: request.artifactId,
     createdAtMs: request.createdAtMs,
     createdBy: {
@@ -1819,6 +2568,8 @@ function mapArchiveExport(
       entries: count(counts.entries, 'export entry count'),
       media: count(counts.attachments, 'export media count'),
       summaries: count(counts.summaries, 'export summary count'),
+      tracks: count(counts.tracks, 'export Track count'),
+      people: count(counts.people, 'export Person count'),
     },
     dateRange: range
       ? {
@@ -1874,15 +2625,18 @@ function mapArchiveImport(
       'imported attachment count',
     ),
     importedTracks: count(result.importedTracks, 'imported track count'),
+    importedPeople: count(result.importedPeople, 'imported Person count'),
     skippedEntries: count(result.skippedEntries, 'skipped entry count'),
     skippedMedia: count(result.skippedAttachments, 'skipped attachment count'),
     skippedTracks: count(result.skippedTracks, 'skipped track count'),
+    skippedPeople: count(result.skippedPeople, 'skipped Person count'),
     skippedEntryIds: stableIds(result.skippedEntryIds, 'skipped entry IDs'),
     skippedMediaIds: stableIds(
       result.skippedAttachmentIds,
       'skipped attachment IDs',
     ),
     skippedTrackIds: stableIds(result.skippedTrackIds, 'skipped track IDs'),
+    skippedPersonIds: stableIds(result.skippedPersonIds, 'skipped Person IDs'),
     issues,
     identity: mapImportIdentity(result),
     invalidation,
@@ -1928,7 +2682,7 @@ function mapArchiveImportInspection(
   return {
     workflowVersion: literal(
       result.workflowVersion,
-      ['1'] as const,
+      ['2'] as const,
       'archive import workflow version',
     ),
     outcome: literal(
@@ -1971,6 +2725,7 @@ function mapArchiveImportInspection(
       entries: mapArchiveImportInspectionCounts(result.entries, 'entry'),
       media: mapArchiveImportInspectionCounts(result.attachments, 'media'),
       tracks: mapArchiveImportInspectionCounts(result.tracks, 'Track'),
+      people: mapArchiveImportInspectionCounts(result.people, 'Person'),
     },
     issues: array(result.issues, 'archive import inspection issues').map(
       (entry) => {

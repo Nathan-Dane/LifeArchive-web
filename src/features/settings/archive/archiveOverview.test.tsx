@@ -39,6 +39,7 @@ const OVERVIEW: ArchiveOverview = {
   },
   structuredCounts: { events: 4, spans: 2 },
   trackCounts: { active: 1, archived: 0, ongoingMembers: 1 },
+  personCounts: { active: 3, archived: 1 },
   mediaCount: 11,
   mediaByteTotal: 41_900_000,
   health: {

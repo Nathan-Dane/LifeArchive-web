@@ -31,6 +31,24 @@ export const failureMessages = {
     'That item could not be identified. Nothing was changed.',
   'failure.invalidRequest':
     'The request was rejected as invalid. Nothing was changed.',
+  'failure.duplicatePerson':
+    'A Person with that identifier already exists. Nothing was changed.',
+  'failure.personNotFound':
+    'That Person is no longer available. Nothing was changed.',
+  'failure.entryNotFound':
+    'That Entry is no longer available. Nothing was changed.',
+  'failure.ambiguousEntry':
+    'More than one Entry matches that Date. Nothing was changed.',
+  'failure.duplicatePersonLink':
+    'A Person can appear only once in an Entry. Nothing was changed.',
+  'failure.archivedPerson':
+    'An archived Person cannot be added or merged. Restore the Person first.',
+  'failure.pageLimitExceeded':
+    'That request asked for too many People at once. Nothing was changed.',
+  'failure.constraintViolation':
+    'That People value is not valid for this record. Nothing was changed.',
+  'failure.storeFailure':
+    'The People change could not be stored. Nothing was erased or replaced.',
   'failure.invalidRoot':
     'That location is not a valid LifeArchive root. Nothing was erased or replaced.',
   'failure.invalidationExhausted':

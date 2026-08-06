@@ -61,6 +61,8 @@ async function readFreshArchive(
       overview.value.trackCounts.active === 0 &&
       overview.value.trackCounts.archived === 0 &&
       overview.value.trackCounts.ongoingMembers === 0 &&
+      overview.value.personCounts.active === 0 &&
+      overview.value.personCounts.archived === 0 &&
       overview.value.mediaCount === 0
     return invalidationMatches && empty
       ? { overview: overview.value, identity: identity.value }

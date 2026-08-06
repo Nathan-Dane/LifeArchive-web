@@ -42,6 +42,7 @@ const FRESH_OVERVIEW: ArchiveOverview = {
   },
   structuredCounts: { events: 0, spans: 0 },
   trackCounts: { active: 0, archived: 0, ongoingMembers: 0 },
+  personCounts: { active: 0, archived: 0 },
   mediaCount: 0,
   mediaByteTotal: 0,
   health: {
@@ -224,7 +225,7 @@ describe('Archive erase presentation', () => {
       name: 'Fresh archive created',
     }).parentElement
     expect(result).not.toBeNull()
-    expect(within(result!).getAllByText('0')).toHaveLength(2)
+    expect(within(result!).getAllByText('0')).toHaveLength(3)
     expect(screen.getByText(/exports are separate files/i)).toBeInTheDocument()
   })
 

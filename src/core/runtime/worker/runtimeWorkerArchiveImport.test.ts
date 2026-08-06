@@ -305,7 +305,7 @@ describe('production worker archive import bridge', () => {
 
     expectApplied(scope.find('response', 'inspect'))
     expect(envelopeOf(scope.find('response', 'inspect')).result).toMatchObject({
-      workflowVersion: '1',
+      workflowVersion: '2',
       outcome: 'ready',
       planId: 'fake-import-plan',
     })
