@@ -25,7 +25,7 @@ const OPERATION_ID = operationId('7f1c0a10-0000-4000-8000-0000000000b1')
 const ITEM_ID = stableId('7f1c0a10-0000-4000-8000-000000000099')
 
 const READY_INSPECTION: ArchiveImportInspection = {
-  workflowVersion: '1',
+  workflowVersion: '2',
   outcome: 'ready',
   context: {
     supportedFormatVersion: '0.4.1',
@@ -60,6 +60,12 @@ const READY_INSPECTION: ArchiveImportInspection = {
       alreadyPresent: 0,
       needsDecision: 0,
     },
+    people: {
+      total: 3,
+      importable: 3,
+      alreadyPresent: 0,
+      needsDecision: 0,
+    },
   },
   issues: [],
 }
@@ -70,12 +76,15 @@ const RESULT: ArchiveImportResult = {
   importedEntries: 12,
   importedMedia: 3,
   importedTracks: 2,
+  importedPeople: 3,
   skippedEntries: 2,
   skippedMedia: 0,
   skippedTracks: 0,
+  skippedPeople: 0,
   skippedEntryIds: [ITEM_ID],
   skippedMediaIds: [],
   skippedTrackIds: [],
+  skippedPersonIds: [],
   issues: [],
   identity: { outcome: 'matched' },
   invalidation: {

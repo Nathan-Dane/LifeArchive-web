@@ -31,6 +31,19 @@ import type {
   MediaListRequest,
   OrdinaryDeleteRequest,
   OrdinarySaveRequest,
+  PersonContactHistoryRequest,
+  PersonContactSummaryRequest,
+  PersonCreateRequest,
+  PersonDeleteRequest,
+  PersonListRequest,
+  PersonLogContactRequest,
+  PersonMemoriesRequest,
+  PersonMergeRequest,
+  PersonPhotoImportRequest,
+  PersonPhotoRemoveRequest,
+  PersonSaveRequest,
+  RecordPeopleLoadRequest,
+  RecordPeopleMutationRequest,
   StableId,
   StorageFacts,
   StructuredConvertRequest,
@@ -395,6 +408,36 @@ export class RuntimeLifeArchiveClient implements LifeArchiveClient {
       this.invoke(runtimeBoundary.trackDetachMember, request),
     createMember: (request: TrackMemberCreateRequest) =>
       this.invoke(runtimeBoundary.trackCreateMember, request),
+  }
+
+  readonly people: LifeArchiveClient['people'] = {
+    create: (request: PersonCreateRequest) =>
+      this.invoke(runtimeBoundary.personCreate, request),
+    load: (id: StableId) => this.invoke(runtimeBoundary.personLoad, id),
+    save: (request: PersonSaveRequest) =>
+      this.invoke(runtimeBoundary.personSave, request),
+    list: (request: PersonListRequest) =>
+      this.invoke(runtimeBoundary.personList, request),
+    memories: (request: PersonMemoriesRequest) =>
+      this.invoke(runtimeBoundary.personMemories, request),
+    contactSummary: (request: PersonContactSummaryRequest) =>
+      this.invoke(runtimeBoundary.personContactSummary, request),
+    contactHistory: (request: PersonContactHistoryRequest) =>
+      this.invoke(runtimeBoundary.personContactHistory, request),
+    logContact: (request: PersonLogContactRequest) =>
+      this.invoke(runtimeBoundary.personLogContact, request),
+    importPhoto: (request: PersonPhotoImportRequest) =>
+      this.invoke(runtimeBoundary.personPhotoImport, request),
+    removePhoto: (request: PersonPhotoRemoveRequest) =>
+      this.invoke(runtimeBoundary.personPhotoRemove, request),
+    merge: (request: PersonMergeRequest) =>
+      this.invoke(runtimeBoundary.personMerge, request),
+    delete: (request: PersonDeleteRequest) =>
+      this.invoke(runtimeBoundary.personDelete, request),
+    loadRecordContext: (request: RecordPeopleLoadRequest) =>
+      this.invoke(runtimeBoundary.recordPeopleLoad, request),
+    mutateRecordContext: (request: RecordPeopleMutationRequest) =>
+      this.invoke(runtimeBoundary.recordPeopleMutate, request),
   }
 
   readonly timeline: LifeArchiveClient['timeline'] = {
@@ -859,6 +902,7 @@ function failureArea(
     'storage',
     'concurrency',
     'record',
+    'person',
     'timeline',
     'media',
     'archive',
@@ -875,6 +919,9 @@ function failureArea(
   }
   if (operation.startsWith('track.')) {
     return 'record'
+  }
+  if (operation.startsWith('person.')) {
+    return 'person'
   }
   if (operation.startsWith('timeline.')) {
     return 'timeline'
@@ -937,6 +984,8 @@ function failureSubject(
         return 'archive'
       case 'entry':
         return 'entry'
+      case 'entryContext':
+        return 'entryContext'
       case 'structuredObject':
       case 'object':
         return 'object'
@@ -944,6 +993,8 @@ function failureSubject(
         return 'track'
       case 'member':
         return 'member'
+      case 'person':
+        return 'person'
       case 'attachment':
       case 'media':
         return 'media'

@@ -210,7 +210,7 @@ export class FakeRuntimeModule {
         requestId: request.requestId,
         operation: request.operation,
         result: {
-          workflowVersion: '1',
+          workflowVersion: '2',
           outcome: 'ready',
           context: {
             supportedFormatVersion: '0.4.1',

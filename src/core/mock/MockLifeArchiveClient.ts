@@ -215,6 +215,25 @@ export class MockLifeArchiveClient implements LifeArchiveClient {
     createMember: (request) => this.answer('tracks.createMember', request),
   }
 
+  readonly people: LifeArchiveClient['people'] = {
+    create: (request) => this.answer('people.create', request),
+    load: (id) => this.answer('people.load', id),
+    save: (request) => this.answer('people.save', request),
+    list: (request) => this.answer('people.list', request),
+    memories: (request) => this.answer('people.memories', request),
+    contactSummary: (request) => this.answer('people.contactSummary', request),
+    contactHistory: (request) => this.answer('people.contactHistory', request),
+    logContact: (request) => this.answer('people.logContact', request),
+    importPhoto: (request) => this.answer('people.importPhoto', request),
+    removePhoto: (request) => this.answer('people.removePhoto', request),
+    merge: (request) => this.answer('people.merge', request),
+    delete: (request) => this.answer('people.delete', request),
+    loadRecordContext: (request) =>
+      this.answer('people.loadRecordContext', request),
+    mutateRecordContext: (request) =>
+      this.answer('people.mutateRecordContext', request),
+  }
+
   readonly timeline: LifeArchiveClient['timeline'] = {
     index: (request) => this.answer('timeline.index', request),
     focus: (request) => this.answer('timeline.focus', request),

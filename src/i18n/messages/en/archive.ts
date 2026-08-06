@@ -110,6 +110,7 @@ export const archiveMessages = {
   'archive.import.review.count.entries': 'Writing',
   'archive.import.review.count.media': 'Media',
   'archive.import.review.count.tracks': 'Tracks',
+  'archive.import.review.count.people': 'People',
   'archive.import.review.count.ofTotal': 'of {total} can be imported',
   'archive.import.review.count.alreadyPresent': {
     one: 'One is already here',
@@ -237,13 +238,15 @@ export const archiveMessages = {
   'archive.import.complete.announcement': 'Archive import complete',
   'archive.import.noOp.title': 'Nothing new to import',
   'archive.import.noOp.detail':
-    'The package made no durable changes to writing, media, Tracks, archive identity, or recovery state.',
+    'The package made no durable changes to writing, media, Tracks, People, archive identity, or recovery state.',
   'archive.import.count.importedEntries': 'Writing imported',
   'archive.import.count.importedMedia': 'Media imported',
   'archive.import.count.importedTracks': 'Tracks imported',
+  'archive.import.count.importedPeople': 'People imported',
   'archive.import.count.skippedEntries': 'Existing writing skipped',
   'archive.import.count.skippedMedia': 'Existing media skipped',
   'archive.import.count.skippedTracks': 'Existing Tracks skipped',
+  'archive.import.count.skippedPeople': 'Existing People skipped',
   'archive.import.recovery.pending':
     'The import committed, but recovery cleanup is still pending. Reopen the archive before retrying.',
   'archive.import.report.issues': {
@@ -311,6 +314,8 @@ export const archiveMessages = {
     'Verified archive handed to the browser',
   'archive.export.count.entries': 'Writing included',
   'archive.export.count.media': 'Media included',
+  'archive.export.count.tracks': 'Tracks included',
+  'archive.export.count.people': 'People included',
   'archive.export.count.filesChecked': 'Files checked',
 
   'archive.verify.eyebrow': 'Read-only check',

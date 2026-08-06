@@ -3,7 +3,12 @@
 How the compiled LifeArchive runtime reaches this repository, how it is pinned
 and verified, how it is loaded, and how it behaves when it is missing.
 
-Runtime 0.1.2 is integrated and pinned in `runtime/runtime.lock.json`.
+Runtime 0.1.3, Product application contract 9, and bindings ABI 1 are the
+reviewed runtime surface for this checkout. The verified release candidate is
+qualified locally, but the immutable hosted artifact is not published yet, so
+`runtime/runtime.lock.json` is deliberately `not-integrated` instead of
+retaining the obsolete Product 5 pin. Production remains unavailable until the
+exact 0.1.3 artifact is published, fetched, verified, and pinned.
 
 ## Artifact contents
 
@@ -67,10 +72,10 @@ ordered and duplicate-free. Module, licence, and notices paths must name
 distinct hashed files inside the bundle.
 
 `runtime/web-runtime-policy.json` records the exact dependency profile admitted
-for each reviewed runtime release series. This lets historical releases retain
-their reviewed profile while the current pin adopts a newer compatible
-dependency profile. An unknown release series or a dependency mismatch is
-rejected before worker startup; local selection does not weaken this check.
+for the reviewed runtime release. Older Product-contract profiles are not kept
+as dormant compatibility paths. An unknown release series or a dependency
+mismatch is rejected before worker startup; local selection does not weaken
+this check.
 
 The build ID never exposes a private commit SHA, branch, source path, lockfile
 hash, or internal artifact identity. Private release validation scans payload
@@ -127,6 +132,12 @@ On open, the client negotiates before doing product work:
 
 Absent capabilities disable features honestly. They are never emulated in
 TypeScript.
+
+The current inventory includes the complete Product 9 People surface: Person
+profile lifecycle, bounded lists and derived information, Entry context,
+contact logging, photo byte transfer, merge, and safe delete. Generated wire
+declarations and envelopes stay below `LifeArchiveClient`; feature components
+use only the ergonomic client types.
 
 ## Production failure when unavailable
 

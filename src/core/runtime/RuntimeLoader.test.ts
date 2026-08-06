@@ -78,22 +78,22 @@ async function fixture(
   )
   const manifest = {
     manifestVersion: 1,
-    runtimeVersion: '0.1.0',
+    runtimeVersion: '0.1.3',
     buildId: 'fixed-runtime-build',
-    productContract: '5',
+    productContract: '9',
     bindingsAbi: '1',
     dependencyVersions: {
-      domain: '4',
+      domain: '7',
       timeNavigation: '1',
-      durableMedia: '1',
-      archiveApplication: '5',
-      applicationQuery: '4',
+      durableMedia: '2',
+      archiveApplication: '8',
+      applicationQuery: '7',
       providerNeutralAI: '3',
-      archiveOverviewExport: '5',
-      store: '5',
+      archiveOverviewExport: '9',
+      store: '8',
       rootLayout: '1',
-      sqliteSchema: '7',
-      archiveFormat: '0.4.1',
+      sqliteSchema: '12',
+      archiveFormat: '0.7.0',
     },
     capabilities: WEB_V0_1_CAPABILITIES.map(([name, version]) => ({
       name,
@@ -118,14 +118,14 @@ async function fixture(
     },
     ...change.manifest,
   }
-  const artifact = makeRuntimeArtifact('0.1.0', payloads, manifest)
+  const artifact = makeRuntimeArtifact('0.1.3', payloads, manifest)
   const lock = {
     manifestVersion: 1,
-    runtimeVersion: '0.1.0',
+    runtimeVersion: '0.1.3',
     artifactUrl:
-      'https://releases.example/lifearchive-runtime-web-0.1.0.tar.gz',
+      'https://releases.example/lifearchive-runtime-web-0.1.3.tar.gz',
     sha256: await sha256(artifact),
-    productContract: '5',
+    productContract: '9',
     bindingsAbi: '1',
     status: 'pinned',
   }
@@ -243,7 +243,7 @@ class NegotiatingWorker extends FixedWorker {
         envelope: {
           outcome: 'success',
           result: {
-            productContractVersion: '5',
+            productContractVersion: '9',
             capabilities: this.capabilities.map(({ name, version }) => ({
               id: name,
               version,
@@ -500,7 +500,7 @@ describe('RuntimeLoader', () => {
     await expect(loader.load()).resolves.toMatchObject({ state: 'open' })
     expect(fetches).toEqual([
       {
-        url: 'https://app.example/lifearchive-runtime-web-0.1.0.tar.gz',
+        url: 'https://app.example/lifearchive-runtime-web-0.1.3.tar.gz',
         cache: 'no-store',
       },
     ])
@@ -752,7 +752,7 @@ describe('RuntimeLoader', () => {
         state: 'available',
         runtime: {
           mode: 'runtime',
-          runtimeVersion: '0.1.0',
+          runtimeVersion: '0.1.3',
           browserAbi: '1',
           durability: 'durable',
         },

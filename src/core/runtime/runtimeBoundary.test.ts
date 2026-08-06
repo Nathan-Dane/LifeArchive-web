@@ -14,6 +14,9 @@ const entryId = stableId('A1000000-0000-4000-8000-000000000101')
 const objectId = stableId('A1000000-0000-4000-8000-000000000102')
 const trackId = stableId('A1000000-0000-4000-8000-000000000103')
 const mediaId = stableId('A1000000-0000-4000-8000-000000000104')
+const personId = stableId('A1000000-0000-4000-8000-000000000110')
+const duplicatePersonId = stableId('A1000000-0000-4000-8000-000000000111')
+const personPhotoId = stableId('A1000000-0000-4000-8000-000000000112')
 const archiveId = stableId('A1000000-0000-4000-8000-000000000105')
 const subjectId = stableId('A1000000-0000-4000-8000-000000000106')
 const artifactId = stableId('A1000000-0000-4000-8000-000000000107')
@@ -139,6 +142,100 @@ const runtimeTrackSnapshot = {
     deletedAt: null,
   },
   mutationRevision: '5',
+}
+
+const personProfile = {
+  displayName: 'Zoë 李',
+  connectionLabels: ['Friend', 'Choir'],
+  about: 'Exact\r\nabout',
+  otherNames: [{ kindId: 'nickname', value: 'Z' }],
+  pronouns: 'she/her',
+  pronunciation: null,
+  lifeStatus: 'living' as const,
+  birthDate: {
+    precision: 'month' as const,
+    year: 1990,
+    month: 4,
+    day: null,
+    approximate: true,
+  },
+  deathDate: null,
+  references: [
+    { kindId: 'personalWebsite', label: null, url: 'https://z.example' },
+  ],
+}
+
+const runtimePerson = {
+  id: personId,
+  ...personProfile,
+  isArchived: false,
+  createdAtMs: 1_785_139_200_001,
+  updatedAtMs: 1_785_139_200_002,
+  deletedAtMs: null,
+  mergedIntoPersonId: null,
+}
+
+const runtimePersonPhoto = {
+  id: personPhotoId,
+  owner: { kind: 'personProfile', entryId: null, personId },
+  fileName: 'zoe.jpg',
+  mediaType: 'image',
+  mimeType: 'image/jpeg',
+  localPath: 'media/zoe.jpg',
+  archivePath: null,
+  cloudAssetId: null,
+  sha256: null,
+  byteSize: 3,
+  createdAtMs: 1_785_139_200_003,
+  capturedAtMs: null,
+  durationMs: null,
+  width: 10,
+  height: 10,
+  transcription: null,
+  caption: null,
+  aiCaption: null,
+}
+
+const runtimePersonSnapshot = {
+  person: runtimePerson,
+  mutationRevision: '6',
+  profilePhoto: runtimePersonPhoto,
+  lastRecordedContactDate: '2026-07-26',
+}
+
+const runtimePersonMemory = {
+  entryId,
+  entryType: 'day',
+  civilStartDate: '2026-07-26',
+  civilEndDate: null,
+  title: null,
+  hasWriting: true,
+  interactionLevel: 'timeTogether',
+  tookPart: true,
+  isSubject: false,
+}
+
+const runtimeEntryPeople = {
+  entryId,
+  entryRevision: '3',
+  sectionIds: ['people'],
+  peopleSectionVisible: true,
+  links: [
+    {
+      link: {
+        entryId,
+        personId,
+        interactionLevel: 'timeTogether',
+        tookPart: true,
+        isSubject: false,
+        opaqueLegacyRoleId: null,
+        position: 0,
+      },
+      person: runtimePerson,
+      personRevision: '6',
+      profilePhoto: runtimePersonPhoto,
+    },
+  ],
 }
 
 const runtimeMediaItem = {
@@ -280,6 +377,7 @@ const cases = {
         },
         structuredCounts: { events: 1, spans: 0 },
         trackCounts: { active: 1, archived: 0, ongoingMembers: 0 },
+        personCounts: { active: 1, archived: 0 },
         attachmentCount: 1,
         attachmentByteTotal: 3,
         health: {
@@ -324,7 +422,7 @@ const cases = {
       runtimeBoundary.archiveImportInspect,
       { archive: archiveFile },
       {
-        workflowVersion: '1',
+        workflowVersion: '2',
         outcome: 'needsResolution',
         context: {
           supportedFormatVersion: '0.4.1',
@@ -358,6 +456,12 @@ const cases = {
           alreadyPresent: 0,
           needsDecision: 0,
         },
+        people: {
+          total: 1,
+          importable: 1,
+          alreadyPresent: 0,
+          needsDecision: 0,
+        },
         issues: [
           {
             issueId: 'issue-1',
@@ -382,7 +486,7 @@ const cases = {
       },
     )
     expect(mapped).toMatchObject({
-      workflowVersion: '1',
+      workflowVersion: '2',
       outcome: 'needsResolution',
       planId: 'import-plan-1',
       counts: { media: { importable: 1 } },
@@ -415,12 +519,15 @@ const cases = {
         importedEntries: 1,
         importedAttachments: 1,
         importedTracks: 1,
+        importedPeople: 1,
         skippedEntries: 0,
         skippedAttachments: 0,
         skippedTracks: 0,
+        skippedPeople: 0,
         skippedEntryIds: [],
         skippedAttachmentIds: [],
         skippedTrackIds: [],
+        skippedPersonIds: [],
         issues: [],
         identityOutcome: 'preserved',
         identityConflicts: [],
@@ -457,7 +564,13 @@ const cases = {
         outcome: 'exported',
         archiveId: artifactId,
         createdAt: '2026-07-26T00:00:00Z',
-        counts: { entries: 1, attachments: 1, summaries: 1, tracks: 1 },
+        counts: {
+          entries: 1,
+          attachments: 1,
+          summaries: 1,
+          tracks: 1,
+          people: 1,
+        },
         dateRange: {
           start: '2026-07-26T00:00:00Z',
           end: '2026-07-26T23:59:59Z',
@@ -477,7 +590,7 @@ const cases = {
         operation: 'archive.export',
         request: {
           operationId: exportOperationId,
-          contractVersion: '5',
+          contractVersion: '9',
           archiveId: artifactId,
           createdAtMs: request.createdAtMs,
           createdBy: {
@@ -647,7 +760,7 @@ const cases = {
       { outcome: 'loaded', current: runtimeOrdinaryCurrent, token },
       {
         operation: 'record.loadSpan',
-        request: { contractVersion: 1, span: runtimeRecordSpan },
+        request: { contractVersion: 2, span: runtimeRecordSpan },
       },
     )
     expect(mapped.presence).toBe('present')
@@ -671,9 +784,11 @@ const cases = {
       {
         operation: 'record.saveDraft',
         request: {
-          contractVersion: 1,
+          contractVersion: 2,
           span: runtimeRecordSpan,
           draft: request.markdown,
+          tagAssignments: null,
+          sectionIds: [],
           nowMs: request.nowMs,
           entryId,
           expectedRevision: revision('2'),
@@ -702,7 +817,7 @@ const cases = {
       {
         operation: 'record.deleteEntry',
         request: {
-          contractVersion: 1,
+          contractVersion: 2,
           entryId,
           expectedRevision: revision('3'),
           nowMs: request.nowMs,
@@ -773,6 +888,7 @@ const cases = {
           id: objectId,
           expectation: 'absent',
           draft: runtimeStructuredDraft,
+          sectionIds: [],
           nowMs: request.nowMs,
         },
       },
@@ -1005,6 +1121,7 @@ const cases = {
           memberId: objectId,
           track: runtimeTrackDraft,
           member: runtimeStructuredDraft,
+          memberSectionIds: [],
           tagStateOmitted: true,
           nowMs: request.nowMs,
         },
@@ -1151,12 +1268,311 @@ const cases = {
           expectedToken: token,
           memberId: objectId,
           member: runtimeStructuredDraft,
+          sectionIds: [],
           tagStateOmitted: true,
           nowMs: request.nowMs,
         },
       },
     )
     expect(mapped.outcome).toBe('created')
+  },
+
+  personCreate: () => {
+    const request = { newPersonId: personId, profile: personProfile, nowMs: 10 }
+    const mapped = exercise(
+      runtimeBoundary.personCreate,
+      request,
+      { outcome: 'created', current: runtimePersonSnapshot, token },
+      {
+        operation: 'person.create',
+        request: {
+          id: personId,
+          expectation: 'absent',
+          ...personProfile,
+          nowMs: 10,
+        },
+      },
+    )
+    expect(mapped.outcome).toBe('created')
+  },
+
+  personLoad: () => {
+    const mapped = exercise(
+      runtimeBoundary.personLoad,
+      personId,
+      { current: runtimePersonSnapshot, token },
+      { operation: 'person.load', request: { id: personId } },
+    )
+    expect(mapped.current.person.displayName).toBe('Zoë 李')
+  },
+
+  personSave: () => {
+    const request = {
+      id: personId,
+      expectedRevision: revision('6'),
+      profile: personProfile,
+      isArchived: false,
+      nowMs: 11,
+    }
+    const mapped = exercise(
+      runtimeBoundary.personSave,
+      request,
+      { outcome: 'updated', current: runtimePersonSnapshot, token },
+      {
+        operation: 'person.save',
+        request: {
+          id: personId,
+          expectedRevision: revision('6'),
+          ...personProfile,
+          isArchived: false,
+          nowMs: 11,
+        },
+      },
+    )
+    expect(mapped.outcome).toBe('updated')
+  },
+
+  personList: () => {
+    const request = {
+      query: 'Zoë',
+      includeArchived: true,
+      limit: 25,
+      after: null,
+    }
+    const mapped = exercise(
+      runtimeBoundary.personList,
+      request,
+      {
+        people: [runtimePersonSnapshot],
+        hasMore: false,
+        nextCursor: null,
+        token,
+      },
+      { operation: 'person.list', request },
+    )
+    expect(mapped.people).toHaveLength(1)
+  },
+
+  personMemories: () => {
+    const request = { personId, limit: 20, before: null }
+    const mapped = exercise(
+      runtimeBoundary.personMemories,
+      request,
+      { memories: [runtimePersonMemory], hasMore: false, token },
+      {
+        operation: 'person.memories',
+        request: { personId, limit: 20, beforeDate: null, beforeEntryId: null },
+      },
+    )
+    expect(mapped.memories[0]?.interactionLevel).toBe('timeTogether')
+  },
+
+  personContactSummary: () => {
+    const request = { personId, asOfDate: civilDate('2026-07-26') }
+    const mapped = exercise(
+      runtimeBoundary.personContactSummary,
+      request,
+      {
+        summary: {
+          lastRecordedContactDate: '2026-07-26',
+          current30DayContactDays: 2,
+          previous30DayContactDays: 1,
+          current30DayTimeTogetherDays: 1,
+        },
+        token,
+      },
+      { operation: 'person.contactSummary', request },
+    )
+    expect(mapped.summary.current30DayContactDays).toBe(2)
+  },
+
+  personContactHistory: () => {
+    const request = {
+      personId,
+      asOfDate: civilDate('2026-07-26'),
+      range: 'thirtyDays' as const,
+      limit: 20,
+      beforeDate: null,
+    }
+    const mapped = exercise(
+      runtimeBoundary.personContactHistory,
+      request,
+      {
+        days: [
+          {
+            date: '2026-07-26',
+            interactionLevel: 'timeTogether',
+            memories: [runtimePersonMemory],
+          },
+        ],
+        hasMore: false,
+        totalContactDays: 1,
+        totalTimeTogetherDays: 1,
+        periodSummaries: [],
+        token,
+      },
+      { operation: 'person.contactHistory', request },
+    )
+    expect(mapped.days[0]?.date).toBe('2026-07-26')
+  },
+
+  personLogContact: () => {
+    const request = {
+      personId,
+      interactionLevel: 'brief' as const,
+      day: window,
+      newEntryId: entryId,
+      nowMs: 12,
+    }
+    const mapped = exercise(
+      runtimeBoundary.personLogContact,
+      request,
+      { outcome: 'updated', current: runtimeEntryPeople, token },
+      {
+        operation: 'person.logContact',
+        request: {
+          personId,
+          interactionLevel: 'brief',
+          daySpan: runtimeRecordSpan,
+          newEntryId: entryId,
+          nowMs: 12,
+        },
+      },
+    )
+    expect(mapped.outcome).toBe('updated')
+  },
+
+  personPhotoImport: () => {
+    const request = {
+      personId,
+      expectedRevision: revision('6'),
+      newPhotoId: personPhotoId,
+      fileName: 'zoe.jpg',
+      mimeType: 'image/jpeg',
+      bytes: mediaBytes,
+      createdAtMs: 13,
+      capturedAtMs: null,
+      width: 10,
+      height: 10,
+    }
+    const mapped = exercise(
+      runtimeBoundary.personPhotoImport,
+      request,
+      { outcome: 'replaced', current: runtimePersonSnapshot, token },
+      {
+        operation: 'person.photo.import',
+        request: {
+          attachmentId: personPhotoId,
+          personId,
+          expectedRevision: revision('6'),
+          fileName: 'zoe.jpg',
+          mimeType: 'image/jpeg',
+          createdAtMs: 13,
+          capturedAtMs: null,
+          width: 10,
+          height: 10,
+          sourceTransferId: 'person-photo-source',
+        },
+        preparedTransfers: [mediaBytes],
+      },
+    )
+    expect(mapped.outcome).toBe('replaced')
+  },
+
+  personPhotoRemove: () => {
+    const request = { personId, expectedRevision: revision('6'), nowMs: 14 }
+    const mapped = exercise(
+      runtimeBoundary.personPhotoRemove,
+      request,
+      {
+        outcome: 'removed',
+        current: { ...runtimePersonSnapshot, profilePhoto: null },
+        token,
+      },
+      { operation: 'person.photo.remove', request },
+    )
+    expect(mapped.outcome).toBe('removed')
+  },
+
+  personMerge: () => {
+    const request = {
+      retainedPersonId: personId,
+      duplicatePersonId,
+      expectedRetainedRevision: revision('6'),
+      expectedDuplicateRevision: revision('2'),
+      displayNameSource: 'retained' as const,
+      aboutSource: 'combined' as const,
+      photoSource: 'retained' as const,
+      nowMs: 15,
+    }
+    const mapped = exercise(
+      runtimeBoundary.personMerge,
+      request,
+      {
+        outcome: 'merged',
+        current: runtimePersonSnapshot,
+        mergedPersonId: duplicatePersonId,
+        token,
+      },
+      { operation: 'person.merge', request },
+    )
+    expect(mapped.outcome).toBe('merged')
+  },
+
+  personDelete: () => {
+    const request = { personId, expectedRevision: revision('6'), nowMs: 16 }
+    const mapped = exercise(
+      runtimeBoundary.personDelete,
+      request,
+      {
+        outcome: 'deleted',
+        current: {
+          ...runtimePersonSnapshot,
+          person: { ...runtimePerson, deletedAtMs: 16 },
+        },
+        token,
+      },
+      { operation: 'person.delete', request },
+    )
+    expect(mapped.outcome).toBe('deleted')
+  },
+
+  recordPeopleLoad: () => {
+    const request = { target: { kind: 'entry' as const, entryId } }
+    const mapped = exercise(
+      runtimeBoundary.recordPeopleLoad,
+      request,
+      { outcome: 'loaded', current: runtimeEntryPeople, token },
+      { operation: 'record.people.load', request: { entryId, span: null } },
+    )
+    expect(mapped.current?.links).toHaveLength(1)
+  },
+
+  recordPeopleMutate: () => {
+    const request = {
+      target: { kind: 'entry' as const, entryId },
+      expectedRevision: revision('3'),
+      newEntryId: null,
+      mutation: { kind: 'clearLinks' as const },
+      nowMs: 17,
+    }
+    const mapped = exercise(
+      runtimeBoundary.recordPeopleMutate,
+      request,
+      { outcome: 'updated', current: runtimeEntryPeople, token },
+      {
+        operation: 'record.people.mutate',
+        request: {
+          entryId,
+          span: null,
+          expectedRevision: revision('3'),
+          newEntryId: null,
+          mutation: { kind: 'clearLinks' },
+          nowMs: 17,
+        },
+      },
+    )
+    expect(mapped.outcome).toBe('updated')
   },
 
   timelineIndex: () => {
@@ -1416,4 +1832,94 @@ describe('runtimeBoundary operation contracts', () => {
   for (const [name, run] of Object.entries(cases)) {
     it(name, run)
   }
+})
+
+describe('People conflict evidence', () => {
+  it.each([
+    {
+      precision: 'year' as const,
+      year: 1990,
+      month: 1,
+      day: null,
+      approximate: false,
+    },
+    {
+      precision: 'month' as const,
+      year: 1990,
+      month: null,
+      day: null,
+      approximate: false,
+    },
+    {
+      precision: 'day' as const,
+      year: 1990,
+      month: 1,
+      day: null,
+      approximate: false,
+    },
+  ])('rejects malformed $precision-precision request components', (date) => {
+    expect(() =>
+      runtimeBoundary.personCreate.prepare({
+        newPersonId: personId,
+        profile: { ...personProfile, birthDate: date },
+        nowMs: 1,
+      }),
+    ).toThrow('Malformed Person birth date request components')
+  })
+
+  it('keeps the current conflicted Person for an atomic merge retry', () => {
+    const mapped = runtimeBoundary.personMerge.mapFailure?.(
+      {
+        category: 'conflict',
+        code: 'revisionConflict',
+        details: { expectedRevision: '6', actualRevision: '7' },
+        currentState: runtimePersonSnapshot,
+      },
+      {
+        retainedPersonId: personId,
+        duplicatePersonId,
+        expectedRetainedRevision: revision('6'),
+        expectedDuplicateRevision: revision('3'),
+        displayNameSource: 'retained',
+        aboutSource: 'combined',
+        photoSource: 'retained',
+        nowMs: 1,
+      },
+    )
+    expect(mapped).toMatchObject({
+      outcome: 'conflict',
+      conflict: {
+        expectedRevision: revision('6'),
+        actualRevision: revision('7'),
+        personId,
+        current: { person: { id: personId } },
+      },
+    })
+  })
+
+  it('keeps the current ordered Entry People snapshot for reconciliation', () => {
+    const mapped = runtimeBoundary.recordPeopleMutate.mapFailure?.(
+      {
+        category: 'conflict',
+        code: 'revisionConflict',
+        details: { expectedRevision: '2', actualRevision: '3' },
+        currentState: runtimeEntryPeople,
+      },
+      {
+        target: { kind: 'entry', entryId },
+        expectedRevision: revision('2'),
+        newEntryId: null,
+        mutation: { kind: 'clearLinks' },
+        nowMs: 1,
+      },
+    )
+    expect(mapped).toMatchObject({
+      outcome: 'conflict',
+      conflict: {
+        expectedRevision: revision('2'),
+        actualRevision: revision('3'),
+        current: { entryId, links: [{ person: { id: personId } }] },
+      },
+    })
+  })
 })

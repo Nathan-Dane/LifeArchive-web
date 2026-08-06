@@ -197,6 +197,14 @@ function ExportResultView({
           value={format.number(result.counts.media)}
         />
         <Count
+          label={t('archive.export.count.tracks')}
+          value={format.number(result.counts.tracks)}
+        />
+        <Count
+          label={t('archive.export.count.people')}
+          value={format.number(result.counts.people)}
+        />
+        <Count
           label={t('archive.export.count.filesChecked')}
           value={format.number(result.checkedFiles)}
         />

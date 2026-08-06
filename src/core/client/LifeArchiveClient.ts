@@ -59,6 +59,30 @@ import type {
   OrdinaryEntryState,
   OrdinarySaveRequest,
   OrdinarySaveResult,
+  PersonContactHistoryPage,
+  PersonContactHistoryRequest,
+  PersonContactSummaryRequest,
+  PersonContactSummaryResult,
+  PersonCreateRequest,
+  PersonDeleteRequest,
+  PersonDeleteResult,
+  PersonListPage,
+  PersonListRequest,
+  PersonLoadResult,
+  PersonLogContactRequest,
+  PersonMemoriesPage,
+  PersonMemoriesRequest,
+  PersonMergeRequest,
+  PersonMergeResult,
+  PersonMutationResult,
+  PersonPhotoImportRequest,
+  PersonPhotoMutationResult,
+  PersonPhotoRemoveRequest,
+  PersonSaveRequest,
+  RecordPeopleLoadRequest,
+  RecordPeopleLoadResult,
+  RecordPeopleMutationRequest,
+  RecordPeopleMutationResult,
   RuntimeStatus,
   StableId,
   StorageFacts,
@@ -220,6 +244,44 @@ export interface TrackSurface {
   ): Promise<ClientResult<StructuredMutationResult>>
 }
 
+/** Reusable archive-owned People and Entry-to-Person context. */
+export interface PeopleSurface {
+  create(
+    request: PersonCreateRequest,
+  ): Promise<ClientResult<PersonMutationResult>>
+  load(id: StableId): Promise<ClientResult<PersonLoadResult>>
+  save(request: PersonSaveRequest): Promise<ClientResult<PersonMutationResult>>
+  list(request: PersonListRequest): Promise<ClientResult<PersonListPage>>
+  memories(
+    request: PersonMemoriesRequest,
+  ): Promise<ClientResult<PersonMemoriesPage>>
+  contactSummary(
+    request: PersonContactSummaryRequest,
+  ): Promise<ClientResult<PersonContactSummaryResult>>
+  contactHistory(
+    request: PersonContactHistoryRequest,
+  ): Promise<ClientResult<PersonContactHistoryPage>>
+  logContact(
+    request: PersonLogContactRequest,
+  ): Promise<ClientResult<RecordPeopleMutationResult>>
+  importPhoto(
+    request: PersonPhotoImportRequest,
+  ): Promise<ClientResult<PersonPhotoMutationResult>>
+  removePhoto(
+    request: PersonPhotoRemoveRequest,
+  ): Promise<ClientResult<PersonPhotoMutationResult>>
+  merge(request: PersonMergeRequest): Promise<ClientResult<PersonMergeResult>>
+  delete(
+    request: PersonDeleteRequest,
+  ): Promise<ClientResult<PersonDeleteResult>>
+  loadRecordContext(
+    request: RecordPeopleLoadRequest,
+  ): Promise<ClientResult<RecordPeopleLoadResult>>
+  mutateRecordContext(
+    request: RecordPeopleMutationRequest,
+  ): Promise<ClientResult<RecordPeopleMutationResult>>
+}
+
 /**
  * Bounded read-only browsing. One request covers the whole visible window;
  * detail is guarded by the snapshot it came from.
@@ -275,6 +337,7 @@ export interface LifeArchiveClient {
   readonly record: RecordSurface
   readonly structured: StructuredSurface
   readonly tracks: TrackSurface
+  readonly people: PeopleSurface
   readonly timeline: TimelineSurface
   readonly media: MediaSurface
   readonly operations: OperationSurface

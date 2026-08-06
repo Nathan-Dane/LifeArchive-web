@@ -28,7 +28,7 @@ const RESULT: ArchiveExportResult = {
   artifactId: ARTIFACT_ID,
   sourceStoreId: STORE_ID,
   createdAt: '2026-07-27T12:00:00Z',
-  counts: { entries: 7, media: 2, summaries: 0 },
+  counts: { entries: 7, media: 2, summaries: 0, tracks: 1, people: 3 },
   dateRange: { start: '2026-01-01', end: '2026-07-27' },
   filesWritten: 14,
   checkedFiles: 14,

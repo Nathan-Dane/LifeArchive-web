@@ -167,6 +167,19 @@ function OverviewFacts({ overview }: { readonly overview: ArchiveOverview }) {
         </dd>
       </div>
       <div>
+        <dt>{t('settings.archive.people.label')}</dt>
+        <dd className="settings-counts">
+          {t('settings.archive.people.active', {
+            count: overview.personCounts.active,
+          })}
+          <span>
+            {t('settings.archive.people.archived', {
+              count: overview.personCounts.archived,
+            })}
+          </span>
+        </dd>
+      </div>
+      <div>
         <dt>{t('settings.archive.media.label')}</dt>
         <dd>
           {t('settings.archive.media.summary', {
