@@ -106,6 +106,7 @@ interface SpanEditorOptions {
   readonly onChanged: (summary: StructuredSummary) => void
   readonly onDeleted: (id: StableId) => void
   readonly refreshObjects: () => void
+  readonly createPeopleSection?: boolean
 }
 
 function fieldsFromObject(object: StructuredObject): SpanDraftFields {
@@ -268,6 +269,7 @@ export function useSpanEditor(
     onChanged,
     onDeleted,
     refreshObjects,
+    createPeopleSection = false,
   }: SpanEditorOptions,
 ): SpanEditor {
   const models = useRef(new Map<string, SpanModel>())
@@ -541,6 +543,7 @@ export function useSpanEditor(
     const result = await client.structured.create({
       newObjectId: model.newObjectId,
       draft,
+      creationSectionIds: createPeopleSection ? ['people'] : [],
       nowMs: Date.now(),
     })
     if (models.current.get(key) !== model) return
@@ -582,7 +585,15 @@ export function useSpanEditor(
     onCreated(object.summary)
     refreshObjects()
     publish(persisted)
-  }, [client, creationKey, developmentMock, onCreated, publish, refreshObjects])
+  }, [
+    client,
+    createPeopleSection,
+    creationKey,
+    developmentMock,
+    onCreated,
+    publish,
+    refreshObjects,
+  ])
 
   const retrySave = useCallback(() => {
     const model = activeKey ? models.current.get(activeKey) : null

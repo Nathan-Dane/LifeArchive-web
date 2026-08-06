@@ -29,6 +29,7 @@ import {
   useRecordDraftSessionGuard,
 } from './recordDraftSession'
 import { useTracks } from './tracks'
+import { useBrowserPreferences } from '../settings/preferences'
 
 export interface RecordDestinationProviderProps {
   readonly client: LifeArchiveClient
@@ -90,6 +91,7 @@ export function RecordDestinationProvider({
     [],
   )
   const draftSession = useRecordDraftSessionGuard()
+  const { preferences } = useBrowserPreferences()
   const rawCursor = useTemporalCursor(client, cursorOptions)
   const guard = draftSession.flushBefore
   const cursor = useMemo(
@@ -124,6 +126,10 @@ export function RecordDestinationProvider({
     developmentMock,
     onMemberCreated: rawObjects.selectCreated,
     refreshObjects: rawObjects.retry,
+    createPeopleSectionForMember: (kind) =>
+      kind === 'event'
+        ? preferences.showPeopleOnNewEvent
+        : preferences.showPeopleOnNewSpan,
   })
   const rawEvents = useEventEditor(client, {
     selected: rawObjects.state.selected,
@@ -133,6 +139,7 @@ export function RecordDestinationProvider({
     onChanged: rawObjects.replaceObject,
     onDeleted: rawObjects.removeObject,
     refreshObjects: rawObjects.retry,
+    createPeopleSection: preferences.showPeopleOnNewEvent,
   })
   const rawSpans = useSpanEditor(client, {
     selected: rawObjects.state.selected,
@@ -142,6 +149,7 @@ export function RecordDestinationProvider({
     onChanged: rawObjects.replaceObject,
     onDeleted: rawObjects.removeObject,
     refreshObjects: rawObjects.retry,
+    createPeopleSection: preferences.showPeopleOnNewSpan,
   })
   const events = useMemo(
     () => ({

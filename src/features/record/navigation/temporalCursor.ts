@@ -167,6 +167,8 @@ export interface TemporalCursorOptions {
   readonly initialScale?: TimeScale
   /** Whether a previously used scale takes precedence over `initialScale`. */
   readonly restoreScale?: boolean
+  /** Exact durable handoff, such as a Person memory returning to Record. */
+  readonly initialDestination?: TemporalDestination | null
 }
 
 export function resetRememberedRecordCursor(): void {
@@ -183,14 +185,17 @@ export function useTemporalCursor(
     device = deviceCalendar(),
     initialScale = 'day',
     restoreScale = true,
+    initialDestination = null,
   }: TemporalCursorOptions = {},
 ): TemporalCursor {
   const [today, setToday] = useState<CivilDate>(() => device.today())
   const [target, setTarget] = useState<Target>(() => {
     const restored = restoredCursor()
     return {
-      scale: restoreScale ? (restored?.scale ?? initialScale) : initialScale,
-      anchor: restored?.anchor ?? device.today(),
+      scale:
+        initialDestination?.scale ??
+        (restoreScale ? (restored?.scale ?? initialScale) : initialScale),
+      anchor: initialDestination?.anchor ?? restored?.anchor ?? device.today(),
       load: 0,
     }
   })

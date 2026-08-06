@@ -112,6 +112,7 @@ interface TrackOptions {
   readonly developmentMock: boolean
   readonly onMemberCreated: (summary: StructuredSummary) => void
   readonly refreshObjects: () => void
+  readonly createPeopleSectionForMember?: (kind: 'event' | 'span') => boolean
 }
 
 function initialModel(): Model {
@@ -144,7 +145,12 @@ function conflictTrack(
 
 export function useTracks(
   client: LifeArchiveClient,
-  { developmentMock, onMemberCreated, refreshObjects }: TrackOptions,
+  {
+    developmentMock,
+    onMemberCreated,
+    refreshObjects,
+    createPeopleSectionForMember = () => false,
+  }: TrackOptions,
 ): Tracks {
   const model = useRef<Model>(initialModel())
   const [view, setView] = useState<Model>(initialModel)
@@ -397,6 +403,11 @@ export function useTracks(
             newMemberId: current.newMemberId!,
             track: draft,
             member: firstMember,
+            memberCreationSectionIds: createPeopleSectionForMember(
+              firstMember.placement.kind,
+            )
+              ? ['people']
+              : [],
             tagStateOmitted: current.memberDraft.tagStateOmitted,
             nowMs: Date.now(),
           })
@@ -456,6 +467,7 @@ export function useTracks(
     }
   }, [
     client,
+    createPeopleSectionForMember,
     developmentMock,
     loadHistory,
     onMemberCreated,
@@ -619,6 +631,11 @@ export function useTracks(
       expectedInvalidation: current.invalidation,
       newMemberId: current.newMemberId,
       member: draft,
+      memberCreationSectionIds: createPeopleSectionForMember(
+        draft.placement.kind,
+      )
+        ? ['people']
+        : [],
       tagStateOmitted: current.memberDraft.tagStateOmitted,
       nowMs: Date.now(),
     })
@@ -648,6 +665,7 @@ export function useTracks(
     return true
   }, [
     client,
+    createPeopleSectionForMember,
     developmentMock,
     loadHistory,
     onMemberCreated,

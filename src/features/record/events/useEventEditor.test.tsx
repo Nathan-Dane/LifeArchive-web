@@ -124,6 +124,7 @@ function editor(
     onDeleted: vi.fn(),
     refreshObjects: vi.fn(),
   },
+  createPeopleSection = false,
 ) {
   return renderHook(
     ({ current }) =>
@@ -131,6 +132,7 @@ function editor(
         selected: current,
         developmentMock: false,
         register: () => () => undefined,
+        createPeopleSection,
         ...callbacks,
       }),
     { initialProps: { current: selected } },
@@ -156,7 +158,7 @@ describe('the revision-safe Event editor', () => {
       onDeleted: vi.fn(),
       refreshObjects: vi.fn(),
     }
-    const rendered = editor(testClient({ create }), null, callbacks)
+    const rendered = editor(testClient({ create }), null, callbacks, true)
 
     act(() => rendered.result.current.startCreate(civilDate('2025-06-14')))
     expect(rendered.result.current.draft).toEqual(
@@ -180,6 +182,7 @@ describe('the revision-safe Event editor', () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         newObjectId: NEW_EVENT,
+        creationSectionIds: ['people'],
         draft: expect.objectContaining({
           title: 'First Event',
           markdown: 'Exact creation buffer.',

@@ -5,6 +5,7 @@ import type {
   OrdinaryConflictState,
   OrdinaryTarget,
   Revision,
+  StableId,
   StructuredSummary,
   TimeWindow,
 } from '../../../core/client'
@@ -107,6 +108,7 @@ export function useEditorDocument(
   window: TimeWindow | null,
   selected: StructuredSummary | null,
   developmentMock: boolean,
+  createPeopleSection = false,
 ) {
   const key = selected
     ? `object:${selected.id}`
@@ -196,6 +198,10 @@ export function useEditorDocument(
             markdown,
             nowMs: Date.now(),
             target,
+            creationSectionIds:
+              target.expectation === 'absent' && createPeopleSection
+                ? ['people']
+                : [],
           })
           .then((result) => {
             const current = cache.current.get(documentKey)
@@ -267,7 +273,7 @@ export function useEditorDocument(
         }
       }
     },
-    [client, developmentMock, refresh],
+    [client, createPeopleSection, developmentMock, refresh],
   )
 
   const hasPendingWriting = useCallback(
@@ -600,6 +606,22 @@ export function useEditorDocument(
     [key, refresh],
   )
 
+  const adoptEntryRevision = useCallback(
+    (id: StableId, revision: Revision) => {
+      if (!key) return
+      const cached = cache.current.get(key)
+      if (!cached) return
+      cached.target = {
+        expectation: 'existing',
+        entryId: id,
+        expectedRevision: revision,
+      }
+      cached.saveConfirmed = true
+      refresh(key)
+    },
+    [key, refresh],
+  )
+
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -631,5 +653,6 @@ export function useEditorDocument(
     conflict: saveView.key === key ? saveView.conflict : null,
     mediaOwner: saveView.key === key ? saveView.mediaOwner : null,
     adoptMediaRevision,
+    adoptEntryRevision,
   }
 }

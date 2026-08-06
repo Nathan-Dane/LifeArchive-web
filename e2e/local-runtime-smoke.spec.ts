@@ -1,4 +1,5 @@
 import { chromium, firefox } from '@playwright/test'
+import { Buffer } from 'node:buffer'
 import { expect, test } from './qualified-browser-fixtures'
 
 const LOCAL_RUNTIME_URL = 'http://localhost:4187/record'
@@ -258,6 +259,140 @@ test.describe('verified local development runtime', () => {
         return Array.from(new Uint8Array(bytes))
       }),
     ).toEqual(Array.from(original))
+  })
+
+  test('persists and archive-round-trips a Person photo and ordered Record link', async ({
+    page,
+  }) => {
+    test.setTimeout(60_000)
+    const photo = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    )
+    const personName = 'Žofie 佐藤'
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator.storage, 'persist', {
+        configurable: true,
+        value: () => Promise.resolve(true),
+      })
+    })
+    await page.goto(LOCAL_RUNTIME_URL)
+    await page.getByRole('button', { name: 'Create archive' }).click()
+
+    const createAnyway = page.getByRole('button', {
+      name: 'Create archive anyway',
+    })
+    const timeNavigation = page.getByRole('navigation', { name: 'Time' })
+    await expect(timeNavigation.or(createAnyway)).toBeVisible({
+      timeout: 20_000,
+    })
+    if (await createAnyway.isVisible()) await createAnyway.click()
+    await expect(timeNavigation).toBeVisible({ timeout: 20_000 })
+
+    await page.getByRole('link', { name: 'People' }).click()
+    await page.getByRole('button', { name: 'New Person' }).click()
+    const createPerson = page.getByRole('dialog', { name: 'New Person' })
+    await createPerson
+      .getByRole('textbox', { name: 'Display name' })
+      .fill(personName)
+    await createPerson.getByRole('button', { name: 'Save' }).click()
+    await expect(
+      page.getByRole('button', { name: new RegExp(personName) }),
+    ).toBeVisible({
+      timeout: 20_000,
+    })
+
+    await page
+      .locator('.people-manager__list')
+      .getByRole('button', { name: new RegExp(personName) })
+      .click()
+    const editPerson = page.getByRole('dialog', { name: 'Person' })
+    await editPerson.locator('input[type="file"]').setInputFiles({
+      name: 'person.png',
+      mimeType: 'image/png',
+      buffer: photo,
+    })
+    await expect(
+      editPerson.getByRole('img', { name: `Profile photo for ${personName}` }),
+    ).toBeVisible({ timeout: 20_000 })
+    await editPerson.getByRole('button', { name: 'Back to People' }).click()
+
+    await page.getByRole('link', { name: 'Record' }).click()
+    const editor = page.getByRole('textbox', { name: 'Writing editor' })
+    await expect(editor).toBeVisible({ timeout: 20_000 })
+    await editor.fill('A Day linked to a Person')
+    await expect(page.getByText('Saved.')).toBeVisible()
+    await page.getByText('Add Context').click()
+    await page.getByRole('button', { name: 'People', exact: true }).click()
+    await page.getByRole('button', { name: 'Add People' }).click()
+    await page
+      .getByRole('menuitemcheckbox', { name: new RegExp(personName) })
+      .click()
+    await page.keyboard.press('Escape')
+    await expect(
+      page.getByRole('button', {
+        name: new RegExp(`${personName}.*Open Person context`),
+      }),
+    ).toBeVisible({ timeout: 20_000 })
+
+    await page.reload()
+    await expect(
+      page.getByRole('button', {
+        name: new RegExp(`${personName}.*Open Person context`),
+      }),
+    ).toBeVisible({ timeout: 20_000 })
+    await page.getByRole('link', { name: 'People' }).click()
+    await expect(page).toHaveURL(/\/people$/)
+    await page
+      .locator('.people-manager__list')
+      .getByRole('button', { name: new RegExp(personName) })
+      .click()
+    await expect(
+      page.getByRole('img', { name: `Profile photo for ${personName}` }),
+    ).toBeVisible({ timeout: 20_000 })
+    await editPerson.getByRole('button', { name: 'Back to People' }).click()
+
+    await page.getByRole('link', { name: 'Settings' }).click()
+    await page.getByRole('link', { name: 'Manage Archive' }).click()
+    const exportPanel = page.getByRole('region', { name: 'Export' })
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      exportPanel.getByRole('button', { name: 'Create export' }).click(),
+    ])
+    const stream = await download.createReadStream()
+    const chunks: Buffer[] = []
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk))
+    const archive = Buffer.concat(chunks)
+    await expect(
+      exportPanel.getByRole('heading', { name: 'Verified package ready' }),
+    ).toBeVisible({ timeout: 20_000 })
+    await expect(exportPanel).toContainText('People included')
+    await expect(exportPanel).toContainText('1')
+
+    const importPanel = page.getByRole('region', { name: 'Import' })
+    await importPanel.getByLabel('Archive package').setInputFiles({
+      name: 'people-round-trip.lifearchive.tar',
+      mimeType: 'application/octet-stream',
+      buffer: archive,
+    })
+    await expect(
+      importPanel.getByRole('heading', { name: 'Ready to import' }).or(
+        importPanel.getByRole('heading', {
+          name: 'Issues importing archive',
+        }),
+      ),
+    ).toBeVisible({ timeout: 20_000 })
+    await expect(importPanel).toContainText('People')
+    await importPanel
+      .getByRole('button', { name: 'Import reviewed items' })
+      .click()
+    await expect(
+      importPanel
+        .getByRole('heading', { name: 'Import complete' })
+        .or(
+          importPanel.getByRole('heading', { name: 'Nothing new to import' }),
+        ),
+    ).toBeVisible({ timeout: 20_000 })
   })
 
   test('preserves ordinary writing through a full browser-process restart', async ({
