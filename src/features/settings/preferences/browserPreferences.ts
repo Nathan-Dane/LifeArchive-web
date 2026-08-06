@@ -8,7 +8,12 @@ export const ACCENT_COLOURS = [
   'plum',
 ] as const
 export const WEEK_START_PREFERENCES = ['system', 'monday', 'sunday'] as const
-export const OPEN_APP_PREFERENCES = ['record', 'timeline', 'last'] as const
+export const OPEN_APP_PREFERENCES = [
+  'record',
+  'timeline',
+  'people',
+  'last',
+] as const
 export const DATE_FORMAT_PREFERENCES = [
   'regional',
   'day-month-year',
@@ -21,7 +26,7 @@ export const RECORD_INITIAL_SCALE_PREFERENCES = [
   'month',
   'year',
 ] as const
-export const APP_DESTINATIONS = ['record', 'timeline'] as const
+export const APP_DESTINATIONS = ['record', 'timeline', 'people'] as const
 
 export type ThemePreference = (typeof THEME_PREFERENCES)[number]
 export type FontPreference = (typeof FONT_PREFERENCES)[number]
@@ -44,6 +49,12 @@ export interface BrowserPreferences {
   readonly lastOpenedPage: AppDestination
   readonly recordInitialScale: RecordInitialScalePreference
   readonly limitTimelineScrolling: boolean
+  readonly showPeopleOnNewDay: boolean
+  readonly showPeopleOnNewWeek: boolean
+  readonly showPeopleOnNewMonth: boolean
+  readonly showPeopleOnNewYear: boolean
+  readonly showPeopleOnNewEvent: boolean
+  readonly showPeopleOnNewSpan: boolean
 }
 
 export type BrowserPreferenceKey = keyof BrowserPreferences
@@ -59,6 +70,12 @@ export const DEFAULT_BROWSER_PREFERENCES: BrowserPreferences = Object.freeze({
   lastOpenedPage: 'record',
   recordInitialScale: 'last',
   limitTimelineScrolling: true,
+  showPeopleOnNewDay: false,
+  showPeopleOnNewWeek: false,
+  showPeopleOnNewMonth: false,
+  showPeopleOnNewYear: false,
+  showPeopleOnNewEvent: false,
+  showPeopleOnNewSpan: false,
 })
 
 /**
@@ -77,6 +94,12 @@ export const BROWSER_PREFERENCE_STORAGE_KEYS = {
   lastOpenedPage: 'lifearchive.preferences.lastOpenedPage',
   recordInitialScale: 'lifearchive.preferences.recordInitialScale',
   limitTimelineScrolling: 'lifearchive.preferences.limitTimelineScrolling',
+  showPeopleOnNewDay: 'lifearchive.preferences.showPeopleOnNewDay',
+  showPeopleOnNewWeek: 'lifearchive.preferences.showPeopleOnNewWeek',
+  showPeopleOnNewMonth: 'lifearchive.preferences.showPeopleOnNewMonth',
+  showPeopleOnNewYear: 'lifearchive.preferences.showPeopleOnNewYear',
+  showPeopleOnNewEvent: 'lifearchive.preferences.showPeopleOnNewEvent',
+  showPeopleOnNewSpan: 'lifearchive.preferences.showPeopleOnNewSpan',
 } as const satisfies Record<BrowserPreferenceKey, string>
 
 export const PREFERENCE_ATTRIBUTES = {
@@ -139,6 +162,18 @@ const VALIDATORS = {
   recordInitialScale: isRecordInitialScalePreference,
   limitTimelineScrolling: (value: unknown): value is boolean =>
     value === 'true' || value === 'false',
+  showPeopleOnNewDay: (value: unknown): value is boolean =>
+    value === 'true' || value === 'false',
+  showPeopleOnNewWeek: (value: unknown): value is boolean =>
+    value === 'true' || value === 'false',
+  showPeopleOnNewMonth: (value: unknown): value is boolean =>
+    value === 'true' || value === 'false',
+  showPeopleOnNewYear: (value: unknown): value is boolean =>
+    value === 'true' || value === 'false',
+  showPeopleOnNewEvent: (value: unknown): value is boolean =>
+    value === 'true' || value === 'false',
+  showPeopleOnNewSpan: (value: unknown): value is boolean =>
+    value === 'true' || value === 'false',
 } as const
 
 export function browserPreferenceStorage(): Storage | null {
@@ -155,13 +190,13 @@ function readStoredValue<Key extends BrowserPreferenceKey>(
 ): BrowserPreferences[Key] {
   try {
     const stored = storage?.getItem(BROWSER_PREFERENCE_STORAGE_KEYS[key])
-    if (key === 'limitTimelineScrolling') {
+    if (typeof DEFAULT_BROWSER_PREFERENCES[key] === 'boolean') {
       return (
         stored === 'true'
           ? true
           : stored === 'false'
             ? false
-            : DEFAULT_BROWSER_PREFERENCES.limitTimelineScrolling
+            : DEFAULT_BROWSER_PREFERENCES[key]
       ) as BrowserPreferences[Key]
     }
     const validates = VALIDATORS[key] as (value: unknown) => boolean
@@ -187,6 +222,12 @@ export function readBrowserPreferences(
     lastOpenedPage: readStoredValue('lastOpenedPage', storage),
     recordInitialScale: readStoredValue('recordInitialScale', storage),
     limitTimelineScrolling: readStoredValue('limitTimelineScrolling', storage),
+    showPeopleOnNewDay: readStoredValue('showPeopleOnNewDay', storage),
+    showPeopleOnNewWeek: readStoredValue('showPeopleOnNewWeek', storage),
+    showPeopleOnNewMonth: readStoredValue('showPeopleOnNewMonth', storage),
+    showPeopleOnNewYear: readStoredValue('showPeopleOnNewYear', storage),
+    showPeopleOnNewEvent: readStoredValue('showPeopleOnNewEvent', storage),
+    showPeopleOnNewSpan: readStoredValue('showPeopleOnNewSpan', storage),
   }
 }
 

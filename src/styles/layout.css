@@ -19,6 +19,619 @@
   min-height: 0;
 }
 
+/* People uses the same overlay geometry and task hierarchy as Tracks. */
+.people-page {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+  background: var(--color-page);
+}
+
+.people-page > .people-manager__header,
+.people-page > .people-manager__footer {
+  padding-inline: clamp(1rem, 3vw, 2rem);
+}
+
+.people-manager,
+.person-editor {
+  display: flex;
+  width: min(46rem, calc(100vw - 2rem));
+  max-height: min(48rem, calc(100dvh - 3rem));
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.people-manager__header,
+.person-editor__header {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.person-editor__header:has(.record-overlay__back) {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.people-manager__header > div,
+.person-editor__header > div {
+  min-width: 0;
+}
+
+.people-manager__header :is(h2, p),
+.person-editor__header :is(h2, p) {
+  margin: 0;
+}
+
+.people-manager__body,
+.person-editor__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1rem 1.25rem 1.5rem;
+}
+
+.people-manager__search {
+  display: block;
+  position: sticky;
+  top: -1rem;
+  z-index: 1;
+  padding-block: 0.25rem 0.75rem;
+  background: var(--color-surface);
+}
+
+.people-manager__search input {
+  width: 100%;
+}
+
+.people-manager__group + .people-manager__group,
+.people-manager__archived {
+  margin-top: 1.5rem;
+}
+
+.people-manager__group > h3 {
+  margin: 0 0 0.5rem;
+}
+
+.people-manager__list {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.people-manager__list > button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  text-align: start;
+}
+
+.people-manager__list > button:is(:hover, :focus-visible) {
+  border-color: var(--color-border);
+  background: var(--color-surface-raised);
+}
+
+.record-entry-people-manager__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+}
+
+.record-entry-people-manager__row > button:first-child {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.7rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+}
+
+.record-entry-people-manager__row:has(:focus-visible),
+.record-entry-people-manager__row:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-raised);
+}
+
+.record-entry-people-manager__order {
+  display: flex;
+  gap: 0.25rem;
+  padding-inline-end: 0.5rem;
+}
+
+.record-entry-people-manager__order > button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+}
+
+.people-manager__copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.people-manager__copy > * {
+  overflow-wrap: anywhere;
+}
+
+.people-manager__group[data-archived='true'] .people-manager__list {
+  opacity: 0.82;
+}
+
+.people-manager__archived > button {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: inherit;
+}
+
+.people-manager__archived > button[aria-expanded='true'] .record-control-icon {
+  transform: rotate(180deg);
+}
+
+.people-manager__footer,
+.person-editor__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.person-avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--color-accent-muted);
+  color: var(--color-text-primary);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.person-avatar[data-size='small'] {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 0.8rem;
+}
+
+.person-avatar[data-size='large'] {
+  width: 6rem;
+  height: 6rem;
+  font-size: 1.45rem;
+}
+
+.person-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.person-editor__body {
+  display: grid;
+  gap: 1rem;
+}
+
+.person-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+}
+
+.person-card > :is(h3, p) {
+  margin-block: 0;
+}
+
+.person-photo-editor {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.person-photo-editor > div {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.person-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.person-field :is(input, select, textarea),
+.person-repeat__row :is(input, select),
+.person-reference :is(input, select),
+.person-date :is(input, select),
+.person-merge select {
+  min-width: 0;
+  width: 100%;
+}
+
+.person-connections {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.person-connections > h3 {
+  margin: 0;
+}
+
+.person-connections__add {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font: inherit;
+}
+
+.person-connections__labels {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-block: 0.15rem;
+  scrollbar-width: thin;
+}
+
+.person-connections__labels > button {
+  flex: none;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: inherit;
+}
+
+.person-connections__popup {
+  width: min(25rem, calc(100vw - 2rem));
+}
+
+.person-connections__options {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  overflow: auto;
+}
+
+.person-connections__option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.person-connections__option > button:first-child {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: 0.4rem;
+  padding: 0.55rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+}
+
+.person-connections__option > :last-child:not(:first-child) {
+  padding: 0.35rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: 0.8rem;
+}
+
+.person-connections__custom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.person-connections__custom input {
+  width: 100%;
+}
+
+.person-repeat,
+.person-merge {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.person-repeat__row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.7fr) minmax(0, 1.4fr) auto;
+  gap: 0.5rem;
+}
+
+.person-reference {
+  display: grid;
+  grid-template-columns:
+    minmax(7rem, 0.7fr) minmax(0, 0.8fr) minmax(0, 1.3fr)
+    auto;
+  gap: 0.5rem;
+}
+
+.person-repeat__row > button,
+.person-reference > button {
+  align-self: stretch;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.person-date {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.person-date__fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.person-date__fields > label {
+  display: grid;
+  align-content: end;
+  gap: 0.25rem;
+}
+
+.person-contact-ranges {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+}
+
+.person-contact-ranges > button {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+}
+
+.person-contact-ranges > button[aria-pressed='true'] {
+  border-color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.person-memory {
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.person-contact-periods {
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.person-management-actions {
+  justify-items: start;
+}
+
+.record-add-context,
+.record-people {
+  width: min(100%, var(--layout-reading-measure));
+  margin: 1rem auto;
+}
+
+.record-add-context details {
+  display: inline-block;
+  position: relative;
+}
+
+.record-add-context summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.record-add-context details > button {
+  display: flex;
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 10rem;
+  padding: 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-popup);
+}
+
+.record-people {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.record-people > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.record-people > header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.record-people__tiles {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding: 0.2rem 0.1rem 0.6rem;
+  scroll-snap-type: x proximity;
+}
+
+.record-person-tile {
+  display: grid;
+  position: relative;
+  flex: 0 0 8.5rem;
+  scroll-snap-align: start;
+}
+
+.record-person-tile > button:first-child {
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.8rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.record-person-tile > button:first-child > :not(.person-avatar) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+
+.record-person-tile > button:last-child {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.record-people__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.record-people__undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--color-note);
+}
+
+.record-person-context {
+  display: flex;
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: min(38rem, calc(100dvh - 3rem));
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.record-person-context__body {
+  display: grid;
+  gap: 1rem;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 1rem 1.25rem;
+}
+
+.record-person-context__body fieldset {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.people-menu .record-menu__item {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.people-menu__search {
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.people-menu__search input {
+  width: 100%;
+}
+
+@media (max-width: 680px) {
+  .people-manager,
+  .person-editor,
+  .record-person-context {
+    width: calc(100vw - var(--space-details-outer));
+    max-height: calc(100dvh - var(--space-details-outer));
+    margin-top: auto;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+  }
+
+  .person-repeat__row,
+  .person-reference,
+  .person-date__fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .person-photo-editor {
+    align-items: flex-start;
+  }
+
+  .record-entry-people-manager__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .record-entry-people-manager__order {
+    justify-content: flex-end;
+    padding: 0 0.5rem 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .person-connections__labels,
+  .people-manager__body,
+  .person-editor__body {
+    scroll-behavior: auto;
+  }
+}
+
 /* Top bar */
 
 .shell-header {

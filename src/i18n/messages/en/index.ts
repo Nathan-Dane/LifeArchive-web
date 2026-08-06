@@ -13,6 +13,7 @@ import { archiveMessages } from './archive'
 import { developmentMessages } from './development'
 import { failureMessages } from './failure'
 import { recordMessages } from './record'
+import { peopleMessages } from './people'
 import { recordSemanticMessages } from './recordSemantic'
 import { semanticMessages } from './semantic'
 import { settingsMessages } from './settings'
@@ -24,6 +25,7 @@ export {
   developmentMessages,
   failureMessages,
   recordMessages,
+  peopleMessages,
   recordSemanticMessages,
   semanticMessages,
   settingsMessages,
@@ -37,6 +39,7 @@ export const FEATURE_CATALOGS = [
   developmentMessages,
   failureMessages,
   recordMessages,
+  peopleMessages,
   recordSemanticMessages,
   semanticMessages,
   settingsMessages,
@@ -49,6 +52,7 @@ export type Messages = typeof appMessages &
   typeof developmentMessages &
   typeof failureMessages &
   typeof recordMessages &
+  typeof peopleMessages &
   typeof recordSemanticMessages &
   typeof semanticMessages &
   typeof settingsMessages &

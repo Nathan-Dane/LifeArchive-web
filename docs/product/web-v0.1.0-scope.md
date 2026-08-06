@@ -58,6 +58,28 @@ product requirement, not a UI sketch.
   Markers are derived presentations of the Span, not separate records with
   their own identity or writing.
 
+### People
+
+- **First-class Person profiles.** A Person has one exact Unicode display
+  name, one durable profile photo, ordered connection labels, names and
+  references, optional profile details and partial life dates, and an
+  active/archived state. Initials are a presentation fallback only.
+- **People in Record.** Every ordinary, Event, and Span entry may carry a
+  durable optional People section with ordered links. Each link independently
+  records participation, subject context, and—where the record is an exact
+  Day or Event—interaction. Removing the section is distinct from clearing its
+  links.
+- **Safe lifecycle actions.** Archive preserves every link, memory, and photo;
+  merge and delete are atomic core operations; deleting a Person never deletes
+  an Entry and is rejected while links remain.
+- **Derived memories and recorded contact.** The People destination renders
+  bounded, core-produced memories, last-contact facts, and contact-history
+  pages. The browser does not aggregate, score, warn, advise, or infer a
+  relationship.
+- **Durable photo bytes.** File selection and preview are browser concerns.
+  Import, hashing, replacement, removal, compensation, cleanup, and archive
+  round trips belong to the runtime.
+
 ### Writing safety
 
 - **Revision-safe autosave.** Mutations carry an expected revision. The editor
@@ -133,8 +155,6 @@ claiming anything the core does not support.
 The reference shows these. **Showing them is not approval.** Do not build them
 in v0.1.0 without an explicit contract change first.
 
-- **People.** No durable model, schema, or archive record exists. The demo's
-  People card is a placeholder.
 - **Places.** Same — no durable model, schema, or archive record.
 - **Related scales.** The "3 connected records" card implies a relationship
   graph that does not exist in any contract.
@@ -174,7 +194,8 @@ in v0.1.0 without an explicit contract change first.
 Not in v0.1.0. Not to be scaffolded, stubbed, or anticipated with placeholder
 settings, dormant dependencies, or speculative tables.
 
-- **Search** — including any full-text index.
+- **General archive search** — bounded Person browsing/search is approved, but
+  no archive-wide full-text index is.
 - **Accounts** — no sign-in, no identity service, no profile.
 - **Sync** — no server, no conflict merging across devices.
 - **Telemetry.**
@@ -182,7 +203,7 @@ settings, dormant dependencies, or speculative tables.
 - **Cloud AI** — any AI at all requires explicit provider consent, privacy
   controls, and source disclosure; none of that exists here yet.
 - **Collaborative editing.**
-- **Speculative metadata** — people, places, moods, user-created tags, entry
+- **Speculative metadata** — places, moods, user-created tags, entry
   revision history, standalone summaries.
 - **Full parity with the native Timeline's advanced continuous-scale
   presentation** — continuous pinch zoom, elastic scale endpoints, lane

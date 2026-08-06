@@ -6,6 +6,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useSearchParams,
 } from 'react-router-dom'
 import {
   RecordDestinationProvider,
@@ -17,7 +18,9 @@ import { SettingsNavigationRegion, SettingsPage } from '../features/settings'
 import { ArchiveOverviewProvider } from '../features/settings/archive'
 import { useBrowserPreferences } from '../features/settings/preferences'
 import { TimelinePage } from '../features/timeline/TimelinePage'
-import type { LifeArchiveClient } from '../core/client'
+import { PeoplePage } from '../features/people'
+import type { LifeArchiveClient, TimeScale } from '../core/client'
+import { civilDate, isCivilDate } from '../core/client'
 import { useTranslate } from '../i18n'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { WorkspaceLayout } from './shell'
@@ -70,6 +73,13 @@ const MAIN_ROUTES = [
     label: 'app.navigation.timeline',
     icon: 'timeline',
     element: () => <TimelinePage />,
+  },
+  {
+    path: '/people',
+    navigationPath: '/people',
+    label: 'app.navigation.people',
+    icon: 'people',
+    element: (client: LifeArchiveClient) => <PeoplePage client={client} />,
   },
   {
     path: '/settings/*',
@@ -149,7 +159,19 @@ function RecordWorkspaceProvider({
   readonly children: ReactNode
 }) {
   const { preferences } = useBrowserPreferences()
+  const [parameters] = useSearchParams()
   const remembered = preferences.recordInitialScale === 'last'
+  const scale = parameters.get('scale')
+  const date = parameters.get('date')
+  const initialDestination =
+    (scale === 'day' ||
+      scale === 'week' ||
+      scale === 'month' ||
+      scale === 'year') &&
+    date !== null &&
+    isCivilDate(date)
+      ? { scale: scale as TimeScale, anchor: civilDate(date) }
+      : null
   return (
     <RecordDestinationProvider
       client={client}
@@ -157,6 +179,7 @@ function RecordWorkspaceProvider({
       cursorOptions={{
         initialScale: remembered ? 'day' : preferences.recordInitialScale,
         restoreScale: remembered,
+        initialDestination,
       }}
     >
       {children}
@@ -181,7 +204,9 @@ function RememberMainDestination({ pathname }: { readonly pathname: string }) {
         ? 'record'
         : pathname === '/timeline'
           ? 'timeline'
-          : null
+          : pathname === '/people'
+            ? 'people'
+            : null
     if (destination && preferences.lastOpenedPage !== destination) {
       setPreference('lastOpenedPage', destination)
     }

@@ -89,7 +89,7 @@ describe('the visual reference', () => {
 
   it('leaves the affordances the scope has not approved out of the shell', () => {
     for (const [path, source] of APPLICATION_SOURCES) {
-      for (const unapproved of ['People', 'Places', 'Related']) {
+      for (const unapproved of ['Places', 'Related']) {
         expect(source, `${path} mentions ${unapproved}`).not.toMatch(
           new RegExp(`>${unapproved}<|'${unapproved}'|"${unapproved}"`),
         )
