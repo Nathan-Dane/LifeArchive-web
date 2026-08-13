@@ -1,19 +1,8 @@
 import { useId, useRef, useState } from 'react'
 import { useTranslate } from '../../i18n'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
-
-const STANDARD = [
-  ['Friend', 'people.connections.friend'],
-  ['Family', 'people.connections.family'],
-  ['Colleague', 'people.connections.colleague'],
-  ['Partner', 'people.connections.partner'],
-  ['Former classmate', 'people.connections.formerClassmate'],
-  ['Family friend', 'people.connections.familyFriend'],
-  ['Doctor', 'people.connections.doctor'],
-  ['Public figure', 'people.connections.publicFigure'],
-  ['Never met personally', 'people.connections.neverMetPersonally'],
-] as const
-const STANDARD_VALUES = STANDARD.map(([value]) => value)
+import { STANDARD_CONNECTION_LABELS } from './connectionLabels'
+const STANDARD_VALUES = STANDARD_CONNECTION_LABELS.map(({ value }) => value)
 
 export function ConnectionLabelsEditor({
   labels,
@@ -114,26 +103,26 @@ export function ConnectionLabelsEditor({
         className="person-connections__popup"
       >
         <div className="person-connections__options">
-          {STANDARD.map(([label, message]) => (
-            <div key={label} className="person-connections__option">
+          {STANDARD_CONNECTION_LABELS.map(({ value, message }) => (
+            <div key={value} className="person-connections__option">
               <button
                 type="button"
                 role="checkbox"
-                aria-checked={labels.includes(label)}
-                onClick={() => toggle(label)}
+                aria-checked={labels.includes(value)}
+                onClick={() => toggle(value)}
               >
                 <span aria-hidden="true">
-                  {labels.includes(label) ? (
+                  {labels.includes(value) ? (
                     <RecordControlIcon name="check" />
                   ) : null}
                 </span>
                 {t(message)}
               </button>
-              {labels.includes(label) && labels[0] !== label ? (
-                <button type="button" onClick={() => primary(label)}>
+              {labels.includes(value) && labels[0] !== value ? (
+                <button type="button" onClick={() => primary(value)}>
                   {t('people.connections.makePrimary')}
                 </button>
-              ) : labels[0] === label ? (
+              ) : labels[0] === value ? (
                 <span>{t('people.connections.primary')}</span>
               ) : null}
             </div>
