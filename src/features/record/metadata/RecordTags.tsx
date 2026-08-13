@@ -203,9 +203,7 @@ export function RecordTagPicker({
                 data-display-tag={display || undefined}
               >
                 <button
-                  ref={(element) => {
-                    menuFocus.items.current[index] = element
-                  }}
+                  ref={menuFocus.itemRef(index)}
                   type="button"
                   className="record-tag-picker__select"
                   role="menuitemcheckbox"

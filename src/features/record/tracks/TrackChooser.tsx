@@ -182,9 +182,7 @@ export function TrackChooser({
           onKeyDown={menuFocus.onKeyDown}
         >
           <TrackMenuOption
-            optionRef={(element) => {
-              menuFocus.items.current[0] = element
-            }}
+            optionRef={menuFocus.itemRef(0)}
             checked={selected === null}
             label={t('record.track.noSelection')}
             onClick={() => choose(null)}
@@ -196,9 +194,7 @@ export function TrackChooser({
           {available.map((summary, index) => (
             <TrackMenuOption
               key={summary.track.id}
-              optionRef={(element) => {
-                menuFocus.items.current[index + 1] = element
-              }}
+              optionRef={menuFocus.itemRef(index + 1)}
               checked={summary.track.id === value}
               label={summary.track.name}
               onClick={() => choose(summary.track.id)}
@@ -208,9 +204,7 @@ export function TrackChooser({
           <span className="record-track-menu__separator" role="separator" />
           {date ? (
             <button
-              ref={(element) => {
-                menuFocus.items.current[available.length + 1] = element
-              }}
+              ref={menuFocus.itemRef(available.length + 1)}
               type="button"
               role="menuitem"
               className="record-menu__item record-track-menu__action record-track-menu__action--primary"
@@ -226,10 +220,7 @@ export function TrackChooser({
             </button>
           ) : null}
           <button
-            ref={(element) => {
-              menuFocus.items.current[available.length + (date ? 2 : 1)] =
-                element
-            }}
+            ref={menuFocus.itemRef(available.length + (date ? 2 : 1))}
             type="button"
             role="menuitem"
             className="record-menu__item record-track-menu__action"

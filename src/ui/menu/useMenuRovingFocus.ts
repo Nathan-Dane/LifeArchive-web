@@ -23,6 +23,13 @@ export function useMenuRovingFocus({
     [],
   )
 
+  const itemRef = useCallback(
+    (index: number) => (element: MenuItem | null) => {
+      items.current[index] = element
+    },
+    [],
+  )
+
   const focus = useCallback(
     (index: number) => {
       const available = candidates()
@@ -68,5 +75,5 @@ export function useMenuRovingFocus({
     [candidates, focus, onEscape, onNavigate, stopEscapePropagation],
   )
 
-  return { items, focus, onKeyDown }
+  return { itemRef, focus, onKeyDown }
 }
