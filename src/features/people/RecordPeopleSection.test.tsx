@@ -662,21 +662,20 @@ describe('RecordPeopleSection', () => {
       onEditPerson,
     })
     await screen.findByRole('heading', { name: 'People' })
-    await user.click(
-      screen.getByRole('button', {
-        name: /Ada Lovelace.*Open Person context/,
-      }),
-    )
+    const personOpener = screen.getByRole('button', {
+      name: /Ada Lovelace.*Open Person context/,
+    })
+    await user.click(personOpener)
     const dialog = await screen.findByRole('dialog', { name: /Ada Lovelace/ })
     const viewButton = within(dialog).getByRole('button', {
       name: 'View Person',
     })
     await user.click(viewButton)
-    expect(onViewPerson).toHaveBeenCalledWith(ADA_ID, viewButton)
+    expect(onViewPerson).toHaveBeenCalledWith(ADA_ID, personOpener)
     const editButton = within(dialog).getByRole('button', {
       name: 'Edit Person',
     })
     await user.click(editButton)
-    expect(onEditPerson).toHaveBeenCalledWith(ADA_ID, editButton)
+    expect(onEditPerson).toHaveBeenCalledWith(ADA_ID, personOpener)
   })
 })

@@ -11,6 +11,7 @@ export interface PersonEditorPageProps {
   readonly people: People
   readonly onBack: () => void
   readonly onViewProfile: () => void
+  readonly backToRecord?: boolean
   readonly onSaved?: () => void
   readonly onArchived?: () => void
   readonly onDeleted: () => void
@@ -22,6 +23,7 @@ export function PersonEditorPage({
   people,
   onBack,
   onViewProfile,
+  backToRecord = false,
   onSaved,
   onArchived,
   onDeleted,
@@ -40,7 +42,7 @@ export function PersonEditorPage({
 
   return (
     <article className="person-page" data-page="editor">
-      <PersonPageBreadcrumb onBack={onBack} />
+      <PersonPageBreadcrumb onBack={onBack} backToRecord={backToRecord} />
       <div className="person-page__layout">
         <PersonIdentityRail
           client={client}

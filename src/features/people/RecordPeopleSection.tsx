@@ -448,8 +448,18 @@ export function RecordPeopleSection({
             busy={busy}
             onClose={() => setEditingPersonId(null)}
             onToggleRole={(role) => updateRole(snapshotOfLinked(editing), role)}
-            onViewPerson={onViewPerson}
-            onEditPerson={onEditPerson}
+            onViewPerson={
+              onViewPerson
+                ? (personId, action) =>
+                    onViewPerson(personId, contextOpener.current ?? action)
+                : undefined
+            }
+            onEditPerson={
+              onEditPerson
+                ? (personId, action) =>
+                    onEditPerson(personId, contextOpener.current ?? action)
+                : undefined
+            }
             onRemove={async () => {
               if (await remove(editing)) setEditingPersonId(null)
             }}
@@ -535,6 +545,8 @@ function RecordPeopleHierarchy({
                     else personButtons.current.delete(linked.person.id)
                   }}
                   type="button"
+                  data-record-person-id={linked.person.id}
+                  data-record-person-opener-key={`record-person-${linked.person.id}`}
                   aria-label={personTaskLabel(t, linked)}
                   onClick={(event) => onOpen(linked, event.currentTarget)}
                 >
@@ -609,6 +621,8 @@ function RecordPeopleRows({
                   else personButtons.current.delete(linked.person.id)
                 }}
                 type="button"
+                data-record-person-id={linked.person.id}
+                data-record-person-opener-key={`record-person-${linked.person.id}`}
                 aria-label={personTaskLabel(t, linked)}
                 onClick={(event) => onOpen(linked, event.currentTarget)}
               >

@@ -46,6 +46,8 @@ export interface RecordDestination {
   readonly spans: SpanEditor
   readonly tracks: Tracks
   readonly navigationSummary: RecordNavigationSummary
+  /** Leaves Record only after every draft confirms that no writing is pending. */
+  readonly flushBeforeExit: (action: () => void) => void
 }
 
 export const RecordDestinationContext = createContext<RecordDestination | null>(

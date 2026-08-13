@@ -21,6 +21,14 @@ export interface MarkdownEditorProps {
   readonly onMediaCountChange?: (ownerId: StableId, count: number) => void
   readonly developmentMock?: boolean
   readonly allowMedia?: boolean
+  readonly onViewPerson?: (
+    personId: StableId,
+    opener: HTMLButtonElement,
+  ) => void
+  readonly onEditPerson?: (
+    personId: StableId,
+    opener: HTMLButtonElement,
+  ) => void
 }
 
 export function MarkdownEditor({
@@ -32,6 +40,8 @@ export function MarkdownEditor({
   onMediaCountChange,
   developmentMock = false,
   allowMedia = window?.scale === 'day',
+  onViewPerson,
+  onEditPerson,
 }: MarkdownEditorProps) {
   const t = useTranslate()
   const localisation = useLocalisation()
@@ -176,6 +186,8 @@ export function MarkdownEditor({
           }
           entryKind={window.scale}
           onEntryRevision={adoptEntryRevision}
+          onViewPerson={onViewPerson}
+          onEditPerson={onEditPerson}
         />
       ) : null}
     </>

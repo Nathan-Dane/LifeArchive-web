@@ -15,6 +15,7 @@ export interface PersonProfilePageProps {
   readonly people: People
   readonly onBack: () => void
   readonly onEdit: () => void
+  readonly backToRecord?: boolean
   readonly onArchived?: () => void
   readonly onDeleted: () => void
 }
@@ -25,6 +26,7 @@ export function PersonProfilePage({
   people,
   onBack,
   onEdit,
+  backToRecord = false,
   onArchived,
   onDeleted,
 }: PersonProfilePageProps) {
@@ -41,7 +43,7 @@ export function PersonProfilePage({
 
   return (
     <article className="person-page" data-page="profile">
-      <PersonPageBreadcrumb onBack={onBack} />
+      <PersonPageBreadcrumb onBack={onBack} backToRecord={backToRecord} />
       <div className="person-page__layout">
         <PersonIdentityRail client={client} selected={selected}>
           <PersonProfileActions

@@ -37,6 +37,10 @@ export const peopleMessages = {
   'people.actions': 'Person actions',
   'people.profile.editing': 'Editing profile',
   'people.profile.back': 'Back to People',
+  'people.profile.backToRecord': 'Back to Record',
+  'people.profile.record': 'Record',
+  'people.profile.recordOriginExpired':
+    'The Record return point expired. This Person remains open.',
   'people.profile.notRecorded': 'Not recorded',
   'people.profile.approximateDate': 'About {date}',
   'people.save': 'Save',

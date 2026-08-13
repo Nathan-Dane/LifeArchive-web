@@ -217,6 +217,7 @@ export function RecordDestinationProvider({
             reportOrdinaryText,
             reportMediaCount,
           },
+          flushBeforeExit: draftSession.flushBeforeExit,
         }}
       >
         {children}
