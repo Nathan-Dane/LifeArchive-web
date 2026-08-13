@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { prefersReducedMotion } from '../../../accessibility'
 import type { SemanticId } from '../../../core/client'
 import { semanticName, useLocalisation } from '../../../i18n'
 import { RecordSemanticIcon } from './RecordSemanticIcon'
@@ -13,13 +14,6 @@ import {
 type CategoryId = (typeof SEMANTIC_ICON_CATEGORIES)[number]['id']
 type IconView = 'all' | CategoryId
 type CataloguePhase = 'idle' | 'leaving' | 'entering'
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof globalThis.matchMedia === 'function' &&
-    globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
-  )
-}
 
 export function SemanticIconPicker({
   value,

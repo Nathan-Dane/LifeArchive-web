@@ -10,19 +10,12 @@ import {
   type RefObject,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { useFocusTrap } from '../../accessibility'
+import { prefersReducedMotion, useFocusTrap } from '../../accessibility'
 
 const DEFAULT_VIEWPORT_GUTTER = 20
 const EXIT_FALLBACK_MS = 320
 
 type OverlayPhase = 'opening' | 'open' | 'closing'
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof globalThis.matchMedia === 'function' &&
-    globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
-  )
-}
 
 interface AnchoredPosition {
   readonly left: number
