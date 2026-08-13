@@ -89,7 +89,7 @@ pnpm install
 | `pnpm test`         | Vitest, watch mode                             |
 | `pnpm test:run`     | Vitest, single run                             |
 | `pnpm test:e2e`     | Playwright, Chromium 151 + Firefox 153         |
-| `pnpm check`        | format + lint + typecheck + safety + tests + build |
+| `pnpm check`        | format + lint + typecheck + architecture + safety + tests + build/bundle budgets |
 
 Playwright needs the supported browsers once:
 `pnpm exec playwright install chromium firefox`. WebKit is not supported.
