@@ -285,7 +285,7 @@ describe('Person routed pages', () => {
       />,
     )
 
-    expect(screen.getByRole('textbox', { name: 'Display name' })).toHaveValue(
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue(
       'Maya Chen',
     )
     const breadcrumbs = screen.getByRole('navigation', {

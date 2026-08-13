@@ -294,9 +294,7 @@ test.describe('verified runtime integration', () => {
     await page.getByRole('link', { name: 'People' }).click()
     await page.getByRole('button', { name: 'New Person' }).click()
     const createPerson = page.getByRole('dialog', { name: 'New Person' })
-    await createPerson
-      .getByRole('textbox', { name: 'Display name' })
-      .fill(personName)
+    await createPerson.getByRole('textbox', { name: 'Name' }).fill(personName)
     await createPerson.getByRole('button', { name: 'Save' }).click()
     await expect(
       page.getByRole('button', { name: new RegExp(personName) }),

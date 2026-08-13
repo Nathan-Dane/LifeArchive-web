@@ -1,7 +1,11 @@
 import type { LifeArchiveClient } from '../../core/client'
 import { useLocalisation } from '../../i18n'
 import '../../styles/person-pages.css'
-import { PersonEditorFeedback, PersonEditorFields } from './PersonEditorFields'
+import {
+  PersonEditorFeedback,
+  PersonEditorFields,
+  PersonPortraitEditor,
+} from './PersonEditorFields'
 import { PersonIdentityRail, PersonPageBreadcrumb } from './PersonPageLayout'
 import { PersonEditorActions } from './PersonPageActions'
 import type { People } from './usePeople'
@@ -54,6 +58,7 @@ export function PersonEditorPage({
           client={client}
           selected={selected}
           displayName={draft.displayName || selected.person.displayName}
+          portrait={<PersonPortraitEditor client={client} people={people} />}
         >
           <PersonEditorActions
             people={people}
@@ -66,7 +71,7 @@ export function PersonEditorPage({
         </PersonIdentityRail>
         <div className="person-page__content person-page__editor-content">
           <PersonEditorFeedback people={people} />
-          <PersonEditorFields client={client} people={people} />
+          <PersonEditorFields people={people} />
         </div>
       </div>
     </article>

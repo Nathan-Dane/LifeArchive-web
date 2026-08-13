@@ -701,7 +701,7 @@ describe('RecordPeopleSection', () => {
       'center',
     )
     await user.type(
-      within(task).getByRole('textbox', { name: 'Display name' }),
+      within(task).getByRole('textbox', { name: 'Name' }),
       'Katherine Johnson',
     )
     await user.click(
@@ -764,7 +764,7 @@ describe('RecordPeopleSection', () => {
     await user.click(screen.getByRole('button', { name: 'New Person' }))
     const task = await screen.findByRole('dialog', { name: 'New Person' })
     await user.type(
-      within(task).getByRole('textbox', { name: 'Display name' }),
+      within(task).getByRole('textbox', { name: 'Name' }),
       'Katherine Johnson',
     )
     await user.click(
@@ -776,9 +776,9 @@ describe('RecordPeopleSection', () => {
         /Person was created, but could not be added/,
       ),
     ).toBeVisible()
-    expect(
-      within(task).getByRole('textbox', { name: 'Display name' }),
-    ).toHaveValue('Katherine Johnson')
+    expect(within(task).getByRole('textbox', { name: 'Name' })).toHaveValue(
+      'Katherine Johnson',
+    )
     await user.click(within(task).getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(onEditPerson).toHaveBeenCalledOnce())
     expect(create).toHaveBeenCalledOnce()

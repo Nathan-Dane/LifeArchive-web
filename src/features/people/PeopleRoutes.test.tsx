@@ -129,7 +129,7 @@ describe('People route lifecycle', () => {
     const dialog = await screen.findByRole('dialog', { name: 'New Person' })
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(dialog.parentElement).toHaveAttribute('data-placement', 'center')
-    expect(screen.getByRole('textbox', { name: 'Display name' })).toHaveFocus()
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveFocus()
 
     await user.tab({ shift: true })
     expect(dialog).toContainElement(document.activeElement as HTMLElement)

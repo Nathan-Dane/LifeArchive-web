@@ -85,11 +85,13 @@ export function PersonIdentityRail({
   client,
   selected,
   displayName = selected.person.displayName,
+  portrait,
   children,
 }: {
   readonly client: LifeArchiveClient
   readonly selected: PersonSnapshot
   readonly displayName?: string
+  readonly portrait?: ReactNode
   readonly children: ReactNode
 }) {
   const person = selected.person
@@ -97,12 +99,14 @@ export function PersonIdentityRail({
   return (
     <aside className="person-page__rail">
       <section className="person-page__identity">
-        <PersonAvatar
-          client={client}
-          name={displayName}
-          photo={selected.profilePhoto}
-          size="large"
-        />
+        {portrait ?? (
+          <PersonAvatar
+            client={client}
+            name={displayName}
+            photo={selected.profilePhoto}
+            size="large"
+          />
+        )}
         <div className="person-page__identity-copy">
           <h1>{displayName}</h1>
           {person.connectionLabels[0] ? (

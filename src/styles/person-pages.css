@@ -230,9 +230,7 @@
 }
 
 .person-photo-editor__replace {
-  display: grid;
-  justify-items: center;
-  gap: var(--space-sm);
+  display: block;
   padding: 0;
   border: 0;
   background: transparent;
@@ -258,11 +256,52 @@
   height: var(--size-control-compact);
   padding: 0;
   border: var(--border-hairline) solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: 50%;
   background: var(--color-surface);
   color: var(--color-destructive);
   opacity: 0;
   box-shadow: var(--shadow-floating);
+}
+
+.person-editor-state {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-details-panel);
+}
+
+.person-editor-state strong {
+  display: block;
+}
+
+.person-editor-state p {
+  margin: var(--space-2xs) 0 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-meta);
+}
+
+.person-editor-state > span {
+  flex: none;
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--text-meta);
+}
+
+.person-editor-state > span[data-state='dirty'],
+.person-editor-state > span[data-state='saving'] {
+  background: var(--color-accent-muted);
+  color: var(--color-text-primary);
+}
+
+.person-editor-state > span[data-state='failure'],
+.person-editor-state > span[data-state='conflict'] {
+  color: var(--color-destructive);
 }
 
 .person-photo-editor__control:is(:hover, :focus-within)

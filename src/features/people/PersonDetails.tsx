@@ -1,5 +1,5 @@
 import { useState, type RefObject } from 'react'
-import type { LifeArchiveClient, PersonSnapshot } from '../../core/client'
+import type { PersonSnapshot } from '../../core/client'
 import { useLocalisation } from '../../i18n'
 import { RecordControlIcon } from '../../ui/overlay'
 import { PersonEditorFeedback, PersonEditorFields } from './PersonEditorFields'
@@ -13,7 +13,6 @@ import type { People } from './usePeople'
  * migrated.
  */
 export function PersonDetails({
-  client,
   people,
   headingId,
   closeRef,
@@ -22,7 +21,6 @@ export function PersonDetails({
   onCreated,
   onChanged,
 }: {
-  readonly client: LifeArchiveClient
   readonly people: People
   readonly headingId: string
   readonly closeRef: RefObject<HTMLButtonElement | null>
@@ -98,7 +96,7 @@ export function PersonDetails({
           people={people}
           createdHandoffFailed={createdHandoffFailed}
         />
-        <PersonEditorFields client={client} people={people} />
+        <PersonEditorFields people={people} />
         {!people.state.creating && selected ? (
           <PersonInsights people={people} />
         ) : null}

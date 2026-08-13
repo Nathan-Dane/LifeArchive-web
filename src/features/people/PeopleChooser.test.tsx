@@ -166,7 +166,7 @@ describe('PeopleChooser', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'New Person' })
     const displayName = within(dialog).getByRole('textbox', {
-      name: 'Display name',
+      name: 'Name',
     })
     await user.type(displayName, '   ')
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
@@ -267,7 +267,7 @@ describe('PeopleChooser', () => {
     await user.click(screen.getByRole('menuitem', { name: /New Person/ }))
     const dialog = await screen.findByRole('dialog', { name: 'New Person' })
     await user.type(
-      within(dialog).getByRole('textbox', { name: 'Display name' }),
+      within(dialog).getByRole('textbox', { name: 'Name' }),
       'Katherine Johnson',
     )
     await user.click(within(dialog).getByRole('button', { name: 'Save' }))

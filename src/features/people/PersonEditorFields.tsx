@@ -10,7 +10,7 @@ import {
   PartialDateEditor,
   ReferenceRow,
 } from './PersonProfileFields'
-import type { People } from './usePeople'
+import { personDraft, type People } from './usePeople'
 
 export function PersonEditorFeedback({
   people,
@@ -21,9 +21,36 @@ export function PersonEditorFeedback({
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
+  const selected = people.state.selected
+  const draft = people.state.draft
+  const dirty = Boolean(
+    selected &&
+    draft &&
+    JSON.stringify(personDraft(selected)) !== JSON.stringify(draft),
+  )
+  const state = people.state.conflict
+    ? 'conflict'
+    : people.state.status === 'saving'
+      ? 'saving'
+      : people.state.failure
+        ? 'failure'
+        : dirty
+          ? 'dirty'
+          : 'saved'
 
   return (
     <>
+      {!people.state.creating ? (
+        <div className="person-editor-state" role="status">
+          <div>
+            <strong>{t(`people.editorState.${state}.title`)}</strong>
+            <p>{t(`people.editorState.${state}.detail`)}</p>
+          </div>
+          <span data-state={state}>
+            {t(`people.editorState.${state}.label`)}
+          </span>
+        </div>
+      ) : null}
       {people.state.failure ? (
         <div role="alert" className="record-details__failure">
           <p>
@@ -96,8 +123,7 @@ export function PersonEditorFeedback({
   )
 }
 
-/** The complete editable Person profile, shared by modal and routed editors. */
-export function PersonEditorFields({
+export function PersonPortraitEditor({
   client,
   people,
 }: {
@@ -105,11 +131,73 @@ export function PersonEditorFields({
   readonly people: People
 }) {
   const t = useLocalisation().t
-  const nameId = useId()
-  const nameErrorId = useId()
   const photoInput = useRef<HTMLInputElement>(null)
   const draft = people.state.draft
   const selected = people.state.selected
+  if (!draft) return null
+  const busy = people.state.status === 'saving'
+
+  return (
+    <div className="person-photo-editor person-photo-editor--portrait-control">
+      <input
+        ref={photoInput}
+        className="visually-hidden"
+        type="file"
+        accept="image/*"
+        aria-label={t('people.photo.change')}
+        disabled={busy || people.state.creating}
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0]
+          if (file) void people.importPhoto(file)
+          event.currentTarget.value = ''
+        }}
+      />
+      <div className="person-photo-editor__control">
+        {people.state.creating ? (
+          <PersonAvatar
+            client={client}
+            name={draft.displayName || t('people.create.heading')}
+            photo={null}
+            size="large"
+          />
+        ) : (
+          <button
+            type="button"
+            className="person-photo-editor__replace"
+            disabled={busy}
+            aria-label={t('people.photo.change')}
+            onClick={() => photoInput.current?.click()}
+          >
+            <PersonAvatar
+              client={client}
+              name={draft.displayName || t('people.create.heading')}
+              photo={selected?.profilePhoto ?? null}
+              size="large"
+            />
+          </button>
+        )}
+        {!people.state.creating && selected?.profilePhoto ? (
+          <button
+            type="button"
+            className="person-photo-editor__remove"
+            disabled={busy}
+            aria-label={t('people.photo.remove')}
+            onClick={() => void people.removePhoto()}
+          >
+            <RecordControlIcon name="close" />
+          </button>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+/** The complete editable Person profile, shared by modal and routed editors. */
+export function PersonEditorFields({ people }: { readonly people: People }) {
+  const t = useLocalisation().t
+  const nameId = useId()
+  const nameErrorId = useId()
+  const draft = people.state.draft
   if (!draft) return null
   const busy = people.state.status === 'saving'
   const valid = /\S/u.test(draft.displayName)
@@ -117,58 +205,7 @@ export function PersonEditorFields({
   return (
     <>
       <section className="person-card person-card--identity">
-        <div className="person-photo-editor person-photo-editor--portrait-control">
-          <input
-            ref={photoInput}
-            className="visually-hidden"
-            type="file"
-            accept="image/*"
-            aria-label={t('people.photo.change')}
-            disabled={busy || people.state.creating}
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0]
-              if (file) void people.importPhoto(file)
-              event.currentTarget.value = ''
-            }}
-          />
-          <div className="person-photo-editor__control">
-            {people.state.creating ? (
-              <PersonAvatar
-                client={client}
-                name={draft.displayName || t('people.create.heading')}
-                photo={null}
-                size="large"
-              />
-            ) : (
-              <button
-                type="button"
-                className="person-photo-editor__replace"
-                disabled={busy}
-                aria-label={t('people.photo.change')}
-                onClick={() => photoInput.current?.click()}
-              >
-                <PersonAvatar
-                  client={client}
-                  name={draft.displayName || t('people.create.heading')}
-                  photo={selected?.profilePhoto ?? null}
-                  size="large"
-                />
-                <span>{t('people.photo.change')}</span>
-              </button>
-            )}
-            {!people.state.creating && selected?.profilePhoto ? (
-              <button
-                type="button"
-                className="person-photo-editor__remove"
-                disabled={busy}
-                aria-label={t('people.photo.remove')}
-                onClick={() => void people.removePhoto()}
-              >
-                <RecordControlIcon name="close" />
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <h2>{t('people.identity')}</h2>
         <label className="person-field" htmlFor={nameId}>
           <span className="meta-text">{t('people.name')}</span>
           <input
@@ -192,6 +229,10 @@ export function PersonEditorFields({
           disabled={busy}
           onChange={(connectionLabels) => people.update({ connectionLabels })}
         />
+      </section>
+
+      <section className="person-card">
+        <h2>{t('people.about')}</h2>
         <label className="person-field">
           <span className="meta-text">{t('people.about')}</span>
           <textarea
@@ -206,7 +247,7 @@ export function PersonEditorFields({
       </section>
 
       <section className="person-card">
-        <h2 className="eyebrow">{t('people.names')}</h2>
+        <h2>{t('people.namesAndLanguage')}</h2>
         <label className="person-field">
           <span className="meta-text">{t('people.pronunciation')}</span>
           <input
@@ -273,7 +314,7 @@ export function PersonEditorFields({
       </section>
 
       <section className="person-card">
-        <h2 className="eyebrow">{t('people.life')}</h2>
+        <h2>{t('people.life')}</h2>
         <div className="person-field">
           <span className="meta-text">{t('people.life.status')}</span>
           <PeopleSelect
@@ -310,7 +351,7 @@ export function PersonEditorFields({
       </section>
 
       <section className="person-card">
-        <h2 className="eyebrow">{t('people.references')}</h2>
+        <h2>{t('people.references')}</h2>
         {draft.references.map((reference, index) => (
           <ReferenceRow
             key={index}

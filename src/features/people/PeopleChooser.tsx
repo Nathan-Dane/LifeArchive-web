@@ -259,7 +259,6 @@ export function PeopleChooser({
       >
         {people.active ? (
           <PersonDetails
-            client={client}
             people={people}
             headingId={editorHeading}
             closeRef={close}
