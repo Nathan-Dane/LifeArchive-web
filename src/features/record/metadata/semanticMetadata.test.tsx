@@ -226,7 +226,7 @@ describe('ordered tags and their one display tag', () => {
     })
     const family = screen.getByRole('menuitemcheckbox', { name: 'Family' })
     expect(personal).not.toHaveFocus()
-    expect(menu.querySelector('.record-tag-picker__list')).toHaveAttribute(
+    expect(menu.querySelector('.selection-menu__list')).toHaveAttribute(
       'data-keyboard-navigation',
       'false',
     )
@@ -257,18 +257,18 @@ describe('ordered tags and their one display tag', () => {
     ).toHaveAttribute('aria-pressed', 'true')
     expect(
       document.querySelector(
-        '.record-tag-ribbon [aria-label="Family, main tag"]',
+        '.record-tag-picker__assigned [aria-label="Family, main tag"]',
       ),
     ).toBeVisible()
     expect(
-      document.querySelector('.record-tag-ribbon')?.firstElementChild,
+      document.querySelector('.record-tag-picker__assigned')?.firstElementChild,
     ).toContainElement(
       document.querySelector(
-        '.record-tag-ribbon [data-semantic-tag-id="family"]',
+        '.record-tag-picker__assigned [data-semantic-tag-id="family"]',
       ),
     )
     expect(
-      family.querySelector('.record-tag-picker__check svg'),
+      family.querySelector('.selection-menu__check svg'),
     ).toBeInTheDocument()
   })
 
