@@ -5,14 +5,6 @@
  */
 
 export {
-  createDeviceCalendar,
-  deviceCalendar,
-  resetDeviceCalendar,
-  ISO_WEEK_RULES,
-  type DeviceCalendar,
-  type DeviceCalendarOptions,
-} from './deviceCalendar'
-export {
   RecordNavigationPanel,
   type RecordNavigationPanelProps,
 } from './RecordNavigationPanel'

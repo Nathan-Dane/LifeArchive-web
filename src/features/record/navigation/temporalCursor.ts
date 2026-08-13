@@ -38,7 +38,7 @@ import {
   type TimeWindow,
   type WindowStep,
 } from '../../../core/client'
-import { deviceCalendar, type DeviceCalendar } from './deviceCalendar'
+import { deviceCalendar, type DeviceCalendar } from '../../../platform/calendar'
 
 export type TemporalStatus = 'loading' | 'ready' | 'failed'
 
