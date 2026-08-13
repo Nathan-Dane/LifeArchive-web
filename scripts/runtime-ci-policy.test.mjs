@@ -18,6 +18,9 @@ test('public CI is safe for fork pull requests', async () => {
     /LifeArchive\.git|api\.github\.com.*LifeArchive/,
   )
   assert.match(workflow, /pnpm runtime:fetch/)
+  assert.match(workflow, /LIFEARCHIVE_RUNTIME_E2E: '1'/)
+  assert.match(workflow, /pnpm test:e2e:runtime/)
+  assert.match(workflow, /playwright install --with-deps chromium firefox/)
 })
 
 test('CI uses the same authoritative check command documented for local use', async () => {

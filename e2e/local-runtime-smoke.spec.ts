@@ -3,21 +3,23 @@ import { Buffer } from 'node:buffer'
 import { expect, test } from './qualified-browser-fixtures'
 
 const LOCAL_RUNTIME_URL = 'http://localhost:4187/record'
-const ENABLED = process.env.LIFEARCHIVE_LOCAL_RUNTIME_E2E === '1'
+const ENABLED =
+  process.env.LIFEARCHIVE_RUNTIME_E2E === '1' ||
+  process.env.LIFEARCHIVE_LOCAL_RUNTIME_E2E === '1'
 
 /**
- * Opt-in, machine-local development evidence only.
+ * Opt-in real-runtime evidence for a reviewed hosted pin or verified local
+ * development artifact.
  *
- * The explicit local-runtime selection reads the ignored verification receipt
- * and checksum-qualified artifact through the local origin. The browser still
- * verifies the whole artifact, manifest, and payloads before instantiation.
- * This does not change the production lock or establish reproducible
- * production acceptance.
+ * CI exercises the exact public lock after `runtime:fetch`; local development
+ * may instead select the ignored checksum-qualified receipt. In both cases the
+ * browser verifies the whole artifact, manifest, and payloads before
+ * instantiation.
  */
-test.describe('verified local development runtime', () => {
+test.describe('verified runtime integration', () => {
   test.skip(
     !ENABLED,
-    'install a local runtime and set VITE_LIFEARCHIVE_CLIENT=local-runtime plus LIFEARCHIVE_LOCAL_RUNTIME_E2E=1',
+    'set LIFEARCHIVE_RUNTIME_E2E=1 for a hosted pin, or install a local runtime and select local-runtime',
   )
 
   test('instantiates and negotiates before exposing first run', async ({
