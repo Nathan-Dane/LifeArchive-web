@@ -5,7 +5,7 @@ import type {
   StableId,
 } from '../../core/client'
 import { useTranslate } from '../../i18n'
-import { RecordControlIcon, RecordOverlay } from '../record/overlays'
+import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
 import { PeopleManager } from './PeopleManager'
 import { PersonAvatar } from './PersonAvatar'
 import { PersonDetails } from './PersonDetails'

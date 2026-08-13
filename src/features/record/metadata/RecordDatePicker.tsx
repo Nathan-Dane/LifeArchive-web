@@ -7,7 +7,7 @@ import {
   type RefObject,
 } from 'react'
 import { useFormat, useTranslate } from '../../../i18n'
-import { RecordControlIcon, RecordOverlay } from '../overlays'
+import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 
 interface DateParts {
   readonly year: number

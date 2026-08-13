@@ -10,7 +10,7 @@ export type RecordControlIconName =
   | 'next'
   | 'none'
 
-/** Small non-semantic controls shared by Record popups and compact actions. */
+/** Small non-semantic controls shared by popups and compact actions. */
 export function RecordControlIcon({
   name,
 }: {
