@@ -6,7 +6,7 @@
   "packageManager": "pnpm@11.17.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && pnpm bundle:size",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc -b --pretty false",
@@ -21,6 +21,7 @@
     "safety:mock": "pnpm safety:production",
     "runtime:fetch": "node scripts/fetch-runtime.mjs",
     "runtime:install-local": "node scripts/install-local-runtime.mjs",
+    "bundle:size": "node scripts/check-bundle-size.mjs",
     "icons:update": "node scripts/update-material-symbols.mjs",
     "icons:check": "node scripts/update-material-symbols.mjs --check",
     "test:policy": "node --test scripts/*.test.mjs",
