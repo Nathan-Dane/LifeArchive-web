@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
-import { useMediaQuery } from '../../../accessibility'
+import { useMediaQuery } from '../../accessibility'
 import {
   applyBrowserPreferences,
   applyResolvedTheme,

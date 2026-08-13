@@ -8,7 +8,7 @@ import type {
 import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
 import { RecordMedia } from '../media'
 import { RecordPeopleSection } from '../../people'
-import { useBrowserPreferences } from '../../settings/preferences'
+import { useBrowserPreferences } from '../../../app/preferences'
 import { useEditorDocument } from './useEditorDocument'
 
 const MarkdownWritingSurface = lazy(async () => {

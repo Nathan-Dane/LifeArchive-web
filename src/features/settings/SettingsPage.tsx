@@ -15,7 +15,7 @@ import {
   WEEK_START_PREFERENCES,
   useBrowserPreferences,
   type AccentColour,
-} from './preferences'
+} from '../../app/preferences'
 import {
   SettingsContentPage,
   SettingsDisabledRow,

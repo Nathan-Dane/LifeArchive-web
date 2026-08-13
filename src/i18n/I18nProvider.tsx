@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
-import { useBrowserPreferences } from '../features/settings/preferences'
+import { useBrowserPreferences } from '../app/preferences'
 import { LocalisationContext } from './context'
 import { resolveFormattingLocale } from './format'
 import { createLocalisation } from './localisation'
