@@ -41,9 +41,10 @@ export function PersonPageBreadcrumb({
         aria-label={t('people.breadcrumbs')}
       >
         <Link to="/index">{t('index.page.title')}</Link>
-        <span className="person-page__breadcrumb-separator" aria-hidden="true">
-          /
-        </span>
+        <span
+          className="person-page__breadcrumb-separator"
+          aria-hidden="true"
+        />
         {backToRecord ? (
           <Link to="/index/people">{t('people.page.title')}</Link>
         ) : (
@@ -55,9 +56,10 @@ export function PersonPageBreadcrumb({
             {t('people.page.title')}
           </button>
         )}
-        <span className="person-page__breadcrumb-separator" aria-hidden="true">
-          /
-        </span>
+        <span
+          className="person-page__breadcrumb-separator"
+          aria-hidden="true"
+        />
         {editing ? (
           <>
             <button type="button" onClick={onPerson}>
@@ -66,9 +68,7 @@ export function PersonPageBreadcrumb({
             <span
               className="person-page__breadcrumb-separator"
               aria-hidden="true"
-            >
-              /
-            </span>
+            />
             <span aria-current="page">
               {t('people.profile.editBreadcrumb')}
             </span>

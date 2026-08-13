@@ -4,6 +4,7 @@ import { failureMessage, useLocalisation } from '../../i18n'
 import { RecordControlIcon } from '../../ui/overlay'
 import { ConnectionLabelsEditor } from './ConnectionLabelsEditor'
 import { PersonAvatar } from './PersonAvatar'
+import { PeopleSelect } from './PeopleSelect'
 import {
   OtherNameRow,
   PartialDateEditor,
@@ -273,25 +274,27 @@ export function PersonEditorFields({
 
       <section className="person-card">
         <h2 className="eyebrow">{t('people.life')}</h2>
-        <label className="person-field">
+        <div className="person-field">
           <span className="meta-text">{t('people.life.status')}</span>
-          <select
+          <PeopleSelect
             value={draft.lifeStatus}
+            ariaLabel={t('people.life.status')}
             disabled={busy}
-            onChange={(event) =>
+            options={[
+              {
+                value: 'notSpecified',
+                label: t('people.life.status.notSpecified'),
+              },
+              { value: 'living', label: t('people.life.status.living') },
+              { value: 'deceased', label: t('people.life.status.deceased') },
+            ]}
+            onChange={(lifeStatus) =>
               people.update({
-                lifeStatus: event.currentTarget
-                  .value as PersonProfile['lifeStatus'],
+                lifeStatus: lifeStatus as PersonProfile['lifeStatus'],
               })
             }
-          >
-            <option value="notSpecified">
-              {t('people.life.status.notSpecified')}
-            </option>
-            <option value="living">{t('people.life.status.living')}</option>
-            <option value="deceased">{t('people.life.status.deceased')}</option>
-          </select>
-        </label>
+          />
+        </div>
         <PartialDateEditor
           label={t('people.birth')}
           value={draft.birthDate}

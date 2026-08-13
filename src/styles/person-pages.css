@@ -60,6 +60,10 @@
   color: var(--border-strong);
 }
 
+.person-page__breadcrumb-separator::before {
+  content: '/';
+}
+
 .person-page__breadcrumbs [aria-current='page'] {
   color: var(--color-text-primary);
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { PersonSnapshot } from '../../core/client'
 import { useLocalisation } from '../../i18n'
 import type { People } from './usePeople'
+import { PeopleSelect } from './PeopleSelect'
 
 export function PersonManagementActions({
   people,
@@ -55,20 +56,21 @@ export function PersonManagementActions({
           {people.state.mergeConflict ? (
             <p role="alert">{t('people.merge.conflict')}</p>
           ) : null}
-          <label>
+          <div className="person-field">
             <span>{t('people.merge.duplicate')}</span>
-            <select
+            <PeopleSelect
               value={mergeDuplicate}
-              onChange={(event) => setMergeDuplicate(event.currentTarget.value)}
-            >
-              <option value="" />
-              {mergeCandidates.map((candidate) => (
-                <option key={candidate.person.id} value={candidate.person.id}>
-                  {candidate.person.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
+              ariaLabel={t('people.merge.duplicate')}
+              options={[
+                { value: '', label: t('people.merge.choose') },
+                ...mergeCandidates.map((candidate) => ({
+                  value: candidate.person.id,
+                  label: candidate.person.displayName,
+                })),
+              ]}
+              onChange={setMergeDuplicate}
+            />
+          </div>
           <MergeChoice
             label={t('people.merge.name')}
             value={displayNameSource}
@@ -158,18 +160,17 @@ function MergeChoice<Value extends string>({
     none: 'people.merge.none',
   } as const
   return (
-    <label>
+    <div className="person-field">
       <span>{label}</span>
-      <select
+      <PeopleSelect
         value={value}
-        onChange={(event) => onChange(event.currentTarget.value as Value)}
-      >
-        {choices.map((choice) => (
-          <option key={choice} value={choice}>
-            {t(labels[choice as keyof typeof labels])}
-          </option>
-        ))}
-      </select>
-    </label>
+        ariaLabel={label}
+        options={choices.map((choice) => ({
+          value: choice,
+          label: t(labels[choice as keyof typeof labels]),
+        }))}
+        onChange={onChange}
+      />
+    </div>
   )
 }

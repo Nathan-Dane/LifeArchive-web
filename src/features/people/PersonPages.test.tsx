@@ -345,10 +345,10 @@ describe('Person routed pages', () => {
       name: 'Merge duplicate Person',
     })
     expect(task.parentElement).toHaveAttribute('data-placement', 'center')
-    await user.selectOptions(
-      within(task).getByRole('combobox', { name: 'Duplicate Person' }),
-      DUPLICATE_ID,
+    await user.click(
+      within(task).getByRole('button', { name: 'Duplicate Person' }),
     )
+    await user.click(screen.getByRole('menuitemradio', { name: 'Maya C.' }))
     await user.click(within(task).getByRole('button', { name: 'Merge' }))
     expect(people.merge).toHaveBeenCalledWith(
       DUPLICATE,

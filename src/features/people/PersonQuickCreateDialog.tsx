@@ -2,6 +2,7 @@ import { useId, useRef, useState, type RefObject } from 'react'
 import type { PersonSnapshot } from '../../core/client'
 import { failureMessage, useLocalisation } from '../../i18n'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
+import { PeopleSelect } from './PeopleSelect'
 import { STANDARD_CONNECTION_LABELS } from './connectionLabels'
 import type { People } from './usePeople'
 
@@ -117,21 +118,22 @@ export function PersonQuickCreateDialog({
             onChange={(event) => setName(event.currentTarget.value)}
           />
         </label>
-        <label className="person-field">
+        <div className="person-field">
           <span>{t('people.connections.optional')}</span>
-          <select
+          <PeopleSelect
             value={connection}
+            ariaLabel={t('people.connections.optional')}
             disabled={busy || created !== null}
-            onChange={(event) => setConnection(event.currentTarget.value)}
-          >
-            <option value="">{t('people.connections.none')}</option>
-            {STANDARD_CONNECTION_LABELS.map(({ value, message }) => (
-              <option key={value} value={value}>
-                {t(message)}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={[
+              { value: '', label: t('people.connections.none') },
+              ...STANDARD_CONNECTION_LABELS.map(({ value, message }) => ({
+                value,
+                label: t(message),
+              })),
+            ]}
+            onChange={setConnection}
+          />
+        </div>
       </div>
       <footer className="record-overlay__footer people-quick-create__footer">
         <button

@@ -178,7 +178,11 @@ export function ConnectionLabelsEditor({
                     type="button"
                     className="record-tag-picker__main"
                     role="menuitem"
-                    aria-label={t('people.connections.makePrimary')}
+                    aria-label={t(
+                      primary
+                        ? 'people.connections.primary'
+                        : 'people.connections.makePrimary',
+                    )}
                     aria-pressed={primary}
                     disabled={primary}
                     onPointerDown={() => setKeyboardNavigation(false)}
