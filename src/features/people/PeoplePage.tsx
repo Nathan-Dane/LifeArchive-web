@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState, type RefObject } from 'react'
 import {
-  Link,
   Navigate,
   Route,
   Routes,
@@ -160,9 +159,7 @@ function PeopleDirectory({
   return (
     <section className="people-directory" aria-labelledby={headingId}>
       <nav className="people-breadcrumbs" aria-label={t('people.breadcrumbs')}>
-        <Link to="/index">{t('index.page.title')}</Link>
-        <RecordControlIcon name="next" />
-        <span aria-current="page">{t('people.page.title')}</span>
+        <span className="eyebrow">{t('index.page.title')}</span>
       </nav>
       <header className="people-directory__header">
         <div>
@@ -176,7 +173,7 @@ function PeopleDirectory({
             aria-pressed={manageMode}
             onClick={() => onManageModeChange(!manageMode)}
           >
-            {t(manageMode ? 'people.manage.done' : 'people.manage')}
+            {t(manageMode ? 'people.manage.done' : 'people.manage.directory')}
           </button>
           <button
             ref={newPersonButton}
@@ -199,6 +196,7 @@ function PeopleDirectory({
         initialScroll={initialScroll}
         initialShowArchived
         onScrollChange={onScrollChange}
+        onManageModeChange={onManageModeChange}
         onCreate={onCreate}
         onSelect={(snapshot) => onSelect(snapshot.person.id)}
         onSetArchived={(snapshot, archived) =>

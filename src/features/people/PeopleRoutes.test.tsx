@@ -80,7 +80,7 @@ describe('People route lifecycle', () => {
     })
 
     await screen.findByText('Maya Chen')
-    const manage = screen.getByRole('button', { name: 'Manage People' })
+    const manage = screen.getAllByRole('button', { name: 'Manage' })[0]!
     await user.click(manage)
     expect(manage).toHaveAttribute('aria-pressed', 'true')
 
@@ -103,7 +103,7 @@ describe('People route lifecycle', () => {
       name: 'Search People',
     })
     expect(restoredSearch).toHaveValue('Maya')
-    expect(screen.getByRole('button', { name: 'Done' })).toHaveAttribute(
+    expect(screen.getAllByRole('button', { name: 'Done' })[0]).toHaveAttribute(
       'aria-pressed',
       'true',
     )

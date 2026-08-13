@@ -20,11 +20,7 @@
   align-items: center;
   gap: var(--space-sm);
   margin-bottom: var(--space-lg);
-  color: var(--color-text-secondary);
-}
-
-.people-breadcrumbs a {
-  color: var(--color-accent);
+  color: var(--color-text-tertiary);
 }
 
 .people-directory__header {
@@ -58,8 +54,11 @@
   padding: 0 0 var(--space-xl);
 }
 
-.people-manager__body[data-presentation='directory'] .people-manager__search {
+.people-manager__body[data-presentation='directory'] .people-manager__toolbar {
   top: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-sm);
   padding: var(--space-sm);
   border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-card);
@@ -67,20 +66,43 @@
   backdrop-filter: blur(0.75rem);
 }
 
+.people-manager__body[data-presentation='directory'] .people-manager__search {
+  padding: 0;
+  background: transparent;
+}
+
 .people-manager__body[data-presentation='directory'] .people-manager__group {
   margin-top: var(--space-xl);
 }
 
 .people-manager__body[data-presentation='directory'] .people-manager__list {
-  gap: var(--space-sm);
+  gap: 0;
+  overflow: clip;
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
 }
 
 .people-manager__body[data-presentation='directory']
   .people-manager__list
-  > button {
+  > .people-manager__row:not(:last-child) {
+  border-bottom: var(--border-hairline) solid var(--color-border);
+}
+
+.people-manager__body[data-presentation='directory'] .people-manager__row {
   min-height: 4.375rem;
-  border-color: var(--color-border);
-  background: var(--color-surface);
+}
+
+.people-manager__body[data-presentation='directory']
+  .people-manager__row:hover {
+  background: var(--color-surface-raised);
+}
+
+.people-manager__body[data-presentation='directory']
+  .people-manager__row
+  .person-avatar[data-size='small'] {
+  width: 2.875rem;
+  height: 2.875rem;
 }
 
 .people-manager__row-action {
@@ -173,17 +195,40 @@
   margin: 0 0 var(--space-sm);
 }
 
+.people-manager__group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.people-manager__group-heading > h3 {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
 .people-manager__list {
   display: grid;
   gap: var(--space-2xs);
 }
 
-.people-manager__list > button {
+.people-manager__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.people-manager__open {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-md);
   width: 100%;
+  min-height: inherit;
   padding: 0.7rem;
   border: var(--border-hairline) solid transparent;
   border-radius: var(--radius-control);
@@ -192,9 +237,40 @@
   text-align: start;
 }
 
-.people-manager__list > button:is(:hover, :focus-visible) {
+.people-manager__open:is(:hover, :focus-visible) {
   border-color: var(--color-border);
   background: var(--color-surface-raised);
+}
+
+.people-manager__body[data-presentation='directory']
+  .people-manager__open:is(:hover, :focus-visible) {
+  border-color: transparent;
+  background: transparent;
+}
+
+.people-manager__trail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.people-manager__manage-action {
+  display: grid;
+  width: var(--size-control-compact);
+  height: var(--size-control-compact);
+  margin-right: var(--space-sm);
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.people-manager__manage-action:is(:hover, :focus-visible) {
+  background: var(--color-surface-raised);
+  color: var(--color-accent);
 }
 
 .people-manager__copy {
