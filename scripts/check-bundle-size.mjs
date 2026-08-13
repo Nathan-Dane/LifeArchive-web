@@ -30,8 +30,7 @@ const NAMED_ASSETS = Object.freeze([
     key: 'mainJavaScript',
     label: 'main JavaScript',
     matches: (name, file) =>
-      /^index-[A-Za-z0-9_-]{8,}\.js$/.test(name) &&
-      file.htmlEntry === true,
+      /^index-[A-Za-z0-9_-]{8,}\.js$/.test(name) && file.htmlEntry === true,
   },
   {
     key: 'editorJavaScript',
