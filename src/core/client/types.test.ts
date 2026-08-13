@@ -9,16 +9,15 @@ import {
   revision,
   stableId,
 } from './types'
+import type { ArchiveSession, RuntimeStatus } from './archiveTypes'
 import type {
-  ArchiveSession,
   OrdinaryConflictState,
   OrdinaryEntry,
   OrdinaryEntryState,
   OrdinarySaveResult,
-  RuntimeStatus,
   StructuredPlacement,
-  TimeWindow,
-} from './types'
+} from './recordTypes'
+import type { TimeWindow } from './types'
 
 const MAXIMUM_REVISION = '18446744073709551615'
 
