@@ -11,7 +11,6 @@ export const recordPeopleMessages = {
   'record.people.contextPrefix': 'Person in this entry:',
   'record.people.viewPerson': 'View person',
   'record.people.editPerson': 'Edit person',
-  'record.people.removeFromEntry': 'Remove from this entry',
   'record.people.role.included': 'Included',
   'record.people.role.brief': 'Brief',
   'record.people.role.together': 'Together',

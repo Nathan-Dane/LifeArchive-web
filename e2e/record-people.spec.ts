@@ -13,9 +13,11 @@ test.describe('People in Record', () => {
     })
     await expect(person).toBeVisible()
     const writingBounds = await page
-      .locator('.record-editor__surface')
+      .locator('.record-editor__surface:visible')
       .boundingBox()
-    const peopleBounds = await page.locator('.record-people').boundingBox()
+    const peopleBounds = await page
+      .locator('.record-people:visible')
+      .boundingBox()
     expect(writingBounds).not.toBeNull()
     expect(peopleBounds).not.toBeNull()
     expect(Math.abs(peopleBounds!.x - writingBounds!.x)).toBeLessThanOrEqual(1)
@@ -38,16 +40,32 @@ test.describe('People in Record', () => {
       'aria-pressed',
       'false',
     )
-    await expect(
-      roles.getByRole('button', { name: 'Together' }),
-    ).toHaveAttribute('aria-pressed', 'true')
+    const together = roles.getByRole('button', { name: 'Together' })
+    const brief = roles.getByRole('button', { name: 'Brief' })
+    await expect(together).toHaveAttribute('aria-pressed', 'true')
     await expect(roles.getByRole('button', { name: 'About' })).toHaveAttribute(
       'aria-pressed',
       'false',
     )
     await expect(
-      task.getByRole('button', { name: 'Remove from this entry' }),
+      task.getByRole('button', { name: 'Remove Maya Chen' }),
     ).toBeVisible()
+    await expect(
+      task.getByRole('button', { name: 'Remove from this entry' }),
+    ).toHaveCount(0)
+    await expect(
+      task.locator('.record-person-role__remove .material-symbols-rounded'),
+    ).toHaveText('delete')
+    await together.hover()
+    const selectedHover = await together.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    )
+    await brief.hover()
+    const unselectedHover = await brief.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    )
+    expect(selectedHover).not.toBe(unselectedHover)
+    await expect(together).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('manages assigned and unassigned People without picker checkbox semantics', async ({

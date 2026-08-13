@@ -368,7 +368,7 @@ describe('RecordPeopleSection', () => {
       name: /Ada Lovelace/,
     })
     await user.click(
-      within(task).getByRole('button', { name: 'Remove from this entry' }),
+      within(task).getByRole('button', { name: 'Remove Ada Lovelace' }),
     )
     await screen.findByText('Removed Ada Lovelace.')
     expect(screen.queryByText('Ada Lovelace')).not.toBeInTheDocument()
@@ -620,6 +620,14 @@ describe('RecordPeopleSection', () => {
       }),
     )
     expect(dialog.querySelector('[data-icon="check"]')).toBeNull()
+    expect(
+      within(dialog).getByRole('button', { name: 'Remove Ada Lovelace' }),
+    ).toHaveTextContent('delete')
+    expect(
+      within(dialog).queryByRole('button', {
+        name: 'Remove from this entry',
+      }),
+    ).toBeNull()
     expect(dialog.closest('.record-overlay')).toHaveAttribute(
       'data-placement',
       'center',
