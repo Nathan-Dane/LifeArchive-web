@@ -1,12 +1,8 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { failureMessage, useLocalisation, useTranslate } from '../../../i18n'
 import type { EventEditor } from '../events/useEventEditor'
 import type { SpanEditor } from '../spans/useSpanEditor'
-
-const MarkdownWritingSurface = lazy(async () => {
-  const module = await import('./MarkdownWritingSurface')
-  return { default: module.MarkdownWritingSurface }
-})
+import { WritingSurface } from './WritingSurface'
 
 type StructuredWritingEditorProps =
   | { readonly kind: 'event'; readonly editor: EventEditor }
@@ -84,7 +80,7 @@ export function StructuredWritingEditor({
           <div className="record-editor__surface record-editor__surface--loading" />
         }
       >
-        <MarkdownWritingSurface
+        <WritingSurface
           key={editor.object?.summary.id ?? `new-${kind}`}
           value={draft?.markdown ?? ''}
           disabled={disabled}

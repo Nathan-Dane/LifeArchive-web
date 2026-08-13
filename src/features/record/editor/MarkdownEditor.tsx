@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import type {
   LifeArchiveClient,
   StableId,
@@ -10,11 +10,7 @@ import { RecordMedia } from '../media'
 import { RecordPeopleSection } from '../../people'
 import { useBrowserPreferences } from '../../../app/preferences'
 import { useEditorDocument } from './useEditorDocument'
-
-const MarkdownWritingSurface = lazy(async () => {
-  const module = await import('./MarkdownWritingSurface')
-  return { default: module.MarkdownWritingSurface }
-})
+import { WritingSurface } from './WritingSurface'
 
 export interface MarkdownEditorProps {
   readonly client: LifeArchiveClient
@@ -152,7 +148,7 @@ export function MarkdownEditor({
             />
           }
         >
-          <MarkdownWritingSurface
+          <WritingSurface
             key={document.key}
             value={document.markdown}
             disabled={disabled}

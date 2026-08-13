@@ -78,12 +78,7 @@ import {
 import { useTranslate } from '../../../i18n'
 import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 import { EditorIcon, type EditorIconName } from './EditorIcon'
-
-interface MarkdownWritingSurfaceProps {
-  readonly value: string
-  readonly disabled: boolean
-  readonly onChange: (markdown: string) => void
-}
+import type { WritingSurfaceProps } from './WritingSurface'
 
 type BlockStyle = 'paragraph' | 'headingTwo' | 'headingThree'
 type ListStyle = 'bullet' | 'number' | null
@@ -760,7 +755,7 @@ export function MarkdownWritingSurface({
   value,
   disabled,
   onChange,
-}: MarkdownWritingSurfaceProps) {
+}: WritingSurfaceProps) {
   const t = useTranslate()
   const initialConfig = useMemo(
     () => ({
