@@ -11,7 +11,7 @@ import {
   assertRuntimeCompatibility,
   parseRuntimeLock,
   type RuntimeManifest,
-} from './runtimeManifest'
+} from './runtimeCompatibility'
 import { RuntimeFetchError, fetchVerifiedBytes } from './runtimeFetch'
 import {
   RuntimeArtifactError,

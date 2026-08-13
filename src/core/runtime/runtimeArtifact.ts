@@ -1,4 +1,4 @@
-import type { RuntimeManifest } from './runtimeManifest'
+import type { RuntimeManifest } from './runtimeCompatibility'
 import { verifyArtifactSha256 } from './runtimeCompatibility'
 
 const TAR_BLOCK_BYTES = 512
