@@ -1,0 +1,59 @@
+.app-notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-compact);
+  align-items: center;
+  padding: var(--space-standard) var(--space-section);
+  border: var(--border-hairline) solid
+    color-mix(in srgb, var(--color-destructive) 32%, transparent);
+  border-radius: var(--radius-card);
+  margin: var(--space-standard) var(--space-content);
+  background: color-mix(in srgb, var(--color-destructive) 7%, transparent);
+  color: var(--color-text-primary);
+}
+
+.button {
+  display: inline-flex;
+  min-height: var(--size-control-compact);
+  align-items: center;
+  padding: 0 var(--space-section);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--border-muted);
+}
+
+.button:disabled,
+.record-details__delete:disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
+}
+
+.button--destructive {
+  border-color: color-mix(
+    in srgb,
+    var(--color-destructive) 58%,
+    var(--border-strong)
+  );
+  color: var(--color-destructive);
+}
+
+.button--destructive:hover {
+  background: color-mix(
+    in srgb,
+    var(--color-destructive) 9%,
+    var(--color-surface)
+  );
+}
+
+.button--primary {
+  border-color: transparent;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--weight-medium);
+}
