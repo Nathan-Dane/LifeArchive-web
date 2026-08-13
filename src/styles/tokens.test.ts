@@ -439,13 +439,16 @@ describe('the responsive breakpoints', () => {
 })
 
 describe('delivery safety', () => {
+  // Vite resolves the source-relative font URL while importing CSS inline in
+  // tests. The production build rewrites this same URL to the hashed asset.
+  const bundledFontUrl =
+    "url('/src/assets/material-symbols-rounded-subset.woff2')"
+
   it('asks for no font, image, or stylesheet over the network', () => {
     for (const css of ALL_CSS) {
       expect(css).not.toMatch(/url\(\s*['"]?(https?:)?\/\//i)
     }
-    expect(GLOBAL_CSS).toMatch(
-      /@font-face\s*\{[^}]*url\(['"]?data:font\/woff2;base64,/s,
-    )
+    expect(GLOBAL_CSS).toContain(bundledFontUrl)
     for (const css of [TOKENS_CSS, LAYOUT_CSS, TYPOGRAPHY_CSS]) {
       expect(css).not.toContain('@font-face')
     }
@@ -453,7 +456,7 @@ describe('delivery safety', () => {
 
   it('references nothing from the site root, so a base path still works', () => {
     for (const css of ALL_CSS) {
-      expect(css).not.toMatch(/url\(\s*['"]?\//)
+      expect(css.replace(bundledFontUrl, '')).not.toMatch(/url\(\s*['"]?\//)
     }
   })
 })
