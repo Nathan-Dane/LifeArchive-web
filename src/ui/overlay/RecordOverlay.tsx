@@ -120,7 +120,11 @@ export function RecordOverlay({
       const frame = globalThis.requestAnimationFrame(() => setPhase('open'))
       return () => globalThis.cancelAnimationFrame(frame)
     }
-    if (!open && phase === 'closing') {
+    // A rapid close → reopen → close can leave a queued opening frame as the
+    // last phase update. Mounting still follows the current `open` prop, so
+    // always complete a requested close instead of depending on that
+    // transitional phase value.
+    if (!open) {
       exitTimer.current = globalThis.setTimeout(
         finishClosing,
         prefersReducedMotion() ? 0 : EXIT_FALLBACK_MS,

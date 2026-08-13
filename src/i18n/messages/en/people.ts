@@ -2,7 +2,7 @@ export const peopleMessages = {
   'app.navigation.people': 'People',
   'people.page.title': 'People',
   'people.page.detail':
-    'People saved once and linked to memories throughout the archive.',
+    'Create People once and link them to memories throughout the archive.',
   'people.manage': 'Manage People',
   'people.manage.directory': 'Manage',
   'people.manage.done': 'Done',

@@ -20,6 +20,8 @@ const RESULT_DERIVED_PERSISTENCE_CLAIM_KEYS = new Set([
   'record.editor.status.saved',
   'record.event.status.saved',
   'record.span.status.saved',
+  'people.editorState.saved.title',
+  'people.editorState.saved.label',
 ])
 
 describe('the English catalog', () => {
