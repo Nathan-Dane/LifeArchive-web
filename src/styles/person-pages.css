@@ -1,22 +1,26 @@
 /* Routed Person profile and editor composition. Shared controls stay in people.css. */
 .person-page {
   width: min(62.5rem, calc(100% - 2.5rem));
-  min-height: 100%;
   margin-inline: auto;
-  padding: 2.375rem 0 5rem;
+  padding: 0;
 }
 
 .person-page--state {
   display: grid;
+  min-height: 100%;
   place-items: center;
   color: var(--color-text-secondary);
+}
+
+.workspace__content:has(.people-page > .person-page[data-page]) {
+  padding-bottom: 0;
 }
 
 .person-page__navigation {
   display: grid;
   justify-items: start;
   gap: var(--space-sm);
-  margin-block-end: 1.375rem;
+  margin-block-end: var(--space-md);
 }
 
 .person-page__back {
@@ -83,7 +87,7 @@
   display: grid;
   gap: var(--space-sm);
   position: sticky;
-  top: calc(var(--layout-topbar-height) + 1.375rem);
+  top: var(--space-md);
 }
 
 .person-page__identity {
@@ -387,7 +391,6 @@
 @media (max-width: 680px) {
   .person-page {
     width: calc(100% - 1.75rem);
-    padding: var(--space-lg) 0 calc(5rem + var(--shell-compact-nav-height));
   }
 
   .person-page__identity {

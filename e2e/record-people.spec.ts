@@ -12,6 +12,16 @@ test.describe('People in Record', () => {
       name: /Maya Chen.*Open Person context/,
     })
     await expect(person).toBeVisible()
+    const writingBounds = await page
+      .locator('.record-editor__surface')
+      .boundingBox()
+    const peopleBounds = await page.locator('.record-people').boundingBox()
+    expect(writingBounds).not.toBeNull()
+    expect(peopleBounds).not.toBeNull()
+    expect(Math.abs(peopleBounds!.x - writingBounds!.x)).toBeLessThanOrEqual(1)
+    expect(
+      Math.abs(peopleBounds!.width - writingBounds!.width),
+    ).toBeLessThanOrEqual(1)
     await person.click()
 
     const task = page.getByRole('dialog', {
