@@ -23,7 +23,10 @@ async function fixture(overrides = {}) {
     const size = overrides[name] ?? Math.min(BUNDLE_SIZE_BUDGETS[key], 1024)
     await writeFile(path.join(assets, name), Buffer.alloc(size))
   }
-  await writeFile(path.join(dist, 'index.html'), '<main></main>\n')
+  await writeFile(
+    path.join(dist, 'index.html'),
+    '<main></main><script type="module" src="/assets/index-AbCd1234.js"></script>\n',
+  )
   return { root, dist, assets }
 }
 
@@ -81,6 +84,18 @@ test('aggregate JavaScript budget catches growth moved to another chunk', async 
       inspectBundleSize({ dist }).violations.join('\n'),
       /allJavaScript: .* exceeds/,
     )
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('allows route chunks to share the source module basename with the HTML entry', async () => {
+  const { root, dist, assets } = await fixture()
+  try {
+    await writeFile(path.join(assets, 'index-EfGh5678.js'), '')
+    const result = inspectBundleSize({ dist })
+    assert.deepEqual(result.violations, [])
+    assert.equal(result.measurements.mainJavaScript, 1024)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

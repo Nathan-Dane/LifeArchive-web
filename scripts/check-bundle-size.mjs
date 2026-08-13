@@ -8,7 +8,7 @@
  * a compressor version or network transfer negotiation.
  */
 
-import { readdirSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import process from 'node:process'
@@ -29,7 +29,9 @@ const NAMED_ASSETS = Object.freeze([
   {
     key: 'mainJavaScript',
     label: 'main JavaScript',
-    matches: (name) => /^index-[A-Za-z0-9_-]{8,}\.js$/.test(name),
+    matches: (name, file) =>
+      /^index-[A-Za-z0-9_-]{8,}\.js$/.test(name) &&
+      file.htmlEntry === true,
   },
   {
     key: 'editorJavaScript',
@@ -74,10 +76,13 @@ export function inspectBundleSize({
 } = {}) {
   let files
   try {
+    const entryAsset = readEntryAsset(dist)
     files = walk(dist).map((absolute) => ({
       absolute,
       relative: path.relative(dist, absolute).split(path.sep).join('/'),
       size: statSync(absolute).size,
+      htmlEntry:
+        path.relative(dist, absolute).split(path.sep).join('/') === entryAsset,
     }))
   } catch {
     return {
@@ -93,7 +98,7 @@ export function inspectBundleSize({
 
   for (const asset of NAMED_ASSETS) {
     const matches = assets.filter((file) =>
-      asset.matches(path.posix.basename(file.relative)),
+      asset.matches(path.posix.basename(file.relative), file),
     )
     if (matches.length !== 1) {
       violations.push(
@@ -120,6 +125,18 @@ export function inspectBundleSize({
   }
 
   return { files, measurements, violations }
+}
+
+function readEntryAsset(dist) {
+  try {
+    const html = readFileSync(path.join(dist, 'index.html'), 'utf8')
+    const source = html.match(
+      /<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/iu,
+    )?.[1]
+    return source ? source.replace(/^\//u, '') : null
+  } catch {
+    return null
+  }
 }
 
 function main() {
