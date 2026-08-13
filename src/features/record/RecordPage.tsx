@@ -2,7 +2,7 @@
  * Record's primary region: one exact destination above its Markdown buffer.
  */
 
-import type { CivilDate, StructuredObject } from '../../core/client'
+import type { CivilDate, StableId, StructuredObject } from '../../core/client'
 import { useTranslate } from '../../i18n'
 import { deviceCalendar } from '../../platform/calendar'
 import { MarkdownEditor, StructuredWritingEditor } from './editor'
@@ -24,7 +24,21 @@ const ORDINARY_ENTRY_KIND = {
   year: 'record.editor.entryKind.scaleYear',
 } as const
 
-export function RecordPage() {
+export interface RecordPageProps {
+  readonly onViewPerson?: (
+    personId: StableId,
+    opener: HTMLButtonElement,
+  ) => void
+  readonly onEditPerson?: (
+    personId: StableId,
+    opener: HTMLButtonElement,
+  ) => void
+}
+
+export function RecordPage({
+  onViewPerson,
+  onEditPerson,
+}: RecordPageProps = {}) {
   const t = useTranslate()
   const {
     client,
@@ -34,6 +48,7 @@ export function RecordPage() {
     spans,
     developmentMock,
     navigationSummary,
+    flushBeforeExit,
   } = useRecordDestination()
   const window = cursor.state.view?.window ?? null
   const eventActive =
@@ -55,6 +70,14 @@ export function RecordPage() {
     : spanActive
       ? spanTitle
       : t(ORDINARY_TITLE[cursor.state.scale])
+  const viewPerson = onViewPerson
+    ? (personId: StableId, opener: HTMLButtonElement) =>
+        flushBeforeExit(() => onViewPerson(personId, opener))
+    : undefined
+  const editPerson = onEditPerson
+    ? (personId: StableId, opener: HTMLButtonElement) =>
+        flushBeforeExit(() => onEditPerson(personId, opener))
+    : undefined
   return (
     <div className="record-page">
       <header className="record-page__header">
@@ -82,6 +105,8 @@ export function RecordPage() {
           }}
           developmentMock={developmentMock}
           allowMedia={cursor.state.scale === 'day'}
+          onViewPerson={viewPerson}
+          onEditPerson={editPerson}
         />
       </div>
       <div hidden={!eventActive}>
@@ -105,6 +130,8 @@ export function RecordPage() {
           onEntryRevision={(_entryId, revision) =>
             events.adoptMediaRevision(revision)
           }
+          onViewPerson={viewPerson}
+          onEditPerson={editPerson}
         />
       </div>
       <div hidden={!spanActive}>
@@ -128,6 +155,8 @@ export function RecordPage() {
           onEntryRevision={(_entryId, revision) =>
             spans.adoptMediaRevision(revision)
           }
+          onViewPerson={viewPerson}
+          onEditPerson={editPerson}
         />
       </div>
     </div>

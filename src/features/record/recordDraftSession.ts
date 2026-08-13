@@ -55,5 +55,28 @@ export function useRecordDraftSessionGuard() {
     [flush],
   )
 
-  return { register, hasPendingWriting, flush, flushBefore }
+  const flushBeforeExit = useCallback(
+    (action: () => void) => {
+      const requested = (transition.current += 1)
+      void flush().then(
+        () => {
+          if (requested === transition.current && !hasPendingWriting()) {
+            action()
+          }
+        },
+        () => {
+          /* A rejected flush keeps Record and its in-memory drafts mounted. */
+        },
+      )
+    },
+    [flush, hasPendingWriting],
+  )
+
+  return {
+    register,
+    hasPendingWriting,
+    flush,
+    flushBefore,
+    flushBeforeExit,
+  }
 }

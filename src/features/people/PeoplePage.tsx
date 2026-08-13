@@ -16,6 +16,7 @@ import {
 } from '../../core/client'
 import { failureMessage, useLocalisation } from '../../i18n'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
+import { useRecordPersonOrigin } from '../../ui/navigation/recordPersonOrigin'
 import { STANDARD_CONNECTION_LABELS } from './connectionLabels'
 import { PeopleManager } from './PeopleManager'
 import { PersonEditorPage } from './PersonEditorPage'
@@ -24,8 +25,10 @@ import { usePeople, type People } from './usePeople'
 
 export function PeoplePage({ client }: { readonly client: LifeArchiveClient }) {
   const people = usePeople(client)
+  const t = useLocalisation().t
   const navigate = useNavigate()
   const location = useLocation()
+  const recordOrigin = useRecordPersonOrigin()
   const [directoryScroll, setDirectoryScroll] = useState(0)
   const [manageMode, setManageMode] = useState(false)
   const [quickCreateOpen, setQuickCreateOpen] = useState(false)
@@ -46,11 +49,19 @@ export function PeoplePage({ client }: { readonly client: LifeArchiveClient }) {
 
   const backToDirectory = () => {
     people.closeEditor()
+    if (recordOrigin.returnToRecord()) return
     navigate('/index/people')
   }
+  const navigatePersonRoute = (to: string) =>
+    navigate(to, { state: recordOrigin.stateForPersonRoute() })
 
   return (
     <div className="people-page">
+      {recordOrigin.expiredOrigin ? (
+        <p className="person-page__origin-notice" role="status">
+          {t('people.profile.recordOriginExpired')}
+        </p>
+      ) : null}
       <Routes>
         <Route
           index
@@ -80,7 +91,10 @@ export function PeoplePage({ client }: { readonly client: LifeArchiveClient }) {
               mode="profile"
               onBack={backToDirectory}
               onDeleted={backToDirectory}
-              onEdit={(personId) => navigate(`${personId}/edit`)}
+              backToRecord={recordOrigin.hasOrigin}
+              onEdit={(personId) =>
+                navigatePersonRoute(`/index/people/${personId}/edit`)
+              }
             />
           }
         />
@@ -93,8 +107,9 @@ export function PeoplePage({ client }: { readonly client: LifeArchiveClient }) {
               mode="editor"
               onBack={backToDirectory}
               onDeleted={backToDirectory}
+              backToRecord={recordOrigin.hasOrigin}
               onViewProfile={(personId) =>
-                navigate(`/index/people/${personId}`)
+                navigatePersonRoute(`/index/people/${personId}`)
               }
             />
           }
@@ -202,6 +217,7 @@ function AddressedPerson({
   onDeleted,
   onEdit,
   onViewProfile,
+  backToRecord,
 }: {
   readonly client: LifeArchiveClient
   readonly people: People
@@ -210,6 +226,7 @@ function AddressedPerson({
   readonly onDeleted: () => void
   readonly onEdit?: (personId: StableId) => void
   readonly onViewProfile?: (personId: StableId) => void
+  readonly backToRecord: boolean
 }) {
   const localisation = useLocalisation()
   const { personId = '' } = useParams()
@@ -241,6 +258,7 @@ function AddressedPerson({
         client={client}
         people={people}
         onBack={onBack}
+        backToRecord={backToRecord}
         onEdit={() => onEdit?.(validPersonId)}
         onDeleted={onDeleted}
       />
@@ -251,6 +269,7 @@ function AddressedPerson({
       client={client}
       people={people}
       onBack={onBack}
+      backToRecord={backToRecord}
       onViewProfile={() => onViewProfile?.(validPersonId)}
       onDeleted={onDeleted}
     />

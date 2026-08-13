@@ -42,6 +42,27 @@ function GuardHarness({
   )
 }
 
+function ExitGuardHarness({
+  flush,
+  hasPendingWriting,
+  leave,
+}: {
+  readonly flush: () => Promise<void>
+  readonly hasPendingWriting: () => boolean
+  readonly leave: () => void
+}) {
+  const guard = useRecordDraftSessionGuard()
+  useEffect(
+    () => guard.register({ hasPendingWriting, flush }),
+    [flush, guard, hasPendingWriting],
+  )
+  return (
+    <button type="button" onClick={() => guard.flushBeforeExit(leave)}>
+      Leave Record
+    </button>
+  )
+}
+
 describe('Record draft navigation guard', () => {
   it('waits for the pending flush and lets only the latest destination land', async () => {
     const pending = deferred()
@@ -64,5 +85,41 @@ describe('Record draft navigation guard', () => {
     pending.resolve()
     await vi.waitFor(() => expect(second).toHaveBeenCalledOnce())
     expect(first).not.toHaveBeenCalled()
+  })
+
+  it('leaves Record only when a completed flush has no pending writing', async () => {
+    let pendingWriting = true
+    const leave = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <ExitGuardHarness
+        hasPendingWriting={() => pendingWriting}
+        flush={async () => undefined}
+        leave={leave}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Leave Record' }))
+    expect(leave).not.toHaveBeenCalled()
+
+    pendingWriting = false
+    await user.click(screen.getByRole('button', { name: 'Leave Record' }))
+    await vi.waitFor(() => expect(leave).toHaveBeenCalledOnce())
+  })
+
+  it('keeps Record mounted when its draft flush rejects', async () => {
+    const leave = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <ExitGuardHarness
+        hasPendingWriting={() => true}
+        flush={async () => Promise.reject(new Error('save failed'))}
+        leave={leave}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Leave Record' }))
+    await Promise.resolve()
+    expect(leave).not.toHaveBeenCalled()
   })
 })

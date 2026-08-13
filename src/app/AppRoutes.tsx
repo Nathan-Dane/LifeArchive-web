@@ -22,6 +22,11 @@ import { useTranslate } from '../i18n'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { WorkspaceLayout } from './shell'
 import { ShellIcon, type ShellIconName } from './shell/ShellIcon'
+import { useRecordPersonOriginCoordinator } from './recordPersonOrigin'
+import {
+  RecordPersonOriginContext,
+  type OpenRecordPerson,
+} from '../ui/navigation/recordPersonOrigin'
 
 const TimelinePage = lazy(async () => {
   const module = await import('../features/timeline/TimelinePage')
@@ -75,7 +80,20 @@ const MAIN_ROUTES = [
     navigationPath: '/record',
     label: 'app.navigation.record',
     icon: 'record',
-    element: () => <RecordPage />,
+    element: (
+      _client: LifeArchiveClient,
+      _developmentMock: boolean,
+      openPerson: OpenRecordPerson,
+    ) => (
+      <RecordPage
+        onViewPerson={(personId, opener) =>
+          openPerson(personId, 'view', opener)
+        }
+        onEditPerson={(personId, opener) =>
+          openPerson(personId, 'edit', opener)
+        }
+      />
+    ),
     regions: (): WorkspaceRegions => ({
       navigation: <RecordNavigationRegion />,
       details: <RecordDetailsRegion />,
@@ -146,6 +164,7 @@ const MAIN_ROUTES = [
   readonly element: (
     client: LifeArchiveClient,
     developmentMock: boolean,
+    openPerson: OpenRecordPerson,
   ) => ReactNode
   readonly regions?: (client: LifeArchiveClient) => WorkspaceRegions
   readonly surround?: (
@@ -276,6 +295,7 @@ export function AppRoutes({
   readonly developmentMock?: boolean
 }) {
   const { pathname } = useLocation()
+  const personOrigin = useRecordPersonOriginCoordinator()
   const matched = MAIN_ROUTES.find((route) => matchPath(route.path, pathname))
   const regions: WorkspaceRegions =
     matched && 'regions' in matched ? matched.regions(client) : {}
@@ -293,7 +313,9 @@ export function AppRoutes({
           <Route
             key={route.path}
             path={route.path}
-            element={routeElement(route.element(client, developmentMock))}
+            element={routeElement(
+              route.element(client, developmentMock, personOrigin.openPerson),
+            )}
           />
         ))}
         <Route
@@ -309,7 +331,13 @@ export function AppRoutes({
     </WorkspaceLayout>
   )
 
+  const coordinated = (
+    <RecordPersonOriginContext.Provider value={personOrigin}>
+      {workspace}
+    </RecordPersonOriginContext.Provider>
+  )
+
   return matched && 'surround' in matched
-    ? matched.surround(client, workspace, developmentMock)
-    : workspace
+    ? matched.surround(client, coordinated, developmentMock)
+    : coordinated
 }

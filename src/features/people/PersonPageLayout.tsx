@@ -10,19 +10,25 @@ import { PersonAvatar } from './PersonAvatar'
 
 export function PersonPageBreadcrumb({
   onBack,
+  backToRecord = false,
 }: {
   readonly onBack: () => void
+  readonly backToRecord?: boolean
 }) {
   const t = useLocalisation().t
   return (
     <button
       type="button"
       className="person-page__back"
-      aria-label={t('people.profile.back')}
+      aria-label={t(
+        backToRecord ? 'people.profile.backToRecord' : 'people.profile.back',
+      )}
       onClick={onBack}
     >
       <RecordControlIcon name="back" />
-      <span>{t('people.page.title')}</span>
+      <span>
+        {t(backToRecord ? 'people.profile.record' : 'people.page.title')}
+      </span>
     </button>
   )
 }
