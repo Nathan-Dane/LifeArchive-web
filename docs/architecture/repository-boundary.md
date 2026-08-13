@@ -58,13 +58,20 @@ would make the boundary decorative.
 
 ## What may cross
 
-**Only compiled, versioned runtime artifacts cross the boundary**, together
-with the metadata needed to identify and verify them:
+**Compiled, versioned runtime artifacts cross the boundary**, together with the
+metadata needed to identify and verify them:
 
 - a compiled Wasm module and its loader/type surface;
 - an exact version, a checksum, and the contract/ABI versions it implements.
 
-Nothing else. No source, no schemas, no fixtures. See
+One narrow generated public-source projection also crosses during coordinated
+releases: semantic icon catalogue version/defaults plus ordered category and
+icon IDs. It contains stable public values only—no Rust source, private path or
+revision, contract fixture, glyph name, or localized label. The public
+repository commits and reviews the generated TypeScript snapshot, while its
+web-only glyph/localization adapters remain handwritten here.
+
+Nothing else crosses. No private source, schemas, or fixtures. See
 [`runtime-delivery.md`](runtime-delivery.md) for how artifacts are pinned,
 verified, and updated.
 
@@ -87,6 +94,8 @@ This is a hard constraint on how the frontend is written:
 
 - the runtime is loaded at runtime, never linked at build time;
 - no build step requires the artifact to be present;
+- no build or check step reads a private checkout to regenerate public value
+  snapshots;
 - tests run against the development mock or fixed values, behind the same
   `LifeArchiveClient` interface;
 - absence of the runtime is a well-defined, tested state — not a crash and not

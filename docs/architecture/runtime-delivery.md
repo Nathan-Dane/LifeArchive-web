@@ -23,6 +23,12 @@ One runtime release is an immutable, versioned bundle containing:
 It contains no Rust source, no schemas, no contract specifications, and no
 fixtures.
 
+The semantic icon picker separately consumes a committed generated TypeScript
+value snapshot. A coordinated private release exporter emits only catalogue
+version/defaults and ordered category/icon IDs into a reviewed public change.
+Public CI checks that committed snapshot and its complete web-only glyph
+coverage without reading or cloning the private repository.
+
 ## Exact version pinning
 
 The runtime is pinned to one exact version. Never a range, never `latest`,

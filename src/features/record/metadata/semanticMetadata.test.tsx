@@ -57,12 +57,38 @@ describe('the negotiated semantic catalogue adapter', () => {
     expect(SEMANTIC_ICON_CATEGORIES).toHaveLength(12)
     expect(ORDERED_SEMANTIC_ICON_IDS).toHaveLength(157)
     expect(new Set(ORDERED_SEMANTIC_ICON_IDS)).toHaveLength(157)
+    expect(new Set(SEMANTIC_ICON_CATEGORIES.map(({ id }) => id)).size).toBe(
+      SEMANTIC_ICON_CATEGORIES.length,
+    )
+    for (const category of SEMANTIC_ICON_CATEGORIES) {
+      expect(category.id).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      expect(category.icons.length).toBeGreaterThanOrEqual(8)
+      expect(category.icons.length).toBeLessThanOrEqual(16)
+      for (const icon of category.icons) {
+        expect(icon).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      }
+    }
+    expect(ORDERED_SEMANTIC_ICON_IDS).toContain(EVENT_DEFAULT_ICON_ID)
+    expect(ORDERED_SEMANTIC_ICON_IDS).toContain(SPAN_DEFAULT_ICON_ID)
     expect(Object.keys(MATERIAL_ICON_BY_SEMANTIC_ID)).toEqual(
       ORDERED_SEMANTIC_ICON_IDS,
     )
     expect(materialIconFor('life-event')).toBe('flag')
     expect(materialIconFor('span')).toBe('calendar_month')
     expect(materialIconFor('loss')).toBe('candle')
+  })
+
+  it('keeps generated value metadata separate from web presentation data', async () => {
+    const generated = await import('./semanticIconCatalog.generated')
+    expect(Object.keys(generated).sort()).toEqual([
+      'EVENT_DEFAULT_ICON_ID',
+      'ORDERED_SEMANTIC_ICON_IDS',
+      'SEMANTIC_ICON_CATALOG_VERSION',
+      'SEMANTIC_ICON_CATEGORIES',
+      'SPAN_DEFAULT_ICON_ID',
+    ])
+    expect(generated).not.toHaveProperty('MATERIAL_ICON_BY_SEMANTIC_ID')
+    expect(generated).not.toHaveProperty('MATERIAL_UI_GLYPHS')
   })
 
   it('renders known Material glyphs and preserves an unknown ID exactly', () => {
