@@ -40,7 +40,7 @@ export const settingsMessages = {
     'Applied when the root address is visited.',
   'settings.general.openAppTo.record': 'Record',
   'settings.general.openAppTo.timeline': 'Timeline',
-  'settings.general.openAppTo.people': 'People',
+  'settings.general.openAppTo.index': 'Index',
   'settings.general.openAppTo.last': 'Last opened page',
   'settings.general.language.label': 'Language',
   'settings.general.language.detail':

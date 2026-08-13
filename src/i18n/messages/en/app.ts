@@ -14,6 +14,7 @@ export const appMessages = {
   'app.navigation.main': 'Main',
   'app.navigation.record': 'Record',
   'app.navigation.timeline': 'Timeline',
+  'app.navigation.index': 'Index',
   'app.navigation.settings': 'Settings',
 
   'app.action.retry': 'Try again',

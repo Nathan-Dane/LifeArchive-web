@@ -80,6 +80,23 @@ describe('browser preferences', () => {
     expect(readBrowserPreferences()).toEqual(DEFAULT_BROWSER_PREFERENCES)
   })
 
+  it('migrates the former People destination to Index', () => {
+    globalThis.localStorage.setItem(
+      BROWSER_PREFERENCE_STORAGE_KEYS.openAppTo,
+      'people',
+    )
+    globalThis.localStorage.setItem(
+      BROWSER_PREFERENCE_STORAGE_KEYS.lastOpenedPage,
+      'people',
+    )
+
+    expect(readBrowserPreferences()).toEqual({
+      ...DEFAULT_BROWSER_PREFERENCES,
+      openAppTo: 'index',
+      lastOpenedPage: 'index',
+    })
+  })
+
   it('survives browser storage being unavailable', () => {
     const store = new BrowserPreferenceStore({ storage: refusing })
     expect(() => store.set('accentColour', 'sage')).not.toThrow()

@@ -312,7 +312,7 @@ function TrackMenuOption({
   )
 }
 
-function TrackManager({
+export function TrackManager({
   headingId,
   closeRef,
   tracks,
@@ -320,6 +320,7 @@ function TrackManager({
   onClose,
   onCreate,
   onSelect,
+  showClose = true,
 }: {
   readonly headingId: string
   readonly closeRef: RefObject<HTMLButtonElement | null>
@@ -328,6 +329,7 @@ function TrackManager({
   readonly onClose: () => void
   readonly onCreate: () => void
   readonly onSelect: (summary: TrackSummary) => void
+  readonly showClose?: boolean
 }) {
   const t = useTranslate()
   const active = tracks.filter(({ track }) => !track.isArchived)
@@ -341,15 +343,17 @@ function TrackManager({
           </h2>
           <p className="meta-text">{t('record.track.manageDetail')}</p>
         </div>
-        <button
-          ref={closeRef}
-          type="button"
-          className="record-overlay__close"
-          aria-label={t('record.track.closeManager')}
-          onClick={onClose}
-        >
-          <RecordControlIcon name="close" />
-        </button>
+        {showClose ? (
+          <button
+            ref={closeRef}
+            type="button"
+            className="record-overlay__close"
+            aria-label={t('record.track.closeManager')}
+            onClick={onClose}
+          >
+            <RecordControlIcon name="close" />
+          </button>
+        ) : null}
       </header>
       <div className="record-track-manager__body">
         <TrackManagerGroup
