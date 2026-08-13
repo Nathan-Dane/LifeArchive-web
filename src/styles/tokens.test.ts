@@ -153,6 +153,26 @@ describe('the layout stylesheet composition', () => {
     expect(ALL_RAW_CSS).not.toMatch(/scrollbar-width:\s*(?:auto|thin)/)
     expect(ALL_RAW_CSS).not.toMatch(/scrollbar-gutter:/)
   })
+
+  it('gives every text-like entry one app-owned surface and state treatment', () => {
+    for (const selector of [
+      'input:not([type])',
+      "input[type='text']",
+      "input[type='search']",
+      "input[type='url']",
+      "input[type='number']",
+      'textarea',
+    ]) {
+      expect(LAYOUT_CSS).toContain(selector)
+    }
+    expect(LAYOUT_CSS).toMatch(
+      /input\[type='text'\][\s\S]*?background:\s*var\(--color-surface\)[\s\S]*?caret-color:\s*var\(--color-accent\)/,
+    )
+    expect(LAYOUT_CSS).toMatch(/\):focus-visible\s*\{[^}]*outline:\s*0/s)
+    expect(LAYOUT_CSS).toMatch(
+      /\)\[aria-invalid='true'\]\s*\{[^}]*border-color:\s*var\(--color-destructive\)/s,
+    )
+  })
 })
 
 describe('the colour tokens', () => {

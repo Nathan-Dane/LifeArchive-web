@@ -333,17 +333,10 @@
 
 .settings-input {
   min-width: min(18rem, 100%);
-  padding: 0 var(--space-md);
   cursor: text;
 }
 
-.settings-input::placeholder {
-  color: var(--color-text-secondary);
-  opacity: var(--opacity-dimmed);
-}
-
-.settings-select:disabled,
-.settings-input:disabled {
+.settings-select:disabled {
   cursor: not-allowed;
 }
 
