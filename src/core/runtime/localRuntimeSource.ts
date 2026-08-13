@@ -1,4 +1,4 @@
-import type { RuntimeLock } from './runtimeManifest'
+import type { RuntimeLock } from './runtimeCompatibility'
 
 /**
  * Production artifact inspection searches for this marker. This entire module
