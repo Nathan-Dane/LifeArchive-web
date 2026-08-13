@@ -1,13 +1,8 @@
 import packageMetadata from '../../../package.json'
 import {
-  civilDate,
   coreTimeWindow,
   coreTrackHistoryCursor,
-  isCivilDate,
-  isRevision,
-  isStableId,
   revision,
-  stableId,
   type ArchiveCloseResult,
   type ArchiveEraseRequest,
   type ArchiveEraseResult,
@@ -36,7 +31,6 @@ import {
   type MediaImportRequest,
   type MediaImportResult,
   type MediaItem,
-  type MediaKind,
   type MediaListRequest,
   type MediaListing,
   type OpenArchive,
@@ -47,7 +41,6 @@ import {
   type OrdinaryEntryState,
   type OrdinarySaveRequest,
   type OrdinarySaveResult,
-  type PrivacyLevel,
   type EntryPeopleSnapshot,
   type Person,
   type PersonContactHistoryPage,
@@ -128,6 +121,35 @@ import {
   type TrackWithFirstMemberRequest,
   type WindowStepRequest,
 } from '../client'
+import {
+  array,
+  boolean,
+  count,
+  decimalCount,
+  integer,
+  integerText,
+  literal,
+  mapInvalidation,
+  mapInvalidationRequest,
+  mediaKind,
+  nullableCivilDate,
+  nullableCount,
+  nullableInteger,
+  nullableStableId,
+  nullableString,
+  nullableWeekNumber,
+  privacy,
+  record,
+  requiredCivilDate,
+  requiredRevision,
+  requiredStableId,
+  stableIds,
+  stableStrings,
+  string,
+  timestampMillis,
+} from './runtimeValues'
+
+export { mapInvalidation } from './runtimeValues'
 
 export interface PreparedRuntimeRequest {
   readonly request: unknown
@@ -2834,200 +2856,4 @@ function mapImportIdentity(
     default:
       throw new TypeError('Malformed archive import identity outcome')
   }
-}
-
-export function mapInvalidation(value: unknown): InvalidationToken {
-  const token = record(value, 'runtime invalidation token')
-  return {
-    storeInstanceId: string(
-      token.storeInstanceId,
-      'invalidation store instance identifier',
-    ),
-    revision: requiredRevision(token.revision, 'invalidation revision'),
-  }
-}
-
-function mapInvalidationRequest(value: InvalidationToken) {
-  return {
-    storeInstanceId: string(
-      value.storeInstanceId,
-      'invalidation store instance identifier',
-    ),
-    revision: requiredRevision(value.revision, 'invalidation revision'),
-  }
-}
-
-function mediaKind(value: unknown): MediaKind {
-  return literal(
-    value,
-    ['image', 'video', 'audio', 'document', 'text', 'other'] as const,
-    'media kind',
-  )
-}
-
-function privacy(value: unknown): PrivacyLevel {
-  return literal(
-    value,
-    ['normal', 'sensitive', 'locked'] as const,
-    'privacy level',
-  )
-}
-
-function record(value: unknown, description: string): Record<string, unknown> {
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    Array.isArray(value) ||
-    value instanceof ArrayBuffer
-  ) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return value as Record<string, unknown>
-}
-
-function array(value: unknown, description: string): readonly unknown[] {
-  if (!Array.isArray(value)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return value
-}
-
-function string(value: unknown, description: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return value
-}
-
-function boolean(value: unknown, description: string): boolean {
-  if (typeof value !== 'boolean') {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return value
-}
-
-function integer(value: unknown, description: string): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return value
-}
-
-function count(value: unknown, description: string): number {
-  const result = integer(value, description)
-  if (result < 0) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return result
-}
-
-function nullableInteger(value: unknown, description: string): number | null {
-  return value === null || value === undefined
-    ? null
-    : integer(value, description)
-}
-
-function timestampMillis(value: unknown, description: string): number {
-  const timestamp = string(value, description)
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(timestamp)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  const milliseconds = Date.parse(timestamp)
-  if (!Number.isSafeInteger(milliseconds)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return milliseconds
-}
-
-function nullableCount(value: unknown, description: string): number | null {
-  return value === null || value === undefined
-    ? null
-    : count(value, description)
-}
-
-function nullableWeekNumber(value: unknown): number | null {
-  const number = nullableCount(value, 'time window week number')
-  if (number !== null && (number < 1 || number > 53)) {
-    throw new TypeError('Malformed time window week number')
-  }
-  return number
-}
-
-function nullableString(value: unknown, description: string): string | null {
-  return value === null || value === undefined
-    ? null
-    : string(value, description)
-}
-
-function requiredStableId(value: unknown, description: string): StableId {
-  if (typeof value !== 'string' || !isStableId(value)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return stableId(value)
-}
-
-function nullableStableId(
-  value: unknown,
-  description: string,
-): StableId | null {
-  return value === null || value === undefined
-    ? null
-    : requiredStableId(value, description)
-}
-
-function requiredRevision(value: unknown, description: string) {
-  if (typeof value !== 'string' || !isRevision(value)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return revision(value)
-}
-
-function requiredCivilDate(value: unknown, description: string) {
-  if (typeof value !== 'string' || !isCivilDate(value)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return civilDate(value)
-}
-
-function nullableCivilDate(value: unknown, description: string) {
-  return value === null || value === undefined
-    ? null
-    : requiredCivilDate(value, description)
-}
-
-function literal<const Values extends readonly string[]>(
-  value: unknown,
-  values: Values,
-  description: string,
-): Values[number] {
-  if (typeof value !== 'string' || !values.includes(value)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return value as Values[number]
-}
-
-function stableIds(value: unknown, description: string): readonly StableId[] {
-  return array(value, description).map((entry) =>
-    requiredStableId(entry, description),
-  )
-}
-
-function stableStrings(value: unknown, description: string): readonly string[] {
-  return array(value, description).map((entry) => string(entry, description))
-}
-
-function integerText(value: unknown, description: string): string {
-  return String(count(value, description))
-}
-
-function decimalCount(value: unknown, description: string): number {
-  const text = string(value, description)
-  if (!/^(0|[1-9][0-9]*)$/.test(text)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  const parsed = Number(text)
-  if (!Number.isSafeInteger(parsed)) {
-    throw new TypeError(`Malformed ${description}`)
-  }
-  return parsed
 }
