@@ -11,7 +11,7 @@ import {
   useLocalisation,
   useTranslate,
 } from '../../../i18n'
-import { RecordControlIcon, RecordOverlay } from '../overlays'
+import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 import { safePreviewKind } from './previewUrlManager'
 import { useRecordMedia } from './useRecordMedia'
 

@@ -76,7 +76,7 @@ import {
   type MouseEvent,
 } from 'react'
 import { useTranslate } from '../../../i18n'
-import { RecordControlIcon, RecordOverlay } from '../overlays'
+import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 import { EditorIcon, type EditorIconName } from './EditorIcon'
 
 interface MarkdownWritingSurfaceProps {

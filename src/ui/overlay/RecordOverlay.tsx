@@ -10,7 +10,7 @@ import {
   type RefObject,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { useFocusTrap } from '../../../accessibility'
+import { useFocusTrap } from '../../accessibility'
 
 const DEFAULT_VIEWPORT_GUTTER = 20
 const EXIT_FALLBACK_MS = 320
@@ -60,7 +60,7 @@ export interface RecordOverlayProps {
 }
 
 /**
- * One blocking layer for Record popups and task modals.
+ * One blocking layer for application popups and task modals.
  *
  * Anchored surfaces begin centred over their activating control, then clamp
  * inward to the tokenised viewport gutter. The same layer owns dismissal,

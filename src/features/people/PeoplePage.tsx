@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import type { LifeArchiveClient } from '../../core/client'
 import { useTranslate } from '../../i18n'
-import { RecordOverlay } from '../record/overlays'
+import { RecordOverlay } from '../../ui/overlay'
 import { PeopleManager } from './PeopleManager'
 import { PersonDetails } from './PersonDetails'
 import { usePeople } from './usePeople'

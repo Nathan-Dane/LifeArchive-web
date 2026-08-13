@@ -28,7 +28,7 @@ import type {
   TemporalMotion,
   TemporalStatus,
 } from '../navigation/temporalCursor'
-import { RecordControlIcon, RecordOverlay } from '../overlays'
+import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 import { objectName, objectWhen } from './objectNames'
 import type { RecordObjects, RecordObjectsState } from './recordObjects'
 import { RecordObjectNoticeBar } from './RecordObjectNoticeBar'

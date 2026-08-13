@@ -8,7 +8,7 @@ import {
 } from 'react'
 import type { LifeArchiveClient, PersonSnapshot } from '../../core/client'
 import { failureMessage, useFormat, useLocalisation } from '../../i18n'
-import { RecordControlIcon } from '../record/overlays'
+import { RecordControlIcon } from '../../ui/overlay'
 import { PersonAvatar } from './PersonAvatar'
 import type { People } from './usePeople'
 

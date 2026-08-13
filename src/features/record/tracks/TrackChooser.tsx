@@ -14,7 +14,7 @@ import type {
 } from '../../../core/client'
 import { useTranslate } from '../../../i18n'
 import { RecordSemanticIcon } from '../metadata'
-import { RecordControlIcon, RecordOverlay } from '../overlays'
+import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 import { newestRecordInvalidation } from '../recordInvalidation'
 import { TrackDetails } from './TrackDetails'
 import type { CreatedTrack, Tracks } from './useTracks'

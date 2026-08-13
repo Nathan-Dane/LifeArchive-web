@@ -1,7 +1,7 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import type { SemanticId, StructuredTags } from '../../../core/client'
 import { semanticName, useLocalisation } from '../../../i18n'
-import { RecordControlIcon, RecordOverlay } from '../overlays'
+import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 import {
   PREDEFINED_TAG_IDS,
   MATERIAL_UI_GLYPHS,

@@ -11,7 +11,7 @@ import type {
   PersonSnapshot,
 } from '../../core/client'
 import { failureMessage, useFormat, useLocalisation } from '../../i18n'
-import { RecordControlIcon } from '../record/overlays'
+import { RecordControlIcon } from '../../ui/overlay'
 import { ConnectionLabelsEditor } from './ConnectionLabelsEditor'
 import { PersonAvatar } from './PersonAvatar'
 import type { People } from './usePeople'

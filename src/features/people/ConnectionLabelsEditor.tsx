@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import { useTranslate } from '../../i18n'
-import { RecordControlIcon, RecordOverlay } from '../record/overlays'
+import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
 
 const STANDARD = [
   ['Friend', 'people.connections.friend'],

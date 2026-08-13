@@ -1,7 +1,7 @@
 import { useId, useState, type RefObject } from 'react'
 import { failureMessage, useLocalisation } from '../../../i18n'
 import { RecordTagPicker, SemanticIconPicker } from '../metadata'
-import { RecordControlIcon } from '../overlays'
+import { RecordControlIcon } from '../../../ui/overlay'
 import { TrackHistory } from './TrackHistory'
 import type { CreatedTrack, Tracks } from './useTracks'
 
