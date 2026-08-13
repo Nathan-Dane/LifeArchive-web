@@ -36,7 +36,7 @@ test.describe('Index and canonical People routes', () => {
     await expect(
       page.getByRole('heading', { name: 'People', exact: true }),
     ).toBeVisible()
-    const search = page.getByPlaceholder('Search by name or connection')
+    const search = page.getByPlaceholder('Search People')
     await expect(search).toHaveValue('')
     await expect(page.getByRole('button', { name: /Maya Chen/ })).toBeVisible()
     await expect(page.getByRole('button', { name: /Jon Bell/ })).toBeVisible()
@@ -89,9 +89,10 @@ test.describe('Index and canonical People routes', () => {
 
     const dialog = page.getByRole('dialog', { name: 'New Person' })
     await dialog.getByRole('textbox', { name: 'Name' }).fill('E2E Person')
-    await dialog
-      .getByRole('combobox', { name: 'Connection (optional)' })
-      .selectOption('Friend')
+    await dialog.getByRole('button', { name: 'Connection (optional)' }).click()
+    await page
+      .getByRole('menuitemradio', { name: 'Friend', exact: true })
+      .click()
     await dialog.getByRole('button', { name: 'Create and continue' }).click()
 
     await expect(dialog).toHaveCount(0)
