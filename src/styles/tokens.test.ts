@@ -50,6 +50,7 @@ const GLOBAL_CSS = styles('global.css')
 const ALL_CSS = [TOKENS_CSS, ...LAYOUT_STYLESHEETS, TYPOGRAPHY_CSS, GLOBAL_CSS]
 const ALL_RAW_CSS = Object.values(RAW_STYLESHEETS).join('\n')
 const RECORD_CSS = styles('record.css')
+const PEOPLE_CSS = styles('people.css')
 
 interface AppearancePair {
   readonly light: string
@@ -267,6 +268,17 @@ describe('the Record style system', () => {
     ]) {
       expect(RECORD_CSS).toMatch(rule)
     }
+  })
+})
+
+describe('the People style system', () => {
+  it('uses the shared spacing, border, and pill tokens', () => {
+    expect(TOKENS_CSS).toContain('--radius-pill:')
+    expect(PEOPLE_CSS).not.toMatch(/border(?:-top)?:\s*1px/)
+    expect(PEOPLE_CSS).not.toContain('999px')
+    expect(PEOPLE_CSS).not.toMatch(
+      /(?:gap|margin(?:-top)?|padding(?:-block|-top|-inline-end)?):[^;]*(?<![\d.])(?:0\.25|0\.5|0\.75|1|1\.25|1\.5|2|3)rem/,
+    )
   })
 })
 

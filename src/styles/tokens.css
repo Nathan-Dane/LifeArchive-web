@@ -158,6 +158,7 @@
   --radius-card: 12px;
   --radius-panel: 16px;
   --radius-task: 20px;
+  --radius-pill: 999px;
 
   /* Shadows stay faint: they separate a surface from the ground, no more. */
   --shadow-card: 0 3px 10px light-dark(rgb(81 73 58 / 4%), rgb(0 0 0 / 20%));
