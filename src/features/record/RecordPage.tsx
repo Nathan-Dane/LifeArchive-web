@@ -4,10 +4,8 @@
 
 import type { CivilDate, StructuredObject } from '../../core/client'
 import { useTranslate } from '../../i18n'
-import { MarkdownEditor } from './editor'
-import { EventWritingEditor } from './events'
+import { MarkdownEditor, StructuredWritingEditor } from './editor'
 import { useRecordDestination } from './recordDestination'
-import { SpanWritingEditor } from './spans'
 import { RecordMedia } from './media'
 import { RecordPeopleSection } from '../people'
 import { deviceCalendar } from './navigation/deviceCalendar'
@@ -87,7 +85,7 @@ export function RecordPage() {
         />
       </div>
       <div hidden={!eventActive}>
-        <EventWritingEditor event={events} />
+        <StructuredWritingEditor kind="event" editor={events} />
         <RecordMedia
           client={client}
           ownerId={events.creating ? null : (events.object?.summary.id ?? null)}
@@ -110,7 +108,7 @@ export function RecordPage() {
         />
       </div>
       <div hidden={!spanActive}>
-        <SpanWritingEditor span={spans} />
+        <StructuredWritingEditor kind="span" editor={spans} />
         <RecordMedia
           client={client}
           ownerId={spans.creating ? null : (spans.object?.summary.id ?? null)}
