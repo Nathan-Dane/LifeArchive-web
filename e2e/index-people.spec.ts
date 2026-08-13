@@ -88,9 +88,7 @@ test.describe('Index and canonical People routes', () => {
     await page.getByRole('button', { name: 'New Person' }).click()
 
     const dialog = page.getByRole('dialog', { name: 'New Person' })
-    await dialog
-      .getByRole('textbox', { name: 'Display name' })
-      .fill('E2E Person')
+    await dialog.getByRole('textbox', { name: 'Name' }).fill('E2E Person')
     await dialog
       .getByRole('combobox', { name: 'Connection (optional)' })
       .selectOption('Friend')
