@@ -16,8 +16,8 @@ import type {
 } from '../../core/client'
 import { civilDate } from '../../core/client'
 import { failureMessage, useLocalisation } from '../../i18n'
+import { deviceCalendar } from '../../platform/calendar'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
-import { deviceCalendar } from '../record/navigation/deviceCalendar'
 import { PeopleChooser } from './PeopleChooser'
 import { PersonAvatar } from './PersonAvatar'
 

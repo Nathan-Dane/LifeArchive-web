@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { isCivilDate } from '../../../core/client'
+import { isCivilDate } from '../../core/client'
 import {
   civilDateOf,
   createDeviceCalendar,

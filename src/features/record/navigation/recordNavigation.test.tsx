@@ -33,7 +33,7 @@ import {
   coreCalendarDay,
   coreWindow,
 } from '../../../test/timeFixtures'
-import { createDeviceCalendar } from './deviceCalendar'
+import { createDeviceCalendar } from '../../../platform/calendar'
 import { RecordNavigationPanel } from './RecordNavigationPanel'
 import {
   RECORD_CURSOR_STORAGE_KEY,

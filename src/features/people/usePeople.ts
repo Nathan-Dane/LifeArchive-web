@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { civilDate } from '../../core/client'
 import type {
   ClientFailure,
   InvalidationToken,
@@ -12,6 +11,7 @@ import type {
   PersonProfile,
   PersonSnapshot,
 } from '../../core/client'
+import { deviceCalendar } from '../../platform/calendar'
 
 export type PersonDraft = PersonProfile
 
@@ -815,11 +815,5 @@ function mergeContactDays(
 }
 
 function civilToday() {
-  const now = new Date()
-  const value = `${now.getFullYear().toString().padStart(4, '0')}-${(
-    now.getMonth() + 1
-  )
-    .toString()
-    .padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`
-  return civilDate(value)
+  return deviceCalendar().today()
 }

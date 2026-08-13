@@ -15,7 +15,7 @@
  * components, so it is the reader's civil day rather than the runtime's.
  */
 
-import { civilDate, type CivilDate, type WeekRules } from '../../../core/client'
+import { civilDate, type CivilDate, type WeekRules } from '../../core/client'
 
 /**
  * ISO-8601 week conventions in the Foundation numbering required by the core:

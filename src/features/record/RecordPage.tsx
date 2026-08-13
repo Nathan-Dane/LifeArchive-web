@@ -4,11 +4,11 @@
 
 import type { CivilDate, StructuredObject } from '../../core/client'
 import { useTranslate } from '../../i18n'
+import { deviceCalendar } from '../../platform/calendar'
 import { MarkdownEditor, StructuredWritingEditor } from './editor'
 import { useRecordDestination } from './recordDestination'
 import { RecordMedia } from './media'
 import { RecordPeopleSection } from '../people'
-import { deviceCalendar } from './navigation/deviceCalendar'
 
 const ORDINARY_TITLE = {
   day: 'record.objects.ordinaryDay',
