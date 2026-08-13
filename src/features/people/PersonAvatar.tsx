@@ -44,7 +44,15 @@ export function PersonAvatar({
   return (
     <span className="person-avatar" data-size={size}>
       {source ? (
-        <img src={source} alt={t('people.photo.alt', { name })} />
+        <img
+          src={source}
+          alt={t('people.photo.alt', { name })}
+          onError={() =>
+            setLoaded((current) =>
+              current?.photoId === photo?.id ? null : current,
+            )
+          }
+        />
       ) : (
         <span
           role="img"
