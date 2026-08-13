@@ -23,7 +23,7 @@ import {
   readBrowserPreferences,
   storeBrowserPreference,
   type ThemePreference,
-} from '../../features/settings/preferences'
+} from '../preferences'
 
 export const APPEARANCE_PREFERENCES = THEME_PREFERENCES
 

@@ -29,7 +29,7 @@ import {
   useRecordDraftSessionGuard,
 } from './recordDraftSession'
 import { useTracks } from './tracks'
-import { useBrowserPreferences } from '../settings/preferences'
+import { useBrowserPreferences } from '../../app/preferences'
 
 export interface RecordDestinationProviderProps {
   readonly client: LifeArchiveClient

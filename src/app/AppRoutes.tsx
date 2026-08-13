@@ -16,7 +16,7 @@ import {
 } from '../features/record'
 import { SettingsNavigationRegion, SettingsPage } from '../features/settings'
 import { ArchiveOverviewProvider } from '../features/settings/archive'
-import { useBrowserPreferences } from '../features/settings/preferences'
+import { useBrowserPreferences } from './preferences'
 import { TimelinePage } from '../features/timeline/TimelinePage'
 import { PeoplePage } from '../features/people'
 import type { LifeArchiveClient, TimeScale } from '../core/client'

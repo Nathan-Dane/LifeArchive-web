@@ -24,7 +24,7 @@ import { TestLifeArchiveClient } from '../../../test/TestLifeArchiveClient'
 import { coreWindow } from '../../../test/timeFixtures'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MarkdownWritingSurface } from './MarkdownWritingSurface'
-import { BrowserPreferencesProvider } from '../../settings/preferences'
+import { BrowserPreferencesProvider } from '../../../app/preferences'
 
 const WINDOW = coreWindow('day', '2025-06-14')
 const INVALIDATION = {

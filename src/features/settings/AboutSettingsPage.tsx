@@ -3,7 +3,7 @@ import packageMetadata from '../../../package.json'
 import type { LifeArchiveClient } from '../../core/client'
 import { resetRememberedRecordCursor } from '../record'
 import { useTranslate } from '../../i18n'
-import { useBrowserPreferences } from './preferences'
+import { useBrowserPreferences } from '../../app/preferences'
 import {
   SettingsContentPage,
   SettingsDisabledRow,

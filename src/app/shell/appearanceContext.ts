@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useBrowserPreferences } from '../../features/settings/preferences'
+import { useBrowserPreferences } from '../preferences'
 import type { AppearancePreference } from './appearance'
 
 export interface AppearanceValue {

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BrowserPreferencesProvider } from '../../features/settings/preferences'
+import { BrowserPreferencesProvider } from '../preferences'
 import type { AppearancePreference } from './appearance'
 
 export interface AppearanceProviderProps {

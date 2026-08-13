@@ -1,6 +1,6 @@
 import { act, render } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { setClientMedia } from '../../../test/clientMedia'
+import { setClientMedia } from '../../test/clientMedia'
 import { BrowserPreferencesProvider } from './BrowserPreferencesProvider'
 import { PREFERENCE_ATTRIBUTES } from './browserPreferences'
 
