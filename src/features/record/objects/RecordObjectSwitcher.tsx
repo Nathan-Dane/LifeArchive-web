@@ -16,6 +16,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { prefersReducedMotion } from '../../../accessibility'
 import type {
   StableId,
   StructuredSummary,
@@ -43,13 +44,6 @@ const ORDINARY_LABEL = {
 const EMPTY_MEDIA_COUNTS: ReadonlyMap<StableId, number> = new Map()
 const ROW_TRANSITION_FALLBACK_MS = 300
 const ORDINARY_TRANSITION_FALLBACK_MS = 380
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof globalThis.matchMedia === 'function' &&
-    globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
-  )
-}
 
 export interface RecordObjectSwitcherProps {
   readonly scale: TimeScale
