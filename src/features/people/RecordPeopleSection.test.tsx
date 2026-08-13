@@ -16,12 +16,17 @@ import {
 import { I18nProvider } from '../../i18n'
 import { TestLifeArchiveClient } from '../../test/TestLifeArchiveClient'
 import { RecordPeopleSection } from './RecordPeopleSection'
+import {
+  groupRecordPeople,
+  toggleRecordPersonRole,
+} from './recordPeoplePresentation'
 
 const STORE_ID = stableId('a3000000-0000-4000-8000-000000000301')
 const ENTRY_ID = stableId('a3000000-0000-4000-8000-000000000302')
 const NEW_ENTRY_ID = stableId('a3000000-0000-4000-8000-000000000303')
 const ADA_ID = stableId('a3000000-0000-4000-8000-000000000304')
 const GRACE_ID = stableId('a3000000-0000-4000-8000-000000000305')
+const MARGARET_ID = stableId('a3000000-0000-4000-8000-000000000306')
 const INVALIDATION = {
   storeInstanceId: 'record-people-test',
   revision: revision('9'),
@@ -50,6 +55,7 @@ function person(id: typeof ADA_ID, displayName: string): Person {
 
 const ADA = person(ADA_ID, 'Ada Lovelace')
 const GRACE = person(GRACE_ID as typeof ADA_ID, 'Grace Hopper')
+const MARGARET = person(MARGARET_ID as typeof ADA_ID, 'Margaret Hamilton')
 
 function linked(personValue: Person, position: number) {
   return {
@@ -120,7 +126,7 @@ function makeClient(initial: EntryPeopleSnapshot | null = INITIAL) {
       mutateRecordContext,
       list: async () =>
         ok({
-          people: [snapshotOf(ADA), snapshotOf(GRACE)],
+          people: [snapshotOf(ADA), snapshotOf(GRACE), snapshotOf(MARGARET)],
           hasMore: false,
           nextCursor: null,
           invalidation: INVALIDATION,
@@ -179,7 +185,35 @@ function applyMutation(
           }
         }),
       }
-    case 'upsertLink':
+    case 'upsertLink': {
+      const existing = current.links.find(
+        ({ person }) => person.id === mutation.link.personId,
+      )
+      const personValue = [ADA, GRACE, MARGARET].find(
+        ({ id }) => id === mutation.link.personId,
+      )!
+      const next = existing ?? linked(personValue, current.links.length)
+      return {
+        ...current,
+        entryRevision: revisionValue,
+        links: existing
+          ? current.links.map((value) =>
+              value.person.id === mutation.link.personId
+                ? {
+                    ...value,
+                    link: { ...value.link, ...mutation.link },
+                  }
+                : value,
+            )
+          : [
+              ...current.links,
+              {
+                ...next,
+                link: { ...next.link, ...mutation.link },
+              },
+            ],
+      }
+    }
     case 'addLinks':
     case 'addSection':
       return current
@@ -194,6 +228,14 @@ function view(
     readonly minimum: ReturnType<typeof civilDate>
     readonly maximum: ReturnType<typeof civilDate>
   },
+  personActions?: {
+    readonly onViewPerson?: React.ComponentProps<
+      typeof RecordPeopleSection
+    >['onViewPerson']
+    readonly onEditPerson?: React.ComponentProps<
+      typeof RecordPeopleSection
+    >['onEditPerson']
+  },
 ) {
   render(
     <I18nProvider locale="en">
@@ -203,6 +245,8 @@ function view(
         entryKind={entryKind}
         contactDateBounds={contactDateBounds}
         onEntryRevision={onEntryRevision}
+        onViewPerson={personActions?.onViewPerson}
+        onEditPerson={personActions?.onEditPerson}
       />
     </I18nProvider>,
   )
@@ -311,7 +355,15 @@ describe('RecordPeopleSection', () => {
     await screen.findByRole('heading', { name: 'People' })
 
     await user.click(
-      screen.getByRole('button', { name: 'Remove Ada Lovelace' }),
+      screen.getByRole('button', {
+        name: /Ada Lovelace.*Open Person context/,
+      }),
+    )
+    const task = await screen.findByRole('dialog', {
+      name: /Ada Lovelace/,
+    })
+    await user.click(
+      within(task).getByRole('button', { name: 'Remove from This Entry' }),
     )
     await screen.findByText('Removed Ada Lovelace.')
     expect(screen.queryByText('Ada Lovelace')).not.toBeInTheDocument()
@@ -413,7 +465,7 @@ describe('RecordPeopleSection', () => {
       }),
     )
     const dialog = await screen.findByRole('dialog', {
-      name: 'Person context for Ada Lovelace',
+      name: /Ada Lovelace/,
     })
     expect(within(dialog).queryByRole('radio')).not.toBeInTheDocument()
     const contactDate = within(dialog).getByLabelText('Contact date')
@@ -439,5 +491,192 @@ describe('RecordPeopleSection', () => {
         newEntryId: NEW_ENTRY_ID,
       }),
     )
+  })
+
+  it('projects the hierarchy by visual priority without flattening independent context', () => {
+    const included = linked(ADA, 0)
+    const brief = {
+      ...linked(GRACE, 1),
+      link: {
+        ...linked(GRACE, 1).link,
+        interactionLevel: 'brief' as const,
+        tookPart: true,
+      },
+    }
+    const together = {
+      ...linked(MARGARET, 2),
+      link: {
+        ...linked(MARGARET, 2).link,
+        interactionLevel: 'timeTogether' as const,
+      },
+    }
+    const about = {
+      ...linked(ADA, 3),
+      link: {
+        ...linked(ADA, 3).link,
+        interactionLevel: 'timeTogether' as const,
+        tookPart: true,
+        isSubject: true,
+      },
+    }
+
+    const groups = groupRecordPeople([included, brief, together, about])
+    expect(groups.included).toEqual([included])
+    expect(groups.brief).toEqual([brief])
+    expect(groups.together).toEqual([together])
+    expect(groups.about).toEqual([about])
+
+    const original = {
+      personId: ADA_ID,
+      interactionLevel: 'brief' as const,
+      tookPart: true,
+      isSubject: true,
+    }
+    expect(toggleRecordPersonRole(original, 'together')).toEqual({
+      ...original,
+      interactionLevel: 'timeTogether',
+    })
+    expect(toggleRecordPersonRole(original, 'included')).toEqual({
+      ...original,
+      tookPart: false,
+    })
+    expect(toggleRecordPersonRole(original, 'about')).toEqual({
+      ...original,
+      isSubject: false,
+    })
+  })
+
+  it('updates all independent role dimensions in place with check-free pressed controls', async () => {
+    const user = userEvent.setup()
+    const { client, mutateRecordContext } = makeClient()
+    view(client)
+    await screen.findByRole('heading', { name: 'People' })
+    await user.click(
+      screen.getByRole('button', {
+        name: /Ada Lovelace.*Open Person context/,
+      }),
+    )
+    const dialog = await screen.findByRole('dialog', { name: /Ada Lovelace/ })
+    const included = within(dialog).getByRole('button', { name: 'Included' })
+    const brief = within(dialog).getByRole('button', { name: 'Brief' })
+    const about = within(dialog).getByRole('button', { name: 'About' })
+
+    expect(included).toHaveAttribute('aria-pressed', 'false')
+    await user.click(included)
+    await waitFor(() =>
+      expect(mutateRecordContext).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          mutation: {
+            kind: 'upsertLink',
+            link: {
+              personId: ADA_ID,
+              interactionLevel: 'none',
+              tookPart: true,
+              isSubject: false,
+            },
+          },
+        }),
+      ),
+    )
+    expect(included).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(brief)
+    await waitFor(() => expect(brief).toHaveAttribute('aria-pressed', 'true'))
+    await user.click(about)
+    await waitFor(() => expect(about).toHaveAttribute('aria-pressed', 'true'))
+    expect(mutateRecordContext).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        mutation: {
+          kind: 'upsertLink',
+          link: {
+            personId: ADA_ID,
+            interactionLevel: 'brief',
+            tookPart: true,
+            isSubject: true,
+          },
+        },
+      }),
+    )
+    expect(dialog.querySelector('[data-icon="check"]')).toBeNull()
+    expect(dialog.closest('.record-overlay')).toHaveAttribute(
+      'data-placement',
+      'center',
+    )
+  })
+
+  it('assigns an unlinked Person through the unified manager without plus or check controls', async () => {
+    const user = userEvent.setup()
+    const { client, mutateRecordContext } = makeClient()
+    view(client)
+    await screen.findByRole('heading', { name: 'People' })
+    await user.click(
+      screen.getByRole('button', { name: 'Manage People in This Entry' }),
+    )
+    const manager = await screen.findByRole('dialog', {
+      name: 'Manage People in This Entry',
+    })
+    expect(manager.closest('.record-overlay')).toHaveAttribute(
+      'data-placement',
+      'center',
+    )
+    expect(
+      within(manager).queryByRole('button', { name: /add Margaret/i }),
+    ).not.toBeInTheDocument()
+    const margaretRow = within(manager)
+      .getByText('Margaret Hamilton')
+      .closest('article')!
+    const together = within(margaretRow).getByRole('button', {
+      name: 'Together',
+    })
+    expect(together).toHaveAttribute('aria-pressed', 'false')
+    await user.click(together)
+    await waitFor(() =>
+      expect(mutateRecordContext).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          mutation: {
+            kind: 'upsertLink',
+            link: {
+              personId: MARGARET_ID,
+              interactionLevel: 'timeTogether',
+              tookPart: false,
+              isSubject: false,
+            },
+          },
+        }),
+      ),
+    )
+    expect(
+      within(manager).getByRole('button', {
+        name: 'Remove Margaret Hamilton',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('hands canonical View and Edit actions to the route origin coordinator', async () => {
+    const user = userEvent.setup()
+    const { client } = makeClient()
+    const onViewPerson = vi.fn()
+    const onEditPerson = vi.fn()
+    view(client, vi.fn(), 'day', undefined, {
+      onViewPerson,
+      onEditPerson,
+    })
+    await screen.findByRole('heading', { name: 'People' })
+    await user.click(
+      screen.getByRole('button', {
+        name: /Ada Lovelace.*Open Person context/,
+      }),
+    )
+    const dialog = await screen.findByRole('dialog', { name: /Ada Lovelace/ })
+    const viewButton = within(dialog).getByRole('button', {
+      name: 'View Person',
+    })
+    await user.click(viewButton)
+    expect(onViewPerson).toHaveBeenCalledWith(ADA_ID, viewButton)
+    const editButton = within(dialog).getByRole('button', {
+      name: 'Edit Person',
+    })
+    await user.click(editButton)
+    expect(onEditPerson).toHaveBeenCalledWith(ADA_ID, editButton)
   })
 })

@@ -1,0 +1,385 @@
+/* Record's role-weighted People hierarchy and its centred task surfaces. */
+
+.record-people__hierarchy {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.record-people__prominent {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(calc(var(--size-control-featured) * 3), 1fr)
+  );
+  gap: var(--space-md);
+}
+
+.record-person-card {
+  min-width: 0;
+}
+
+.record-person-card > button {
+  display: grid;
+  width: 100%;
+  min-height: calc(var(--size-control-featured) * 3);
+  justify-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-md);
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.record-person-card__copy {
+  display: grid;
+  max-width: 100%;
+  gap: var(--space-2xs);
+}
+
+.record-person-card__copy > span {
+  color: var(--color-text-secondary);
+  font-size: var(--text-record-meta);
+}
+
+.record-people__row-group {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.record-people__row-group > h3,
+.record-entry-people-manager__group > h3 {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-record-meta);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  text-transform: uppercase;
+}
+
+.record-people__row-group > div {
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.record-people__row-group > div > article > button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: start;
+}
+
+.record-people__row-group > div > article > button > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-people__row-group > div > article > button > span:not(.person-avatar) {
+  color: var(--color-text-secondary);
+  font-size: var(--text-record-meta);
+}
+
+.record-people__actions > .button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.record-person-task {
+  display: flex;
+  width: min(
+    calc(var(--layout-reading-measure) * 0.72),
+    calc(100vw - var(--space-details-outer))
+  );
+  max-height: calc(100dvh - var(--space-details-outer));
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.record-person-task__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-content) 0;
+}
+
+.record-person-task__body {
+  display: grid;
+  min-height: 0;
+  gap: var(--space-lg);
+  overflow-y: auto;
+  padding: var(--space-lg) var(--space-content) var(--space-content);
+}
+
+.record-person-task__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.record-person-task__identity h2,
+.record-person-task__identity p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.record-person-task__identity p {
+  color: var(--color-text-secondary);
+}
+
+.record-person-roles {
+  display: flex;
+  max-width: 100%;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  padding: var(--space-2xs);
+}
+
+.record-person-roles > button {
+  min-width: max-content;
+  min-height: var(--size-control-compact);
+  padding: var(--space-sm) var(--space-md);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+}
+
+.record-person-roles > button[aria-pressed='true'] {
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 16%,
+    var(--color-surface-alt)
+  );
+  color: var(--color-accent);
+  font-weight: var(--weight-semibold);
+}
+
+.record-person-roles[data-compact='true'] {
+  padding: 0;
+}
+
+.record-person-roles[data-compact='true'] > button {
+  min-height: var(--size-control-compact);
+  padding-inline: var(--space-sm);
+  font-size: var(--text-record-meta);
+}
+
+.record-person-task__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.record-person-task__actions > .button--destructive {
+  grid-column: 1 / -1;
+}
+
+.record-person-task__contact {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: var(--radius-control);
+}
+
+.record-entry-people-manager {
+  display: flex;
+  width: min(
+    var(--layout-reading-measure),
+    calc(100vw - var(--space-details-outer))
+  );
+  max-height: calc(100dvh - var(--space-details-outer));
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.record-entry-people-manager__body {
+  display: grid;
+  min-height: 0;
+  gap: var(--space-lg);
+  overflow-y: auto;
+  padding: var(--space-md) var(--space-content) var(--space-content);
+}
+
+.record-entry-people-manager__search {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: block;
+  padding-block: var(--space-sm);
+  background: var(--color-page-warm);
+}
+
+.record-entry-people-manager__search > input {
+  width: 100%;
+}
+
+.record-entry-people-manager__group,
+.record-entry-people-manager__list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.record-entry-person-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  min-width: 0;
+  padding: var(--space-sm);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.record-entry-person-row[data-selected='true'] {
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+}
+
+.record-entry-person-row__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.record-entry-person-row__identity > span:not(.person-avatar) {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2xs);
+}
+
+.record-entry-person-row__identity strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-entry-person-row__controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.record-entry-person-row__order {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: var(--space-2xs);
+}
+
+.record-entry-person-row__order > button {
+  min-height: var(--size-control-compact);
+  padding-inline: var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.record-person-role__remove {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--size-control-compact);
+  height: var(--size-control-compact);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-alt);
+  color: var(--color-destructive);
+}
+
+.record-person-role__bin {
+  position: relative;
+  width: var(--space-md);
+  height: var(--space-md);
+  border: var(--border-hairline) solid currentColor;
+  border-top: 0;
+  border-radius: 0 0 var(--space-2xs) var(--space-2xs);
+}
+
+.record-person-role__bin::before {
+  position: absolute;
+  top: calc(var(--space-2xs) * -1);
+  left: calc(var(--space-2xs) * -0.5);
+  width: calc(100% + var(--space-2xs));
+  border-top: var(--border-hairline) solid currentColor;
+  content: '';
+}
+
+.record-person-role__bin::after {
+  position: absolute;
+  top: calc(var(--space-sm) * -1);
+  left: calc(50% - var(--space-2xs));
+  width: var(--space-sm);
+  height: var(--space-2xs);
+  border: var(--border-hairline) solid currentColor;
+  border-bottom: 0;
+  content: '';
+}
+
+.record-entry-people-manager__empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 680px) {
+  .record-people__prominent {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .record-person-card > button {
+    grid-template-columns: auto minmax(0, 1fr);
+    min-height: 0;
+    justify-items: start;
+    padding: var(--space-md);
+    text-align: start;
+  }
+
+  .record-person-card .person-avatar[data-size='large'] {
+    width: var(--size-control-featured);
+    height: var(--size-control-featured);
+    font-size: var(--text-record-meta);
+  }
+
+  .record-person-card__copy {
+    align-self: center;
+  }
+
+  .record-person-task__identity {
+    align-items: flex-start;
+  }
+
+  .record-person-task__actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .record-person-task__actions > .button--destructive {
+    grid-column: auto;
+  }
+
+  .record-entry-person-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .record-entry-person-row__controls {
+    overflow-x: auto;
+  }
+
+  .record-entry-person-row__order {
+    grid-column: auto;
+  }
+}

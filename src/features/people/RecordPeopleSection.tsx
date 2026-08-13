@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type {
-  ClientFailure,
   CivilDate,
+  ClientFailure,
   EntryPeopleSnapshot,
   InvalidationToken,
   LifeArchiveClient,
   LinkedPersonSnapshot,
   PersonInteractionLevel,
   PersonLinkDraft,
+  PersonSnapshot,
   RecordPeopleMutation,
   RecordPeopleTarget,
   Revision,
@@ -18,8 +19,20 @@ import { civilDate } from '../../core/client'
 import { failureMessage, useLocalisation } from '../../i18n'
 import { deviceCalendar } from '../../platform/calendar'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
-import { PeopleChooser } from './PeopleChooser'
 import { PersonAvatar } from './PersonAvatar'
+import {
+  displayRole,
+  groupRecordPeople,
+  recordPersonRoleSelected,
+  toggleRecordPersonRole,
+  type RecordPersonRole,
+} from './recordPeoplePresentation'
+import { usePeople } from './usePeople'
+
+interface UndoState {
+  readonly snapshot: EntryPeopleSnapshot | null
+  readonly message: string
+}
 
 export function RecordPeopleSection({
   client,
@@ -27,6 +40,9 @@ export function RecordPeopleSection({
   entryKind,
   contactDateBounds,
   onEntryRevision,
+  onViewPerson,
+  onEditPerson,
+  onCreatePerson,
 }: {
   readonly client: LifeArchiveClient
   readonly target: RecordPeopleTarget | null
@@ -36,6 +52,15 @@ export function RecordPeopleSection({
     readonly maximum: CivilDate
   }
   readonly onEntryRevision?: (entryId: StableId, revision: Revision) => void
+  readonly onViewPerson?: (
+    personId: StableId,
+    opener: HTMLButtonElement,
+  ) => void
+  readonly onEditPerson?: (
+    personId: StableId,
+    opener: HTMLButtonElement,
+  ) => void
+  readonly onCreatePerson?: (opener: HTMLButtonElement) => void
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
@@ -52,15 +77,14 @@ export function RecordPeopleSection({
   const targetKey = recordPeopleTargetKey(target)
   const targetRef = useRef(target)
   const snapshotRef = useRef<EntryPeopleSnapshot | null>(null)
-  const tileButtons = useRef<(HTMLButtonElement | null)[]>([])
+  const personButtons = useRef(new Map<StableId, HTMLButtonElement>())
   const [snapshot, setSnapshot] = useState<EntryPeopleSnapshot | null>(null)
   const [loadedAbsent, setLoadedAbsent] = useState(false)
   const [failure, setFailure] = useState<
     Parameters<typeof failureMessage>[1] | null
   >(null)
-  const [undo, setUndo] = useState<readonly PersonLinkDraft[] | null>(null)
-  const [removedName, setRemovedName] = useState<string | null>(null)
-  const [editing, setEditing] = useState<LinkedPersonSnapshot | null>(null)
+  const [undo, setUndo] = useState<UndoState | null>(null)
+  const [editingPersonId, setEditingPersonId] = useState<StableId | null>(null)
   const [entryManagerOpen, setEntryManagerOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [pendingMutation, setPendingMutation] =
@@ -81,10 +105,7 @@ export function RecordPeopleSection({
     setSnapshot(null)
     snapshotRef.current = null
     setLoadedAbsent(false)
-    if (!currentTarget) {
-      setSnapshot(null)
-      return
-    }
+    if (!currentTarget) return
     const result = await client.people.loadRecordContext({
       target: currentTarget,
     })
@@ -106,16 +127,14 @@ export function RecordPeopleSection({
     mutationInFlight.current = false
     invalidationRef.current = null
     globalThis.queueMicrotask(() => {
-      if (active) {
-        setUndo(null)
-        setRemovedName(null)
-        setEditing(null)
-        setEntryManagerOpen(false)
-        setPendingMutation(null)
-        setFailure(null)
-        setBusy(false)
-        void load()
-      }
+      if (!active) return
+      setUndo(null)
+      setEditingPersonId(null)
+      setEntryManagerOpen(false)
+      setPendingMutation(null)
+      setFailure(null)
+      setBusy(false)
+      void load()
     })
     return () => {
       active = false
@@ -182,38 +201,88 @@ export function RecordPeopleSection({
     [client, onEntryRevision],
   )
 
-  const currentDrafts = snapshot?.links.map(linkDraft) ?? []
-  const selectedIds = currentDrafts.map(({ personId }) => personId)
-  const replaceSelection = async (ids: readonly StableId[]) => {
-    const current = new Map(currentDrafts.map((link) => [link.personId, link]))
-    const links = ids.map(
-      (personId): PersonLinkDraft =>
-        current.get(personId) ?? {
-          personId,
-          interactionLevel: 'none',
-          tookPart: false,
-          isSubject: false,
-        },
-    )
-    return mutate({ kind: 'replaceLinks', links })
-  }
+  const mutateWithUndo = useCallback(
+    async (mutation: RecordPeopleMutation, message: string) => {
+      const prior = snapshotRef.current
+      const changed = await mutate(mutation)
+      if (changed) setUndo({ snapshot: prior, message })
+      return changed
+    },
+    [mutate],
+  )
 
-  const remove = async (linked: LinkedPersonSnapshot, index?: number) => {
-    const prior = currentDrafts
-    if (await mutate({ kind: 'removePeople', personIds: [linked.person.id] })) {
-      setUndo(prior)
-      setRemovedName(linked.person.displayName)
-      globalThis.setTimeout(() => {
-        const remainingIndex = Math.min(
-          index ?? 0,
-          Math.max(0, (snapshotRef.current?.links.length ?? 1) - 1),
-        )
-        const destination =
-          tileButtons.current[remainingIndex] ?? entryManagerOpener.current
-        destination?.focus()
-      }, 0)
+  const restoreUndo = useCallback(async () => {
+    if (!undo) return
+    const prior = undo.snapshot
+    const current = snapshotRef.current
+    if (!prior?.peopleSectionVisible) {
+      if (current?.peopleSectionVisible) {
+        if (await mutate({ kind: 'removeSection', sectionId: 'people' })) {
+          setUndo(null)
+        }
+      } else {
+        setUndo(null)
+      }
+      return
     }
-  }
+    if (!current?.peopleSectionVisible) {
+      const restoredSection = await mutate({
+        kind: 'addSection',
+        sectionId: 'people',
+      })
+      if (!restoredSection) return
+    }
+    const restoredLinks =
+      prior.links.length === 0
+        ? await mutate({ kind: 'clearLinks' })
+        : await mutate({
+            kind: 'replaceLinks',
+            links: prior.links.map(linkDraft),
+          })
+    if (restoredLinks) setUndo(null)
+  }, [mutate, undo])
+
+  const remove = useCallback(
+    async (linked: LinkedPersonSnapshot) => {
+      const changed = await mutateWithUndo(
+        { kind: 'removePeople', personIds: [linked.person.id] },
+        t('record.people.removed', { name: linked.person.displayName }),
+      )
+      if (changed) {
+        setEditingPersonId((current) =>
+          current === linked.person.id ? null : current,
+        )
+        const destination = personButtons.current.get(
+          snapshotRef.current?.links[0]?.person.id ?? linked.person.id,
+        )
+        globalThis.setTimeout(
+          () => (destination ?? entryManagerOpener.current)?.focus(),
+          0,
+        )
+      }
+      return changed
+    },
+    [mutateWithUndo, t],
+  )
+
+  const updateRole = useCallback(
+    async (person: PersonSnapshot, role: RecordPersonRole) => {
+      const linked = snapshotRef.current?.links.find(
+        (value) => value.person.id === person.person.id,
+      )
+      const current = linked
+        ? linkDraft(linked)
+        : emptyLinkDraft(person.person.id)
+      const next = toggleRecordPersonRole(current, role)
+      return mutateWithUndo(
+        { kind: 'upsertLink', link: next },
+        t(linked ? 'record.people.contextChanged' : 'record.people.added', {
+          name: person.person.displayName,
+        }),
+      )
+    },
+    [mutateWithUndo, t],
+  )
 
   if (!target) return null
   if (!snapshot && failure) {
@@ -239,31 +308,15 @@ export function RecordPeopleSection({
     return (
       <div className="record-add-context">
         {failure ? (
-          <div role="alert" className="record-details__failure">
-            <p>{failureMessage(localisation, failure)}</p>
-            {pendingMutation ? (
-              <button
-                type="button"
-                className="button"
-                disabled={busy}
-                onClick={() => void mutate(pendingMutation)}
-              >
-                {t('people.retry')}
-              </button>
-            ) : null}
-          </div>
+          <MutationFailure
+            failure={failure}
+            mutation={pendingMutation}
+            busy={busy}
+            onRetry={mutate}
+          />
         ) : null}
         {!failure && pendingMutation && !busy ? (
-          <div role="alert" className="record-editor__conflict">
-            <p>{t('record.people.conflict')}</p>
-            <button
-              type="button"
-              className="button"
-              onClick={() => void mutate(pendingMutation)}
-            >
-              {t('people.retry')}
-            </button>
-          </div>
+          <MutationConflict mutation={pendingMutation} onRetry={mutate} />
         ) : null}
         <details>
           <summary>{t('record.people.addContext')}</summary>
@@ -271,133 +324,71 @@ export function RecordPeopleSection({
             type="button"
             disabled={busy}
             onClick={() =>
-              void mutate({ kind: 'addSection', sectionId: 'people' })
+              void mutateWithUndo(
+                { kind: 'addSection', sectionId: 'people' },
+                t('record.people.sectionAdded'),
+              )
             }
           >
             <RecordControlIcon name="add" />
             <span>{t('record.people.addSection')}</span>
           </button>
         </details>
+        <UndoNotice undo={undo} busy={busy} onUndo={restoreUndo} />
       </div>
     )
   }
   if (!snapshot) return null
 
+  const groups = groupRecordPeople(snapshot.links)
+  const editing = editingPersonId
+    ? (snapshot.links.find(({ person }) => person.id === editingPersonId) ??
+      null)
+    : null
+  const allowsInteraction = entryKind === 'day' || entryKind === 'event'
+
+  const openTask = (
+    linked: LinkedPersonSnapshot,
+    opener: HTMLButtonElement,
+  ) => {
+    contextOpener.current = opener
+    setEditingPersonId(linked.person.id)
+  }
+
   return (
-    <section className="record-people" aria-labelledby={headingId}>
+    <section
+      className="record-people record-people--weighted"
+      aria-labelledby={headingId}
+    >
       <header>
-        <h2 id={headingId}>{t('record.people.heading')}</h2>
+        <h2 id={headingId} aria-label={t('record.people.heading')}>
+          {t('record.people.headingWithCount', {
+            count: snapshot.links.length,
+          })}
+        </h2>
       </header>
       {failure ? (
-        <div role="alert" className="record-details__failure">
-          <p>{failureMessage(localisation, failure)}</p>
-          {pendingMutation ? (
-            <button
-              type="button"
-              className="button"
-              disabled={busy}
-              onClick={() => void mutate(pendingMutation)}
-            >
-              {t('people.retry')}
-            </button>
-          ) : null}
-        </div>
+        <MutationFailure
+          failure={failure}
+          mutation={pendingMutation}
+          busy={busy}
+          onRetry={mutate}
+        />
       ) : null}
       {!failure && pendingMutation && !busy ? (
-        <div role="alert" className="record-editor__conflict">
-          <p>{t('record.people.conflict')}</p>
-          <button
-            type="button"
-            className="button"
-            onClick={() => void mutate(pendingMutation)}
-          >
-            {t('people.retry')}
-          </button>
-        </div>
+        <MutationConflict mutation={pendingMutation} onRetry={mutate} />
       ) : null}
       {snapshot.links.length === 0 ? (
-        <p>{t('record.people.empty')}</p>
+        <p className="record-people__empty">{t('record.people.empty')}</p>
       ) : (
-        <div
-          className="record-people__tiles"
-          role="list"
-          aria-label={t('record.people.heading')}
-        >
-          {snapshot.links.map((linked, index) => (
-            <article
-              key={linked.person.id}
-              className="record-person-tile"
-              role="listitem"
-            >
-              <button
-                ref={(element) => {
-                  tileButtons.current[index] = element
-                  if (editing?.person.id === linked.person.id)
-                    contextOpener.current = element
-                }}
-                type="button"
-                aria-label={t('record.people.tileLabel', {
-                  name: linked.person.displayName,
-                  interaction: t(
-                    `record.people.interaction.${linked.link.interactionLevel}`,
-                  ),
-                  participation: t(
-                    linked.link.tookPart
-                      ? 'record.people.tookPart'
-                      : 'record.people.didNotTakePart',
-                  ),
-                  subject: t(
-                    linked.link.isSubject
-                      ? 'record.people.isSubject'
-                      : 'record.people.isNotSubject',
-                  ),
-                })}
-                onClick={(event) => {
-                  contextOpener.current = event.currentTarget
-                  setEditing(linked)
-                }}
-              >
-                <PersonAvatar
-                  client={client}
-                  name={linked.person.displayName}
-                  photo={linked.profilePhoto}
-                  size="medium"
-                />
-                <strong>{linked.person.displayName}</strong>
-                <span>
-                  {t(
-                    `record.people.interaction.${linked.link.interactionLevel}`,
-                  )}
-                </span>
-                {linked.link.tookPart ? (
-                  <span>{t('record.people.tookPart')}</span>
-                ) : null}
-                {linked.link.isSubject ? (
-                  <span>{t('record.people.isSubject')}</span>
-                ) : null}
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                aria-label={t('record.people.remove', {
-                  name: linked.person.displayName,
-                })}
-                onClick={() => void remove(linked, index)}
-              >
-                <RecordControlIcon name="close" />
-              </button>
-            </article>
-          ))}
-        </div>
+        <RecordPeopleHierarchy
+          client={client}
+          groups={groups}
+          personButtons={personButtons}
+          onOpen={openTask}
+        />
       )}
       <div className="record-people__actions">
-        <PeopleChooser
-          client={client}
-          value={selectedIds}
-          triggerLabel={t('people.add')}
-          disabled={busy}
-          onChange={replaceSelection}
-        />
         <button
           ref={entryManagerOpener}
           type="button"
@@ -405,13 +396,19 @@ export function RecordPeopleSection({
           disabled={busy}
           onClick={() => setEntryManagerOpen(true)}
         >
-          {t('record.people.manage')}
+          <RecordControlIcon name="manage" />
+          <span>{t('record.people.manage')}</span>
         </button>
         <button
           type="button"
           className="button button--secondary"
           disabled={busy || snapshot.links.length === 0}
-          onClick={() => void mutate({ kind: 'clearLinks' })}
+          onClick={() =>
+            void mutateWithUndo(
+              { kind: 'clearLinks' },
+              t('record.people.cleared'),
+            )
+          }
         >
           {t('record.people.clear')}
         </button>
@@ -420,54 +417,41 @@ export function RecordPeopleSection({
           className="button button--secondary"
           disabled={busy}
           onClick={() =>
-            void mutate({ kind: 'removeSection', sectionId: 'people' })
+            void mutateWithUndo(
+              { kind: 'removeSection', sectionId: 'people' },
+              t('record.people.sectionRemoved'),
+            )
           }
         >
           {t('record.people.removeSection')}
         </button>
       </div>
-      {undo && removedName ? (
-        <div className="record-people__undo" role="status" aria-live="polite">
-          <span>{t('record.people.removed', { name: removedName })}</span>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              void mutate({ kind: 'replaceLinks', links: undo }).then(
-                (restored) => {
-                  if (restored) {
-                    setUndo(null)
-                    setRemovedName(null)
-                  }
-                },
-              )
-            }}
-          >
-            {t('record.people.undo')}
-          </button>
-        </div>
-      ) : null}
+      <UndoNotice undo={undo} busy={busy} onUndo={restoreUndo} />
       <RecordOverlay
         open={editing !== null && !entryManagerOpen}
         kind="modal"
+        modalPlacement="center"
         labelledBy={contextHeadingId}
         anchorRef={contextOpener}
         initialFocusRef={contextClose}
-        onClose={() => setEditing(null)}
-        className="record-person-context"
+        onClose={() => setEditingPersonId(null)}
+        className="record-person-task"
       >
         {editing ? (
-          <PersonContextEditor
+          <PersonEntryTask
             client={client}
             headingId={contextHeadingId}
             closeRef={contextClose}
             linked={editing}
-            allowsInteraction={entryKind === 'day' || entryKind === 'event'}
+            allowsInteraction={allowsInteraction}
             contactDateBounds={recordContactBounds(target, contactDateBounds)}
             busy={busy}
-            onClose={() => setEditing(null)}
-            onSave={async (link) => {
-              if (await mutate({ kind: 'upsertLink', link })) setEditing(null)
+            onClose={() => setEditingPersonId(null)}
+            onToggleRole={(role) => updateRole(snapshotOfLinked(editing), role)}
+            onViewPerson={onViewPerson}
+            onEditPerson={onEditPerson}
+            onRemove={async () => {
+              if (await remove(editing)) setEditingPersonId(null)
             }}
           />
         ) : null}
@@ -475,68 +459,178 @@ export function RecordPeopleSection({
       <RecordOverlay
         open={entryManagerOpen}
         kind="modal"
-        labelledBy={editing ? contextHeadingId : entryManagerHeadingId}
+        modalPlacement="center"
+        labelledBy={entryManagerHeadingId}
         anchorRef={entryManagerOpener}
-        initialFocusRef={editing ? contextClose : entryManagerClose}
-        onClose={() => {
-          setEditing(null)
-          setEntryManagerOpen(false)
-        }}
-        className={editing ? 'record-person-context' : 'people-manager'}
+        initialFocusRef={entryManagerClose}
+        onClose={() => setEntryManagerOpen(false)}
+        className="record-entry-people-manager"
       >
-        {editing ? (
-          <PersonContextEditor
-            client={client}
-            headingId={contextHeadingId}
-            closeRef={contextClose}
-            linked={editing}
-            allowsInteraction={entryKind === 'day' || entryKind === 'event'}
-            contactDateBounds={recordContactBounds(target, contactDateBounds)}
-            busy={busy}
-            onBack={() => {
-              setEditing(null)
-              globalThis.queueMicrotask(() => contextOpener.current?.focus())
-            }}
-            onClose={() => {
-              setEditing(null)
-              setEntryManagerOpen(false)
-            }}
-            onSave={async (link) => {
-              if (await mutate({ kind: 'upsertLink', link })) setEditing(null)
-            }}
-          />
-        ) : (
-          <EntryPeopleManager
-            client={client}
-            headingId={entryManagerHeadingId}
-            closeRef={entryManagerClose}
-            links={snapshot.links}
-            busy={busy}
-            onClose={() => setEntryManagerOpen(false)}
-            onEdit={(linked, opener) => {
-              contextOpener.current = opener
-              setEditing(linked)
-              globalThis.queueMicrotask(() => contextClose.current?.focus())
-            }}
-            onMove={(index, offset) => {
-              const links = [...currentDrafts]
-              const destination = index + offset
-              if (destination < 0 || destination >= links.length) return
-              ;[links[index], links[destination]] = [
-                links[destination]!,
-                links[index]!,
-              ]
-              void mutate({ kind: 'replaceLinks', links })
-            }}
-            onRemove={(linked, index) => void remove(linked, index)}
-          />
-        )}
+        <EntryPeopleManager
+          client={client}
+          headingId={entryManagerHeadingId}
+          closeRef={entryManagerClose}
+          links={snapshot.links}
+          allowsInteraction={allowsInteraction}
+          busy={busy}
+          onClose={() => setEntryManagerOpen(false)}
+          onToggleRole={updateRole}
+          onMove={(index, offset) => {
+            const links = snapshotRef.current?.links.map(linkDraft) ?? []
+            const destination = index + offset
+            if (destination < 0 || destination >= links.length) return
+            ;[links[index], links[destination]] = [
+              links[destination]!,
+              links[index]!,
+            ]
+            void mutateWithUndo(
+              { kind: 'replaceLinks', links },
+              t('record.people.reordered'),
+            )
+          }}
+          onRemove={remove}
+          onCreatePerson={onCreatePerson}
+        />
       </RecordOverlay>
     </section>
   )
 }
 
-function PersonContextEditor({
+function RecordPeopleHierarchy({
+  client,
+  groups,
+  personButtons,
+  onOpen,
+}: {
+  readonly client: LifeArchiveClient
+  readonly groups: Record<RecordPersonRole, readonly LinkedPersonSnapshot[]>
+  readonly personButtons: React.RefObject<Map<StableId, HTMLButtonElement>>
+  readonly onOpen: (
+    linked: LinkedPersonSnapshot,
+    opener: HTMLButtonElement,
+  ) => void
+}) {
+  const t = useLocalisation().t
+  return (
+    <div className="record-people__hierarchy">
+      {groups.about.length > 0 || groups.together.length > 0 ? (
+        <div
+          className="record-people__prominent"
+          role="list"
+          aria-label={t('record.people.prominent')}
+        >
+          {[...groups.about, ...groups.together].map((linked) => {
+            const role = displayRole(linked)
+            return (
+              <article
+                key={linked.person.id}
+                className="record-person-card"
+                data-role={role}
+                role="listitem"
+              >
+                <button
+                  ref={(element) => {
+                    if (element)
+                      personButtons.current.set(linked.person.id, element)
+                    else personButtons.current.delete(linked.person.id)
+                  }}
+                  type="button"
+                  aria-label={personTaskLabel(t, linked)}
+                  onClick={(event) => onOpen(linked, event.currentTarget)}
+                >
+                  <PersonAvatar
+                    client={client}
+                    name={linked.person.displayName}
+                    photo={linked.profilePhoto}
+                    size="large"
+                  />
+                  <span className="record-person-card__copy">
+                    <strong>{linked.person.displayName}</strong>
+                    <span>{t(`record.people.role.${role}`)}</span>
+                  </span>
+                </button>
+              </article>
+            )
+          })}
+        </div>
+      ) : null}
+      {groups.brief.length > 0 ? (
+        <RecordPeopleRows
+          client={client}
+          heading={t('record.people.group.brief')}
+          links={groups.brief}
+          personButtons={personButtons}
+          onOpen={onOpen}
+        />
+      ) : null}
+      {groups.included.length > 0 ? (
+        <RecordPeopleRows
+          client={client}
+          heading={t('record.people.group.also')}
+          links={groups.included}
+          personButtons={personButtons}
+          onOpen={onOpen}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function RecordPeopleRows({
+  client,
+  heading,
+  links,
+  personButtons,
+  onOpen,
+}: {
+  readonly client: LifeArchiveClient
+  readonly heading: string
+  readonly links: readonly LinkedPersonSnapshot[]
+  readonly personButtons: React.RefObject<Map<StableId, HTMLButtonElement>>
+  readonly onOpen: (
+    linked: LinkedPersonSnapshot,
+    opener: HTMLButtonElement,
+  ) => void
+}) {
+  const t = useLocalisation().t
+  const headingId = useId()
+  return (
+    <section className="record-people__row-group" aria-labelledby={headingId}>
+      <h3 id={headingId}>{heading}</h3>
+      <div role="list">
+        {links.map((linked) => {
+          const role = displayRole(linked)
+          return (
+            <article key={linked.person.id} role="listitem">
+              <button
+                ref={(element) => {
+                  if (element)
+                    personButtons.current.set(linked.person.id, element)
+                  else personButtons.current.delete(linked.person.id)
+                }}
+                type="button"
+                aria-label={personTaskLabel(t, linked)}
+                onClick={(event) => onOpen(linked, event.currentTarget)}
+              >
+                <PersonAvatar
+                  client={client}
+                  name={linked.person.displayName}
+                  photo={linked.profilePhoto}
+                  size="small"
+                />
+                <strong>{linked.person.displayName}</strong>
+                <span>{t(`record.people.role.${role}`)}</span>
+                <RecordControlIcon name="next" />
+              </button>
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function PersonEntryTask({
   client,
   headingId,
   closeRef,
@@ -545,8 +639,10 @@ function PersonContextEditor({
   contactDateBounds,
   busy,
   onClose,
-  onBack,
-  onSave,
+  onToggleRole,
+  onViewPerson,
+  onEditPerson,
+  onRemove,
 }: {
   readonly client: LifeArchiveClient
   readonly headingId: string
@@ -559,19 +655,22 @@ function PersonContextEditor({
   } | null
   readonly busy: boolean
   readonly onClose: () => void
-  readonly onBack?: () => void
-  readonly onSave: (link: PersonLinkDraft) => Promise<void>
+  readonly onToggleRole: (role: RecordPersonRole) => Promise<boolean>
+  readonly onViewPerson?: (
+    personId: StableId,
+    opener: HTMLButtonElement,
+  ) => void
+  readonly onEditPerson?: (
+    personId: StableId,
+    opener: HTMLButtonElement,
+  ) => void
+  readonly onRemove: () => Promise<void>
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
-  const [interactionLevel, setInteraction] = useState<PersonInteractionLevel>(
-    allowsInteraction || linked.link.interactionLevel !== 'none'
-      ? linked.link.interactionLevel
-      : 'brief',
-  )
-  const [tookPart, setTookPart] = useState(linked.link.tookPart)
-  const [isSubject, setIsSubject] = useState(linked.link.isSubject)
   const [contactDate, setContactDate] = useState('')
+  const [contactKind, setContactKind] =
+    useState<PersonInteractionLevel>('brief')
   const [logging, setLogging] = useState(false)
   const [logFailure, setLogFailure] = useState<ClientFailure | null>(null)
   const [logConflict, setLogConflict] = useState(false)
@@ -582,7 +681,7 @@ function PersonContextEditor({
       (contactDate >= contactDateBounds.minimum &&
         contactDate <= contactDateBounds.maximum))
   const log = async () => {
-    if (!contactDateValid || interactionLevel === 'none') return
+    if (!contactDateValid || contactKind === 'none') return
     setLogging(true)
     setLogFailure(null)
     setLogConflict(false)
@@ -599,7 +698,7 @@ function PersonContextEditor({
     } else {
       const result = await client.people.logContact({
         personId: linked.person.id,
-        interactionLevel,
+        interactionLevel: contactKind,
         day: day.value,
         newEntryId: client.operations.newStableId(),
         nowMs: Date.now(),
@@ -612,20 +711,8 @@ function PersonContextEditor({
   }
   return (
     <>
-      <header className="record-overlay__header">
-        {onBack ? (
-          <button
-            type="button"
-            className="record-overlay__back"
-            aria-label={t('record.people.backToManager')}
-            onClick={onBack}
-          >
-            <RecordControlIcon name="back" />
-          </button>
-        ) : null}
-        <h2 id={headingId}>
-          {t('record.people.context', { name: linked.person.displayName })}
-        </h2>
+      <header className="record-person-task__header">
+        <span className="eyebrow">{t('record.people.task.eyebrow')}</span>
         <button
           ref={closeRef}
           type="button"
@@ -636,41 +723,67 @@ function PersonContextEditor({
           <RecordControlIcon name="close" />
         </button>
       </header>
-      <div className="record-person-context__body">
-        {allowsInteraction ? (
-          <fieldset>
-            <legend>{t('record.people.interaction')}</legend>
-            {(['none', 'brief', 'timeTogether'] as const).map((value) => (
-              <label key={value}>
-                <input
-                  type="radio"
-                  name="interaction"
-                  checked={interactionLevel === value}
-                  onChange={() => setInteraction(value)}
-                />
-                <span>{t(`record.people.interaction.${value}`)}</span>
-              </label>
-            ))}
-          </fieldset>
-        ) : null}
-        <label>
-          <input
-            type="checkbox"
-            checked={tookPart}
-            onChange={(event) => setTookPart(event.currentTarget.checked)}
+      <div className="record-person-task__body">
+        <div className="record-person-task__identity">
+          <PersonAvatar
+            client={client}
+            name={linked.person.displayName}
+            photo={linked.profilePhoto}
+            size="large"
           />
-          <span>{t('record.people.tookPart')}</span>
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={isSubject}
-            onChange={(event) => setIsSubject(event.currentTarget.checked)}
-          />
-          <span>{t('record.people.isSubject')}</span>
-        </label>
+          <div>
+            <h2 id={headingId}>
+              <span className="visually-hidden">
+                {t('record.people.contextPrefix')}{' '}
+              </span>
+              {linked.person.displayName}
+            </h2>
+            {linked.person.connectionLabels[0] ? (
+              <p>{linked.person.connectionLabels[0]}</p>
+            ) : null}
+          </div>
+        </div>
+        <RoleControls
+          person={snapshotOfLinked(linked)}
+          link={linkDraft(linked)}
+          allowsInteraction={allowsInteraction}
+          busy={busy}
+          onToggle={onToggleRole}
+        />
+        <div className="record-person-task__actions">
+          {onViewPerson ? (
+            <button
+              type="button"
+              className="button button--primary"
+              onClick={(event) =>
+                onViewPerson(linked.person.id, event.currentTarget)
+              }
+            >
+              {t('record.people.viewPerson')}
+            </button>
+          ) : null}
+          {onEditPerson ? (
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={(event) =>
+                onEditPerson(linked.person.id, event.currentTarget)
+              }
+            >
+              {t('record.people.editPerson')}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="button button--destructive"
+            disabled={busy}
+            onClick={() => void onRemove()}
+          >
+            {t('record.people.removeFromEntry')}
+          </button>
+        </div>
         {!allowsInteraction ? (
-          <fieldset>
+          <fieldset className="record-person-task__contact">
             <legend>{t('record.people.logOnDate')}</legend>
             {logFailure ? (
               <p role="alert">{failureMessage(localisation, logFailure)}</p>
@@ -695,18 +808,16 @@ function PersonContextEditor({
             <label>
               <span>{t('record.people.contactKind')}</span>
               <select
-                value={interactionLevel}
+                value={contactKind}
                 onChange={(event) =>
-                  setInteraction(
+                  setContactKind(
                     event.currentTarget.value as PersonInteractionLevel,
                   )
                 }
               >
-                <option value="brief">
-                  {t('record.people.interaction.brief')}
-                </option>
+                <option value="brief">{t('record.people.role.brief')}</option>
                 <option value="timeTogether">
-                  {t('record.people.interaction.timeTogether')}
+                  {t('record.people.role.together')}
                 </option>
               </select>
             </label>
@@ -726,25 +837,6 @@ function PersonContextEditor({
           </fieldset>
         ) : null}
       </div>
-      <footer className="record-overlay__footer">
-        <button
-          type="button"
-          className="button button--primary"
-          onClick={() =>
-            void onSave({
-              personId: linked.person.id,
-              interactionLevel: allowsInteraction
-                ? interactionLevel
-                : linked.link.interactionLevel,
-              tookPart,
-              isSubject,
-            })
-          }
-          disabled={busy}
-        >
-          {t('record.people.save')}
-        </button>
-      </footer>
     </>
   )
 }
@@ -754,29 +846,58 @@ function EntryPeopleManager({
   headingId,
   closeRef,
   links,
+  allowsInteraction,
   busy,
   onClose,
-  onEdit,
+  onToggleRole,
   onMove,
   onRemove,
+  onCreatePerson,
 }: {
   readonly client: LifeArchiveClient
   readonly headingId: string
   readonly closeRef: React.RefObject<HTMLButtonElement | null>
   readonly links: readonly LinkedPersonSnapshot[]
+  readonly allowsInteraction: boolean
   readonly busy: boolean
   readonly onClose: () => void
-  readonly onEdit: (
-    linked: LinkedPersonSnapshot,
-    opener: HTMLButtonElement,
-  ) => void
+  readonly onToggleRole: (
+    person: PersonSnapshot,
+    role: RecordPersonRole,
+  ) => Promise<boolean>
   readonly onMove: (index: number, offset: -1 | 1) => void
-  readonly onRemove: (linked: LinkedPersonSnapshot, index: number) => void
+  readonly onRemove: (linked: LinkedPersonSnapshot) => Promise<boolean>
+  readonly onCreatePerson?: (opener: HTMLButtonElement) => void
 }) {
-  const t = useLocalisation().t
+  const localisation = useLocalisation()
+  const t = localisation.t
+  const people = usePeople(client)
+  const [query, setQuery] = useState('')
+  const listPeople = people.list
+  const listedQuery = people.state.listedQuery
+
+  useEffect(() => {
+    if (query === listedQuery) return
+    const timer = globalThis.setTimeout(() => void listPeople(query), 250)
+    return () => globalThis.clearTimeout(timer)
+  }, [listPeople, listedQuery, query])
+
+  const linkedIds = new Set(links.map(({ person }) => person.id))
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const assigned = normalizedQuery
+    ? links.filter(({ person }) =>
+        [person.displayName, ...person.connectionLabels].some((value) =>
+          value.toLocaleLowerCase().includes(normalizedQuery),
+        ),
+      )
+    : links
+  const unassigned = people.state.people.filter(
+    ({ person }) => !person.isArchived && !linkedIds.has(person.id),
+  )
+
   return (
     <>
-      <header className="record-overlay__header people-manager__header">
+      <header className="record-overlay__header">
         <div>
           <h2 id={headingId} className="ui-heading">
             {t('record.people.manage')}
@@ -793,75 +914,376 @@ function EntryPeopleManager({
           <RecordControlIcon name="close" />
         </button>
       </header>
-      <div className="people-manager__body">
-        {links.length === 0 ? <p>{t('record.people.empty')}</p> : null}
-        <div className="people-manager__list record-entry-people-manager__list">
-          {links.map((linked, index) => (
-            <div
-              key={linked.person.id}
-              className="record-entry-people-manager__row"
+      <div className="record-entry-people-manager__body">
+        <label className="record-entry-people-manager__search">
+          <span className="visually-hidden">{t('people.search')}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder={t('people.search.placeholder')}
+            onChange={(event) => {
+              const value = event.currentTarget.value
+              setQuery(value)
+              people.setQuery(value)
+            }}
+          />
+        </label>
+        {people.state.failure ? (
+          <div role="alert" className="record-details__failure">
+            <p>{failureMessage(localisation, people.state.failure)}</p>
+            <button
+              type="button"
+              className="button"
+              onClick={() => void people.list(query)}
             >
-              <button
-                type="button"
-                disabled={busy}
-                onClick={(event) => onEdit(linked, event.currentTarget)}
-              >
-                <PersonAvatar
-                  client={client}
-                  name={linked.person.displayName}
-                  photo={linked.profilePhoto}
-                  size="small"
-                />
-                <span className="people-manager__copy">
-                  <strong>{linked.person.displayName}</strong>
-                  <span>
-                    {t(
-                      `record.people.interaction.${linked.link.interactionLevel}`,
-                    )}
-                  </span>
-                </span>
-                <span aria-hidden="true">
-                  <RecordControlIcon name="next" />
-                </span>
-              </button>
-              <div className="record-entry-people-manager__order">
-                <button
-                  type="button"
-                  disabled={busy || index === 0}
-                  aria-label={t('record.people.moveUp', {
-                    name: linked.person.displayName,
-                  })}
-                  onClick={() => onMove(index, -1)}
-                >
-                  {t('record.people.up')}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || index === links.length - 1}
-                  aria-label={t('record.people.moveDown', {
-                    name: linked.person.displayName,
-                  })}
-                  onClick={() => onMove(index, 1)}
-                >
-                  {t('record.people.down')}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  aria-label={t('record.people.remove', {
-                    name: linked.person.displayName,
-                  })}
-                  onClick={() => onRemove(linked, index)}
-                >
-                  <RecordControlIcon name="close" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+              {t('people.retry')}
+            </button>
+          </div>
+        ) : null}
+        {people.state.status === 'loading' &&
+        people.state.people.length === 0 ? (
+          <p role="status">{t('people.loading')}</p>
+        ) : null}
+        <ManagerGroup heading={t('record.people.assigned')}>
+          {assigned.length === 0 ? (
+            <p className="record-entry-people-manager__empty">
+              {t('record.people.assigned.empty')}
+            </p>
+          ) : (
+            assigned.map((linked, index) => (
+              <ManagerPersonRow
+                key={linked.person.id}
+                client={client}
+                person={snapshotOfLinked(linked)}
+                link={linkDraft(linked)}
+                allowsInteraction={allowsInteraction}
+                busy={busy}
+                selected
+                canMoveUp={index > 0}
+                canMoveDown={index < assigned.length - 1}
+                onToggleRole={(role) =>
+                  onToggleRole(snapshotOfLinked(linked), role)
+                }
+                onMove={(offset) => onMove(links.indexOf(linked), offset)}
+                onRemove={() => onRemove(linked)}
+              />
+            ))
+          )}
+        </ManagerGroup>
+        <ManagerGroup heading={t('record.people.unassigned')}>
+          {unassigned.length === 0 && people.state.status !== 'loading' ? (
+            <p className="record-entry-people-manager__empty">
+              {t('record.people.unassigned.empty')}
+            </p>
+          ) : (
+            unassigned.map((person) => (
+              <ManagerPersonRow
+                key={person.person.id}
+                client={client}
+                person={person}
+                link={null}
+                allowsInteraction={allowsInteraction}
+                busy={busy}
+                onToggleRole={(role) => onToggleRole(person, role)}
+              />
+            ))
+          )}
+        </ManagerGroup>
+        {people.state.hasMore ? (
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={busy}
+            onClick={() => void people.loadMore()}
+          >
+            {t('people.loadMore')}
+          </button>
+        ) : null}
       </div>
+      {onCreatePerson ? (
+        <footer className="record-overlay__footer">
+          <button
+            type="button"
+            className="button button--primary"
+            onClick={(event) => onCreatePerson(event.currentTarget)}
+          >
+            <RecordControlIcon name="add" />
+            <span>{t('people.new')}</span>
+          </button>
+        </footer>
+      ) : null}
     </>
   )
+}
+
+function ManagerGroup({
+  heading,
+  children,
+}: {
+  readonly heading: string
+  readonly children: React.ReactNode
+}) {
+  const headingId = useId()
+  return (
+    <section
+      className="record-entry-people-manager__group"
+      aria-labelledby={headingId}
+    >
+      <h3 id={headingId}>{heading}</h3>
+      <div className="record-entry-people-manager__list">{children}</div>
+    </section>
+  )
+}
+
+function ManagerPersonRow({
+  client,
+  person,
+  link,
+  allowsInteraction,
+  busy,
+  selected = false,
+  canMoveUp = false,
+  canMoveDown = false,
+  onToggleRole,
+  onMove,
+  onRemove,
+}: {
+  readonly client: LifeArchiveClient
+  readonly person: PersonSnapshot
+  readonly link: PersonLinkDraft | null
+  readonly allowsInteraction: boolean
+  readonly busy: boolean
+  readonly selected?: boolean
+  readonly canMoveUp?: boolean
+  readonly canMoveDown?: boolean
+  readonly onToggleRole: (role: RecordPersonRole) => Promise<boolean>
+  readonly onMove?: (offset: -1 | 1) => void
+  readonly onRemove?: () => Promise<boolean>
+}) {
+  const t = useLocalisation().t
+  return (
+    <article
+      className="record-entry-person-row"
+      data-selected={selected || undefined}
+    >
+      <div className="record-entry-person-row__identity">
+        <PersonAvatar
+          client={client}
+          name={person.person.displayName}
+          photo={person.profilePhoto}
+          size="small"
+        />
+        <span>
+          <strong>{person.person.displayName}</strong>
+          {person.person.connectionLabels[0] ? (
+            <small>{person.person.connectionLabels[0]}</small>
+          ) : null}
+        </span>
+      </div>
+      <div className="record-entry-person-row__controls">
+        <RoleControls
+          person={person}
+          link={link}
+          allowsInteraction={allowsInteraction}
+          busy={busy}
+          onToggle={onToggleRole}
+          compact
+        />
+        {selected && onRemove ? (
+          <button
+            type="button"
+            className="record-person-role__remove"
+            disabled={busy}
+            aria-label={t('record.people.remove', {
+              name: person.person.displayName,
+            })}
+            onClick={() => void onRemove()}
+          >
+            <span className="record-person-role__bin" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+      {selected && onMove ? (
+        <div className="record-entry-person-row__order">
+          <button
+            type="button"
+            disabled={busy || !canMoveUp}
+            aria-label={t('record.people.moveUp', {
+              name: person.person.displayName,
+            })}
+            onClick={() => onMove(-1)}
+          >
+            {t('record.people.up')}
+          </button>
+          <button
+            type="button"
+            disabled={busy || !canMoveDown}
+            aria-label={t('record.people.moveDown', {
+              name: person.person.displayName,
+            })}
+            onClick={() => onMove(1)}
+          >
+            {t('record.people.down')}
+          </button>
+        </div>
+      ) : null}
+    </article>
+  )
+}
+
+function RoleControls({
+  person,
+  link,
+  allowsInteraction,
+  busy,
+  compact = false,
+  onToggle,
+}: {
+  readonly person: PersonSnapshot
+  readonly link: PersonLinkDraft | null
+  readonly allowsInteraction: boolean
+  readonly busy: boolean
+  readonly compact?: boolean
+  readonly onToggle: (role: RecordPersonRole) => Promise<boolean>
+}) {
+  const t = useLocalisation().t
+  const descriptionId = useId()
+  const roles: readonly RecordPersonRole[] = [
+    'included',
+    'brief',
+    'together',
+    'about',
+  ]
+  return (
+    <div
+      className="record-person-roles"
+      data-compact={compact || undefined}
+      role="group"
+      aria-label={t('record.people.rolesFor', {
+        name: person.person.displayName,
+      })}
+      aria-describedby={descriptionId}
+    >
+      <span id={descriptionId} className="visually-hidden">
+        {t('record.people.roles.detail')}
+      </span>
+      {roles.map((role) => {
+        const interactionRole = role === 'brief' || role === 'together'
+        return (
+          <button
+            key={role}
+            type="button"
+            aria-pressed={recordPersonRoleSelected(link, role)}
+            disabled={busy || (interactionRole && !allowsInteraction)}
+            onClick={() => void onToggle(role)}
+          >
+            {t(`record.people.role.${role}`)}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function MutationFailure({
+  failure,
+  mutation,
+  busy,
+  onRetry,
+}: {
+  readonly failure: Parameters<typeof failureMessage>[1]
+  readonly mutation: RecordPeopleMutation | null
+  readonly busy: boolean
+  readonly onRetry: (mutation: RecordPeopleMutation) => Promise<boolean>
+}) {
+  const localisation = useLocalisation()
+  return (
+    <div role="alert" className="record-details__failure">
+      <p>{failureMessage(localisation, failure)}</p>
+      {mutation ? (
+        <button
+          type="button"
+          className="button"
+          disabled={busy}
+          onClick={() => void onRetry(mutation)}
+        >
+          {localisation.t('people.retry')}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+function MutationConflict({
+  mutation,
+  onRetry,
+}: {
+  readonly mutation: RecordPeopleMutation
+  readonly onRetry: (mutation: RecordPeopleMutation) => Promise<boolean>
+}) {
+  const t = useLocalisation().t
+  return (
+    <div role="alert" className="record-editor__conflict">
+      <p>{t('record.people.conflict')}</p>
+      <button
+        type="button"
+        className="button"
+        onClick={() => void onRetry(mutation)}
+      >
+        {t('people.retry')}
+      </button>
+    </div>
+  )
+}
+
+function UndoNotice({
+  undo,
+  busy,
+  onUndo,
+}: {
+  readonly undo: UndoState | null
+  readonly busy: boolean
+  readonly onUndo: () => Promise<void>
+}) {
+  const t = useLocalisation().t
+  if (!undo) return null
+  return (
+    <div className="record-people__undo" role="status" aria-live="polite">
+      <span>{undo.message}</span>
+      <button type="button" disabled={busy} onClick={() => void onUndo()}>
+        {t('record.people.undo')}
+      </button>
+    </div>
+  )
+}
+
+function personTaskLabel(
+  t: ReturnType<typeof useLocalisation>['t'],
+  linked: LinkedPersonSnapshot,
+) {
+  return t('record.people.tileLabel', {
+    name: linked.person.displayName,
+    interaction: t(`record.people.interaction.${linked.link.interactionLevel}`),
+    participation: t(
+      linked.link.tookPart
+        ? 'record.people.tookPart'
+        : 'record.people.didNotTakePart',
+    ),
+    subject: t(
+      linked.link.isSubject
+        ? 'record.people.isSubject'
+        : 'record.people.isNotSubject',
+    ),
+  })
+}
+
+function emptyLinkDraft(personId: StableId): PersonLinkDraft {
+  return {
+    personId,
+    interactionLevel: 'none',
+    tookPart: false,
+    isSubject: false,
+  }
 }
 
 function linkDraft(linked: LinkedPersonSnapshot): PersonLinkDraft {
@@ -870,6 +1292,15 @@ function linkDraft(linked: LinkedPersonSnapshot): PersonLinkDraft {
     interactionLevel: linked.link.interactionLevel,
     tookPart: linked.link.tookPart,
     isSubject: linked.link.isSubject,
+  }
+}
+
+function snapshotOfLinked(linked: LinkedPersonSnapshot): PersonSnapshot {
+  return {
+    person: linked.person,
+    revision: linked.personRevision,
+    profilePhoto: linked.profilePhoto,
+    lastRecordedContactDate: null,
   }
 }
 

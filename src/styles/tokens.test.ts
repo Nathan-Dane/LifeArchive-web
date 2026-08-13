@@ -38,6 +38,7 @@ const TOKENS_CSS = styles('tokens.css')
 const LAYOUT_STYLESHEET_NAMES = [
   'people.css',
   'index.css',
+  'record-people.css',
   'shell.css',
   'settings.css',
   'archive.css',
