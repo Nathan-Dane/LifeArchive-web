@@ -1,11 +1,4 @@
-import {
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-  type RefObject,
-} from 'react'
+import { useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import type {
   CivilDate,
   InvalidationToken,
@@ -13,6 +6,7 @@ import type {
   TrackSummary,
 } from '../../../core/client'
 import { useTranslate } from '../../../i18n'
+import { useMenuRovingFocus } from '../../../ui/menu'
 import { RecordSemanticIcon } from '../metadata'
 import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 import { newestRecordInvalidation } from '../recordInvalidation'
@@ -44,7 +38,6 @@ export function TrackChooser({
   const trigger = useRef<HTMLButtonElement>(null)
   const managerClose = useRef<HTMLButtonElement>(null)
   const managerLoadGeneration = useRef(0)
-  const menuItems = useRef<(HTMLButtonElement | null)[]>([])
   const menuId = useId()
   const triggerId = useId()
   const managerId = useId()
@@ -74,35 +67,10 @@ export function TrackChooser({
     }
     closeMenu(true)
   }
-  const moveFocus = (index: number) => {
-    const last = available.length + (date ? 2 : 1)
-    const clamped = Math.min(Math.max(index, 0), last)
-    menuItems.current[clamped]?.focus()
-  }
-  const onMenuKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    const current = menuItems.current.indexOf(
-      document.activeElement as HTMLButtonElement,
-    )
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      event.stopPropagation()
-      closeMenu(true)
-      return
-    }
-    if (current < 0) return
-    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-      moveFocus(current + 1)
-    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-      moveFocus(current - 1)
-    } else if (event.key === 'Home') {
-      moveFocus(0)
-    } else if (event.key === 'End') {
-      moveFocus(available.length + (date ? 2 : 1))
-    } else {
-      return
-    }
-    event.preventDefault()
-  }
+  const menuFocus = useMenuRovingFocus({
+    onEscape: () => closeMenu(true),
+    stopEscapePropagation: true,
+  })
   const refreshManager = (seed?: TrackSummary) => {
     const seeded = new Map<StableId, TrackSummary>()
     for (const summary of tracks.state.tracks) {
@@ -179,7 +147,7 @@ export function TrackChooser({
             event.preventDefault()
             setMenuOpen(true)
             globalThis.queueMicrotask(() =>
-              moveFocus(
+              menuFocus.focus(
                 event.key === 'ArrowDown'
                   ? selectedIndex
                   : available.length + (date ? 2 : 1),
@@ -211,11 +179,11 @@ export function TrackChooser({
       >
         <div
           className="record-menu__items record-track-menu__items"
-          onKeyDown={onMenuKeyDown}
+          onKeyDown={menuFocus.onKeyDown}
         >
           <TrackMenuOption
             optionRef={(element) => {
-              menuItems.current[0] = element
+              menuFocus.items.current[0] = element
             }}
             checked={selected === null}
             label={t('record.track.noSelection')}
@@ -229,7 +197,7 @@ export function TrackChooser({
             <TrackMenuOption
               key={summary.track.id}
               optionRef={(element) => {
-                menuItems.current[index + 1] = element
+                menuFocus.items.current[index + 1] = element
               }}
               checked={summary.track.id === value}
               label={summary.track.name}
@@ -241,7 +209,7 @@ export function TrackChooser({
           {date ? (
             <button
               ref={(element) => {
-                menuItems.current[available.length + 1] = element
+                menuFocus.items.current[available.length + 1] = element
               }}
               type="button"
               role="menuitem"
@@ -259,7 +227,8 @@ export function TrackChooser({
           ) : null}
           <button
             ref={(element) => {
-              menuItems.current[available.length + (date ? 2 : 1)] = element
+              menuFocus.items.current[available.length + (date ? 2 : 1)] =
+                element
             }}
             type="button"
             role="menuitem"
