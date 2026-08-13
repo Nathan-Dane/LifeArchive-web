@@ -1,6 +1,9 @@
 /** Record-specific People hierarchy and task copy. */
 export const recordPeopleMessages = {
   'record.people.headingWithCount': 'People {count}',
+  'record.people.sectionOptions': 'People section options',
+  'record.people.task.title': '{name} in this Entry',
+  'record.people.task.presence': 'Presence in this Entry',
   'record.people.prominent': 'People this Entry is about or spent together',
   'record.people.group.brief': 'Brief',
   'record.people.group.also': 'Also in this Entry',
@@ -18,6 +21,7 @@ export const recordPeopleMessages = {
     'Choose every context that applies. Included records participation; Brief and Together are interaction choices; About records subject context.',
   'record.people.assigned': 'In this Entry',
   'record.people.assigned.empty': 'No assigned People match this search.',
+  'record.people.assigned.meta': 'In this Entry · {role}',
   'record.people.unassigned': 'Other People',
   'record.people.unassigned.empty': 'No other People match this search.',
   'record.people.added': 'Added {name}.',

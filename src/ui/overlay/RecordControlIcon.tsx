@@ -7,8 +7,11 @@ export type RecordControlIconName =
   | 'expand'
   | 'manage'
   | 'media'
+  | 'more'
   | 'next'
   | 'none'
+  | 'up'
+  | 'down'
 
 /** Small non-semantic controls shared by popups and compact actions. */
 export function RecordControlIcon({
@@ -57,6 +60,15 @@ export function RecordControlIcon({
           <path d="m5 14 3.4-3.5 2.3 2.1 1.7-1.7L15 14" />
         </>
       ) : null}
+      {name === 'more' ? (
+        <>
+          <circle cx="5" cy="10" r="1" fill="currentColor" stroke="none" />
+          <circle cx="10" cy="10" r="1" fill="currentColor" stroke="none" />
+          <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none" />
+        </>
+      ) : null}
+      {name === 'up' ? <path d="m5 12.5 5-5 5 5" /> : null}
+      {name === 'down' ? <path d="m5 7.5 5 5 5-5" /> : null}
       {name === 'none' ? (
         <>
           <circle cx="10" cy="10" r="6.5" />
