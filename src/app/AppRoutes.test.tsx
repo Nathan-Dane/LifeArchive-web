@@ -23,7 +23,7 @@ import { enMessages } from '../i18n/messages/en'
 import { renderAppAt } from '../test/render'
 import { TestLifeArchiveClient } from '../test/TestLifeArchiveClient'
 import { setClientMedia } from '../test/clientMedia'
-import { BROWSER_PREFERENCE_STORAGE_KEYS } from '../features/settings'
+import { BROWSER_PREFERENCE_STORAGE_KEYS } from './preferences'
 import { AppShell } from './AppShell'
 import { AppStateProvider } from './providers/AppStateProvider'
 
