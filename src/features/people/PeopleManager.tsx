@@ -23,6 +23,7 @@ export function PeopleManager({
   presentation = 'overlay',
   manageMode = false,
   onScrollChange,
+  onManageModeChange,
   onShowArchivedChange,
   onClose,
   onCreate,
@@ -39,6 +40,7 @@ export function PeopleManager({
   readonly presentation?: 'overlay' | 'directory'
   readonly manageMode?: boolean
   readonly onScrollChange?: (value: number) => void
+  readonly onManageModeChange?: (value: boolean) => void
   readonly onShowArchivedChange?: (value: boolean) => void
   readonly onClose?: () => void
   readonly onCreate: () => void
@@ -94,18 +96,34 @@ export function PeopleManager({
         data-presentation={presentation}
         onScroll={(event) => onScrollChange?.(event.currentTarget.scrollTop)}
       >
-        <label className="people-manager__search">
-          <span className="visually-hidden">{t('people.search')}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={t('people.search.placeholder')}
-            onChange={(event) => {
-              setQuery(event.currentTarget.value)
-              people.setQuery(event.currentTarget.value)
-            }}
-          />
-        </label>
+        <div className="people-manager__toolbar" role="search">
+          <label className="people-manager__search">
+            <span className="visually-hidden">{t('people.search')}</span>
+            <input
+              type="search"
+              value={query}
+              placeholder={t(
+                presentation === 'directory'
+                  ? 'people.search.placeholder.directory'
+                  : 'people.search.placeholder',
+              )}
+              onChange={(event) => {
+                setQuery(event.currentTarget.value)
+                people.setQuery(event.currentTarget.value)
+              }}
+            />
+          </label>
+          {presentation === 'directory' ? (
+            <button
+              type="button"
+              className="button button--secondary"
+              aria-pressed={manageMode}
+              onClick={() => onManageModeChange?.(!manageMode)}
+            >
+              {t(manageMode ? 'people.manage.done' : 'people.manage.directory')}
+            </button>
+          ) : null}
+        </div>
         {people.state.listFailure && people.state.listStatus === 'failed' ? (
           <div role="alert" className="record-details__failure">
             <p>{failureMessage(localisation, people.state.listFailure)}</p>
@@ -124,14 +142,19 @@ export function PeopleManager({
         ) : null}
         <PeopleGroup
           client={client}
-          heading={t('people.active')}
+          heading={t(
+            presentation === 'directory'
+              ? 'people.active.directory'
+              : 'people.active',
+          )}
           people={active}
+          presentation={presentation}
           manageMode={manageMode}
           pendingPersonId={people.state.directoryMutationPersonId}
           onSelect={onSelect}
           onSetArchived={onSetArchived}
         />
-        {archived.length > 0 ? (
+        {archived.length > 0 && presentation === 'overlay' ? (
           <section className="people-manager__archived">
             <button
               type="button"
@@ -153,6 +176,7 @@ export function PeopleManager({
                 client={client}
                 heading={t('people.archived')}
                 people={archived}
+                presentation={presentation}
                 archived
                 manageMode={manageMode}
                 pendingPersonId={people.state.directoryMutationPersonId}
@@ -161,6 +185,18 @@ export function PeopleManager({
               />
             ) : null}
           </section>
+        ) : archived.length > 0 ? (
+          <PeopleGroup
+            client={client}
+            heading={t('people.archived.directory')}
+            people={archived}
+            archived
+            presentation={presentation}
+            manageMode={manageMode}
+            pendingPersonId={people.state.directoryMutationPersonId}
+            onSelect={onSelect}
+            onSetArchived={onSetArchived}
+          />
         ) : null}
         {active.length === 0 &&
         (archived.length === 0 || !showArchived) &&
@@ -230,6 +266,7 @@ function PeopleGroup({
   client,
   heading,
   people,
+  presentation = 'overlay',
   archived = false,
   manageMode = false,
   pendingPersonId,
@@ -239,6 +276,7 @@ function PeopleGroup({
   readonly client: LifeArchiveClient
   readonly heading: string
   readonly people: readonly PersonSnapshot[]
+  readonly presentation?: 'overlay' | 'directory'
   readonly archived?: boolean
   readonly manageMode?: boolean
   readonly pendingPersonId: PersonSnapshot['person']['id'] | null
@@ -255,62 +293,92 @@ function PeopleGroup({
       aria-labelledby={headingId}
       data-archived={archived || undefined}
     >
-      <h3 id={headingId} className="eyebrow">
-        {heading}
-      </h3>
+      <div className="people-manager__group-heading eyebrow">
+        <h3 id={headingId}>{heading}</h3>
+        <span>{people.length}</span>
+      </div>
       <div className="people-manager__list">
-        {people.map((snapshot) => (
-          <button
-            key={snapshot.person.id}
-            type="button"
-            data-person-id={snapshot.person.id}
-            disabled={pendingPersonId === snapshot.person.id}
-            onClick={() =>
-              manageMode && onSetArchived
-                ? onSetArchived(snapshot, !snapshot.person.isArchived)
-                : onSelect(snapshot)
-            }
-          >
-            <PersonAvatar
-              client={client}
-              name={snapshot.person.displayName}
-              photo={snapshot.profilePhoto}
-              size="small"
-            />
-            <span className="people-manager__copy">
-              <strong>{snapshot.person.displayName}</strong>
-              {snapshot.person.connectionLabels[0] ? (
-                <span>
-                  {t('people.primaryConnection', {
-                    label: snapshot.person.connectionLabels[0],
-                  })}
+        {people.map((snapshot) => {
+          const contactDate = snapshot.lastRecordedContactDate
+            ? format.civilDate(snapshot.lastRecordedContactDate, 'medium')
+            : null
+          return (
+            <div className="people-manager__row" key={snapshot.person.id}>
+              <button
+                type="button"
+                className="people-manager__open"
+                data-person-id={snapshot.person.id}
+                disabled={pendingPersonId === snapshot.person.id}
+                onClick={() => onSelect(snapshot)}
+              >
+                <PersonAvatar
+                  client={client}
+                  name={snapshot.person.displayName}
+                  photo={snapshot.profilePhoto}
+                  size="small"
+                />
+                <span className="people-manager__copy">
+                  <strong>{snapshot.person.displayName}</strong>
+                  {presentation === 'directory' ? (
+                    <span className="meta-text">
+                      {snapshot.person.connectionLabels[0] ??
+                        t('people.connections.none')}
+                      {contactDate
+                        ? ` · ${t('people.lastContact.short', {
+                            date: contactDate,
+                          })}`
+                        : ''}
+                    </span>
+                  ) : (
+                    <>
+                      {snapshot.person.connectionLabels[0] ? (
+                        <span>
+                          {t('people.primaryConnection', {
+                            label: snapshot.person.connectionLabels[0],
+                          })}
+                        </span>
+                      ) : null}
+                      {contactDate ? (
+                        <span className="meta-text">
+                          {t('people.lastContact', { date: contactDate })}
+                        </span>
+                      ) : null}
+                      {archived ? (
+                        <span className="meta-text">
+                          {t('people.archived.label')}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
                 </span>
+                {!manageMode ? (
+                  <span className="people-manager__trail" aria-hidden="true">
+                    {presentation === 'directory' && contactDate ? (
+                      <span>{contactDate}</span>
+                    ) : null}
+                    <RecordControlIcon name="next" />
+                  </span>
+                ) : null}
+              </button>
+              {manageMode && onSetArchived ? (
+                <button
+                  type="button"
+                  className="people-manager__manage-action"
+                  aria-label={t(
+                    archived ? 'people.restore.named' : 'people.archive.named',
+                    { name: snapshot.person.displayName },
+                  )}
+                  disabled={pendingPersonId === snapshot.person.id}
+                  onClick={() =>
+                    onSetArchived(snapshot, !snapshot.person.isArchived)
+                  }
+                >
+                  <RecordControlIcon name={archived ? 'restore' : 'archive'} />
+                </button>
               ) : null}
-              {snapshot.lastRecordedContactDate ? (
-                <span className="meta-text">
-                  {t('people.lastContact', {
-                    date: format.civilDate(
-                      snapshot.lastRecordedContactDate,
-                      'medium',
-                    ),
-                  })}
-                </span>
-              ) : null}
-              {archived ? (
-                <span className="meta-text">{t('people.archived.label')}</span>
-              ) : null}
-            </span>
-            {manageMode ? (
-              <span className="people-manager__row-action">
-                {t(archived ? 'people.restore' : 'people.archive')}
-              </span>
-            ) : (
-              <span aria-hidden="true">
-                <RecordControlIcon name="next" />
-              </span>
-            )}
-          </button>
-        ))}
+            </div>
+          )
+        })}
       </div>
     </section>
   )

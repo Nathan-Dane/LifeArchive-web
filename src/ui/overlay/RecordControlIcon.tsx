@@ -1,5 +1,6 @@
 export type RecordControlIconName =
   | 'add'
+  | 'archive'
   | 'back'
   | 'calendar'
   | 'check'
@@ -10,6 +11,8 @@ export type RecordControlIconName =
   | 'more'
   | 'next'
   | 'none'
+  | 'restore'
+  | 'search'
   | 'up'
   | 'down'
 
@@ -34,6 +37,12 @@ export function RecordControlIcon({
       focusable="false"
     >
       {name === 'add' ? <path d="M10 4v12M4 10h12" /> : null}
+      {name === 'archive' ? (
+        <>
+          <path d="M4.5 6.5h11M6 6.5l.7 9h6.6l.7-9" />
+          <path d="M7.5 4.5h5" />
+        </>
+      ) : null}
       {name === 'back' ? <path d="m11.5 4.5-5.5 5.5 5.5 5.5M6 10h8" /> : null}
       {name === 'calendar' ? (
         <>
@@ -73,6 +82,18 @@ export function RecordControlIcon({
         <>
           <circle cx="10" cy="10" r="6.5" />
           <path d="m5.4 5.4 9.2 9.2" />
+        </>
+      ) : null}
+      {name === 'restore' ? (
+        <>
+          <path d="M5.5 8a5.5 5.5 0 1 1-.5 4" />
+          <path d="M5.5 4.5V8H9" />
+        </>
+      ) : null}
+      {name === 'search' ? (
+        <>
+          <circle cx="8.75" cy="8.75" r="4.75" />
+          <path d="m12.25 12.25 3.5 3.5" />
         </>
       ) : null}
     </svg>
