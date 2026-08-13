@@ -42,7 +42,13 @@ export function PersonEditorPage({
 
   return (
     <article className="person-page" data-page="editor">
-      <PersonPageBreadcrumb onBack={onBack} backToRecord={backToRecord} />
+      <PersonPageBreadcrumb
+        onBack={onBack}
+        backToRecord={backToRecord}
+        displayName={selected.person.displayName}
+        editing
+        onPerson={onViewProfile}
+      />
       <div className="person-page__layout">
         <PersonIdentityRail
           client={client}

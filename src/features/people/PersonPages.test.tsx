@@ -200,6 +200,16 @@ describe('Person routed pages', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       'Maya Chen',
     )
+    const breadcrumbs = screen.getByRole('navigation', {
+      name: 'People breadcrumb',
+    })
+    expect(
+      within(breadcrumbs).getByRole('link', { name: 'Index' }),
+    ).toHaveAttribute('href', '/index')
+    expect(within(breadcrumbs).getByText('Maya Chen')).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     expect(screen.getByText('A close friend from Copenhagen.')).toBeVisible()
     expect(screen.getByText('May')).toBeVisible()
     expect(screen.getByText('About May 1990')).toBeVisible()
@@ -213,9 +223,11 @@ describe('Person routed pages', () => {
       within(actions)
         .getAllByRole('button')
         .map((button) => button.textContent),
-    ).toEqual(['Edit', 'Archive Person', 'Delete Person'])
+    ).toEqual(['Edit Person', 'Archive Person', 'Delete Person'])
 
-    await user.click(within(actions).getByRole('button', { name: 'Edit' }))
+    await user.click(
+      within(actions).getByRole('button', { name: 'Edit Person' }),
+    )
     expect(onEdit).toHaveBeenCalledOnce()
     await user.click(
       within(actions).getByRole('button', { name: 'Archive Person' }),
@@ -276,6 +288,18 @@ describe('Person routed pages', () => {
     expect(screen.getByRole('textbox', { name: 'Display name' })).toHaveValue(
       'Maya Chen',
     )
+    const breadcrumbs = screen.getByRole('navigation', {
+      name: 'People breadcrumb',
+    })
+    await user.click(
+      within(breadcrumbs).getByRole('button', { name: 'Maya Chen' }),
+    )
+    expect(onViewProfile).toHaveBeenCalledOnce()
+    onViewProfile.mockClear()
+    expect(within(breadcrumbs).getByText('Edit')).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     expect(screen.getByRole('textbox', { name: 'About' })).toHaveValue(
       'A close friend from Copenhagen.',
     )
@@ -295,14 +319,16 @@ describe('Person routed pages', () => {
         .getAllByRole('button')
         .map((button) => button.textContent),
     ).toEqual([
-      'Save',
+      'Save Changes',
       'View Profile',
       'Archive Person',
-      'Merge Person',
+      'Merge with another Person',
       'Delete Person',
     ])
 
-    await user.click(within(actions).getByRole('button', { name: 'Save' }))
+    await user.click(
+      within(actions).getByRole('button', { name: 'Save Changes' }),
+    )
     expect(people.save).toHaveBeenCalledOnce()
     expect(onSaved).toHaveBeenCalledOnce()
     await user.click(
@@ -311,7 +337,9 @@ describe('Person routed pages', () => {
     expect(onViewProfile).toHaveBeenCalledOnce()
 
     await user.click(
-      within(actions).getByRole('button', { name: 'Merge Person' }),
+      within(actions).getByRole('button', {
+        name: 'Merge with another Person',
+      }),
     )
     const task = screen.getByRole('dialog', {
       name: 'Merge duplicate Person',

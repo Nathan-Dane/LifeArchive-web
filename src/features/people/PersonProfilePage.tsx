@@ -43,7 +43,11 @@ export function PersonProfilePage({
 
   return (
     <article className="person-page" data-page="profile">
-      <PersonPageBreadcrumb onBack={onBack} backToRecord={backToRecord} />
+      <PersonPageBreadcrumb
+        onBack={onBack}
+        backToRecord={backToRecord}
+        displayName={selected.person.displayName}
+      />
       <div className="person-page__layout">
         <PersonIdentityRail client={client} selected={selected}>
           <PersonProfileActions
