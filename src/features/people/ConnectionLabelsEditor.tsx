@@ -1,9 +1,12 @@
 import { useId, useRef, useState } from 'react'
 import { useTranslate } from '../../i18n'
+import { useMenuRovingFocus } from '../../ui/menu'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
 import { STANDARD_CONNECTION_LABELS } from './connectionLabels'
+
 const STANDARD_VALUES = STANDARD_CONNECTION_LABELS.map(({ value }) => value)
 
+/** Connection assignment deliberately shares Record's tag-picker surface. */
 export function ConnectionLabelsEditor({
   labels,
   disabled = false,
@@ -14,25 +17,50 @@ export function ConnectionLabelsEditor({
   readonly onChange: (labels: readonly string[]) => void
 }) {
   const t = useTranslate()
-  const popupId = useId()
+  const menuId = useId()
   const labelId = useId()
-  const anchor = useRef<HTMLButtonElement>(null)
+  const assigned = useRef<HTMLDivElement>(null)
+  const opener = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [custom, setCustom] = useState('')
   const [customOrder, setCustomOrder] = useState<readonly string[]>([])
+  const [keyboardNavigation, setKeyboardNavigation] = useState(false)
 
-  const openFrom = (element: HTMLButtonElement) => {
-    anchor.current = element
-    if (!open) {
-      setCustomOrder(
-        labels.filter(
-          (label) => !(STANDARD_VALUES as readonly string[]).includes(label),
-        ),
+  const options = [
+    ...STANDARD_CONNECTION_LABELS.map(({ value, message }) => ({
+      value,
+      label: t(message),
+    })),
+    ...customOrder.map((value) => ({ value, label: value })),
+  ]
+
+  const focusMenuStart = () =>
+    globalThis.queueMicrotask(() => menuFocus.focus(0))
+  const openMenu = (trigger: HTMLButtonElement, focusFirst: boolean) => {
+    opener.current = trigger
+    setCustomOrder((current) => {
+      const customLabels = labels.filter(
+        (label) => !(STANDARD_VALUES as readonly string[]).includes(label),
       )
-    }
+      return [
+        ...current,
+        ...customLabels.filter((label) => !current.includes(label)),
+      ]
+    })
     setOpen(true)
+    setKeyboardNavigation(focusFirst)
+    if (focusFirst) focusMenuStart()
   }
-
+  const closeMenu = () => {
+    setOpen(false)
+    const target = opener.current
+    globalThis.queueMicrotask(() => target?.focus())
+  }
+  const menuFocus = useMenuRovingFocus({
+    wrap: true,
+    onEscape: closeMenu,
+    onNavigate: () => setKeyboardNavigation(true),
+  })
   const toggle = (label: string) => {
     onChange(
       labels.includes(label)
@@ -40,118 +68,138 @@ export function ConnectionLabelsEditor({
         : [...labels, label],
     )
   }
-  const primary = (label: string) => {
+  const makePrimary = (label: string) => {
     onChange([label, ...labels.filter((value) => value !== label)])
   }
   const addCustom = () => {
-    if (!/\S/u.test(custom) || labels.includes(custom)) return
-    onChange([...labels, custom])
+    const label = custom.trim()
+    if (!label || labels.includes(label)) return
+    onChange([...labels, label])
     setCustomOrder((current) =>
-      current.includes(custom) ? current : [...current, custom],
+      current.includes(label) ? current : [...current, label],
     )
     setCustom('')
   }
 
   return (
-    <section className="person-connections" aria-labelledby={labelId}>
+    <section
+      className="person-connections record-tag-picker"
+      aria-labelledby={labelId}
+    >
       <h3 id={labelId} className="eyebrow">
         {t('people.connections')}
       </h3>
-      {labels.length === 0 ? (
-        <button
-          ref={anchor}
-          type="button"
-          className="person-connections__add"
-          disabled={disabled}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          onClick={(event) => openFrom(event.currentTarget)}
-        >
-          {t('people.connections.add')}
-        </button>
-      ) : (
-        <div className="person-connections__labels">
-          {labels.map((label, index) => (
-            <button
-              key={label}
-              ref={index === 0 ? anchor : undefined}
-              type="button"
-              disabled={disabled}
-              aria-haspopup="menu"
-              aria-expanded={open}
-              onClick={(event) => {
-                openFrom(event.currentTarget)
-              }}
-            >
+      <div
+        ref={assigned}
+        className="record-tag-picker__assigned person-connection-picker__assigned"
+      >
+        {labels.map((label, index) => (
+          <button
+            key={label}
+            type="button"
+            className="record-tag-picker__assigned-trigger"
+            disabled={disabled}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-controls={menuId}
+            onClick={(event) =>
+              openMenu(event.currentTarget, event.detail === 0)
+            }
+          >
+            <span className="person-connection-pill">
               {label}
               {index === 0 ? (
                 <span className="visually-hidden">
                   {t('people.connections.primary')}
                 </span>
               ) : null}
-            </button>
-          ))}
-        </div>
-      )}
+            </span>
+          </button>
+        ))}
+        <button
+          type="button"
+          className="record-tag-picker__trigger"
+          disabled={disabled}
+          aria-label={t(
+            labels.length === 0
+              ? 'people.connections.choose'
+              : 'people.connections.add',
+          )}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={menuId}
+          onClick={(event) => openMenu(event.currentTarget, event.detail === 0)}
+        >
+          <RecordControlIcon name="add" />
+        </button>
+      </div>
       <RecordOverlay
-        id={popupId}
+        id={menuId}
         open={open}
-        kind="anchored"
+        kind="menu"
         labelledBy={labelId}
-        anchorRef={anchor}
-        onClose={() => setOpen(false)}
-        className="person-connections__popup"
+        anchorRef={assigned}
+        onClose={closeMenu}
+        className="record-menu record-tag-menu person-connection-menu"
       >
-        <div className="person-connections__options">
-          {STANDARD_CONNECTION_LABELS.map(({ value, message }) => (
-            <div key={value} className="person-connections__option">
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={labels.includes(value)}
-                onClick={() => toggle(value)}
+        <div
+          className="record-menu__items record-tag-picker__list person-connection-picker__list"
+          data-keyboard-navigation={keyboardNavigation}
+          onKeyDown={menuFocus.onKeyDown}
+          onPointerMove={() => setKeyboardNavigation(false)}
+        >
+          {options.map((option, index) => {
+            const selected = labels.includes(option.value)
+            const primary = labels[0] === option.value
+            return (
+              <div
+                key={option.value}
+                className="record-tag-picker__row person-connection-picker__row"
+                data-selected={selected || undefined}
               >
-                <span aria-hidden="true">
-                  {labels.includes(value) ? (
-                    <RecordControlIcon name="check" />
-                  ) : null}
-                </span>
-                {t(message)}
-              </button>
-              {labels.includes(value) && labels[0] !== value ? (
-                <button type="button" onClick={() => primary(value)}>
-                  {t('people.connections.makePrimary')}
+                <button
+                  ref={menuFocus.itemRef(index)}
+                  type="button"
+                  className="record-tag-picker__select"
+                  role="menuitemcheckbox"
+                  aria-checked={selected}
+                  onPointerDown={() => setKeyboardNavigation(false)}
+                  onClick={() => toggle(option.value)}
+                >
+                  <span className="person-connection-picker__name">
+                    {option.label}
+                  </span>
+                  <span className="record-tag-picker__check" aria-hidden="true">
+                    {selected ? <RecordControlIcon name="check" /> : null}
+                  </span>
                 </button>
-              ) : labels[0] === value ? (
-                <span>{t('people.connections.primary')}</span>
-              ) : null}
-            </div>
-          ))}
-          {customOrder.map((label) => (
-            <div key={label} className="person-connections__option">
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={labels.includes(label)}
-                onClick={() => toggle(label)}
-              >
-                <span aria-hidden="true">
-                  {labels.includes(label) ? (
-                    <RecordControlIcon name="check" />
-                  ) : null}
-                </span>
-                {label}
-              </button>
-              {labels.includes(label) && labels[0] !== label ? (
-                <button type="button" onClick={() => primary(label)}>
-                  {t('people.connections.makePrimary')}
-                </button>
-              ) : labels[0] === label ? (
-                <span>{t('people.connections.primary')}</span>
-              ) : null}
-            </div>
-          ))}
-          <div className="person-connections__custom">
+                {selected ? (
+                  <button
+                    type="button"
+                    className="record-tag-picker__main"
+                    role="menuitem"
+                    aria-label={t('people.connections.makePrimary')}
+                    aria-pressed={primary}
+                    disabled={primary}
+                    onPointerDown={() => setKeyboardNavigation(false)}
+                    onClick={() => makePrimary(option.value)}
+                  >
+                    {primary
+                      ? t('people.connections.primary')
+                      : t('people.connections.makePrimary')}
+                  </button>
+                ) : null}
+              </div>
+            )
+          })}
+          <form
+            className="person-connection-picker__custom"
+            role="none"
+            onSubmit={(event) => {
+              event.preventDefault()
+              addCustom()
+            }}
+          >
             <label>
               <span className="visually-hidden">
                 {t('people.connections.custom')}
@@ -160,23 +208,13 @@ export function ConnectionLabelsEditor({
                 value={custom}
                 placeholder={t('people.connections.custom')}
                 onChange={(event) => setCustom(event.currentTarget.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    addCustom()
-                  }
-                }}
               />
             </label>
-            <button
-              type="button"
-              disabled={!/\S/u.test(custom)}
-              onClick={addCustom}
-            >
+            <button type="submit" disabled={!/\S/u.test(custom)}>
               <RecordControlIcon name="add" />
               <span>{t('people.connections.custom.add')}</span>
             </button>
-          </div>
+          </form>
         </div>
       </RecordOverlay>
     </section>
