@@ -835,7 +835,6 @@
   gap: var(--space-standard);
   list-style: none;
   overscroll-behavior-inline: contain;
-  scrollbar-width: thin;
 }
 
 .record-media__card {
@@ -1174,7 +1173,6 @@
   padding: var(--space-tight) var(--space-standard);
   border-bottom: var(--border-hairline) solid var(--border-subtle);
   background: var(--color-page-warm);
-  scrollbar-width: thin;
 }
 
 .record-editor__toolbar button {
@@ -2075,20 +2073,6 @@
   font-family: var(--font-interface);
   font-size: var(--text-record-ui);
   line-height: var(--leading-record-ui);
-}
-
-/* Persistent workspace scrollers never reserve horizontal layout space. */
-.workspace :is(.record-objects__groups, .workspace__content, .record-details) {
-  scrollbar-width: none;
-}
-
-.workspace
-  :is(
-    .record-objects__groups,
-    .workspace__content,
-    .record-details
-  )::-webkit-scrollbar {
-  display: none;
 }
 
 @media (max-width: 1120px) {
@@ -3240,7 +3224,6 @@
   align-content: start;
   gap: var(--space-xl);
   padding: var(--space-content) var(--space-xl) var(--space-xl);
-  scrollbar-gutter: stable;
   transition:
     opacity var(--motion-instant) var(--motion-ease),
     transform var(--motion-instant) var(--motion-ease),
