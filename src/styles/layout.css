@@ -4508,12 +4508,7 @@
   line-height: var(--leading-record-ui);
 }
 
-/*
- * The three persistent workspace scrollers use a non-layout overlay. Native
- * tracks stay hidden so content keeps its full width when overflow starts; the
- * matching overlay thumb appears while scroll events are arriving, then fades
- * shortly after scrolling stops.
- */
+/* Persistent workspace scrollers never reserve horizontal layout space. */
 .workspace :is(.record-objects__groups, .workspace__content, .record-details) {
   scrollbar-width: none;
 }
@@ -4525,33 +4520,6 @@
     .record-details
   )::-webkit-scrollbar {
   display: none;
-}
-
-.workspace__scrollbar-overlay {
-  position: absolute;
-  z-index: 45;
-  width: 8px;
-  min-height: 0;
-  opacity: 0;
-  pointer-events: none;
-  touch-action: none;
-  transition: opacity var(--motion-quick) var(--motion-ease-standard);
-}
-
-.workspace__scrollbar-overlay::before {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 4px;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--border-strong);
-  content: '';
-}
-
-.workspace__scrollbar-overlay[data-visible='true'] {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 @media (max-width: 1120px) {
