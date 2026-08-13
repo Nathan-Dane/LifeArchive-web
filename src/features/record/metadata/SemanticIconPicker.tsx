@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import type { SemanticId } from '../../../core/client'
 import { semanticName, useLocalisation } from '../../../i18n'
-import { RecordSemanticIcon } from '../events/RecordSemanticIcon'
+import { RecordSemanticIcon } from './RecordSemanticIcon'
 import { RecordOverlay } from '../overlays'
 import {
   MATERIAL_UI_GLYPHS,

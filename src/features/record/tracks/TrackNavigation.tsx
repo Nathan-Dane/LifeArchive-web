@@ -1,6 +1,6 @@
 import type { CivilDate } from '../../../core/client'
 import { failureMessage, useLocalisation } from '../../../i18n'
-import { RecordSemanticIcon } from '../events'
+import { RecordSemanticIcon } from '../metadata'
 import type { Tracks } from './useTracks'
 
 export function TrackNavigation({

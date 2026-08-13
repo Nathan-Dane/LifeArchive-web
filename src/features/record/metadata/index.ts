@@ -14,6 +14,7 @@ export {
   removeTag,
   tagPaletteFor,
 } from './semanticCatalog'
+export { RecordSemanticIcon } from './RecordSemanticIcon'
 export { SemanticIconPicker } from './SemanticIconPicker'
 export { RecordDatePicker } from './RecordDatePicker'
 export { RecordTagBadge, RecordTagPicker, RecordTagRibbon } from './RecordTags'

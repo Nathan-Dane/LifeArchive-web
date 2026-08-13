@@ -1,7 +1,10 @@
 import { useId } from 'react'
 import { useFormat, useTranslate } from '../../../i18n'
-import { RecordSemanticIcon } from '../events'
-import { displayAccentClassName, RecordTagBadge } from '../metadata'
+import {
+  displayAccentClassName,
+  RecordSemanticIcon,
+  RecordTagBadge,
+} from '../metadata'
 import type { Tracks } from './useTracks'
 
 export function TrackHistory({
