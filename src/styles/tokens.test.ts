@@ -43,6 +43,7 @@ const LAYOUT_STYLESHEET_NAMES = [
   'settings.css',
   'archive.css',
   'record.css',
+  'selection-menu.css',
   'controls.css',
 ] as const
 const LAYOUT_STYLESHEETS = LAYOUT_STYLESHEET_NAMES.map(styles)
@@ -241,9 +242,9 @@ describe('the Record style system', () => {
     expect(RECORD_CSS).toMatch(
       /\.record-menu__item:is\(:hover, :focus-visible\)\s*\{[^}]*background:\s*var\(--color-surface-raised\)/s,
     )
-    expect(RECORD_CSS).not.toContain('.record-tag-picker__row:focus-within')
-    expect(RECORD_CSS).toMatch(
-      /\.record-tag-picker__list\[data-keyboard-navigation='false'\][^{]*:focus-visible\s*\{[^}]*outline:\s*0/s,
+    expect(LAYOUT_CSS).not.toContain('.selection-menu__row:focus-within')
+    expect(LAYOUT_CSS).toMatch(
+      /\.selection-menu__list\[data-keyboard-navigation='false'\][^{]*:focus-visible\s*\{[^}]*outline:\s*0/s,
     )
   })
 
@@ -251,10 +252,10 @@ describe('the Record style system', () => {
     expect(TOKENS_CSS).toContain('--color-dropdown-selected:')
     for (const rule of [
       /\.record-editor__block-menu-items\s*>\s*button\[aria-checked='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
-      /\.record-tag-picker__row\[data-selected='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
+      /\.selection-menu__row\[data-selected='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
       /\.record-track-menu__items\s*>\s*button\[aria-checked='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
     ]) {
-      expect(RECORD_CSS).toMatch(rule)
+      expect(LAYOUT_CSS).toMatch(rule)
     }
   })
 

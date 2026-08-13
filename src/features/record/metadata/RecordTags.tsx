@@ -1,14 +1,10 @@
-import { useId, useRef, useState } from 'react'
 import type { SemanticId, StructuredTags } from '../../../core/client'
 import { semanticName, useLocalisation } from '../../../i18n'
-import { useMenuRovingFocus } from '../../../ui/menu'
-import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
+import { SelectionMenu } from '../../../ui/menu'
 import {
   PREDEFINED_TAG_IDS,
   MATERIAL_UI_GLYPHS,
-  addTag,
   chooseDisplayTag,
-  removeTag,
   tagPaletteFor,
 } from './semanticCatalog'
 
@@ -70,7 +66,7 @@ export function RecordTagRibbon({
           <button
             key={id}
             type="button"
-            className="record-tag-picker__assigned-trigger"
+            className="selection-picker__assigned-trigger"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-controls={menuId}
@@ -101,38 +97,13 @@ export function RecordTagPicker({
   readonly label?: string
 }) {
   const localisation = useLocalisation()
-  const [open, setOpen] = useState(false)
-  const [keyboardNavigation, setKeyboardNavigation] = useState(false)
-  const assigned = useRef<HTMLDivElement>(null)
-  const trigger = useRef<HTMLButtonElement>(null)
-  const opener = useRef<HTMLButtonElement | null>(null)
-  const menuId = useId()
-  const triggerId = useId()
-  const menuLabelId = useId()
   const unknownSelected = tags.ordered.filter(
     (id) => !(PREDEFINED_TAG_IDS as readonly string[]).includes(id),
   )
   const visibleIds = [...PREDEFINED_TAG_IDS, ...unknownSelected]
-  const focusFirstMenuItem = () => {
-    setKeyboardNavigation(true)
-    globalThis.queueMicrotask(() => menuFocus.focus(0))
-  }
-  const openMenu = (nextOpener: HTMLButtonElement, focusFirst: boolean) => {
-    opener.current = nextOpener
-    setOpen(true)
-    setKeyboardNavigation(focusFirst)
-    if (focusFirst) focusFirstMenuItem()
-  }
-  const closeMenu = (restoreFocus = true) => {
-    setOpen(false)
-    if (restoreFocus) {
-      const focusTarget = opener.current
-      globalThis.queueMicrotask(() => focusTarget?.focus())
-    }
-  }
-  const menuFocus = useMenuRovingFocus({
-    wrap: true,
-    onNavigate: () => setKeyboardNavigation(true),
+  const options = visibleIds.map((id) => {
+    const name = semanticName(localisation, 'record', 'tag', id)
+    return { value: id, label: name.accessibleName }
   })
 
   return (
@@ -140,105 +111,42 @@ export function RecordTagPicker({
       <span className="record-details__label-line meta-text">
         {label ?? localisation.t('record.event.tags')}
       </span>
-      <span id={menuLabelId} className="visually-hidden">
-        {localisation.t('record.tag.pickerLabel')}
-      </span>
-      <div ref={assigned} className="record-tag-picker__assigned">
-        <RecordTagRibbon
-          tags={tags}
-          disabled={disabled}
-          menuId={menuId}
-          menuOpen={open}
-          onActivate={openMenu}
-        />
-        <button
-          id={triggerId}
-          ref={trigger}
-          type="button"
-          className="record-tag-picker__trigger"
-          aria-label={localisation.t('record.tag.manage')}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-controls={menuId}
-          disabled={disabled}
-          onClick={(event) => openMenu(event.currentTarget, event.detail === 0)}
-          onKeyDown={(event) => {
-            if (
-              open &&
-              (event.key === 'ArrowDown' || event.key === 'ArrowUp')
-            ) {
-              event.preventDefault()
-              focusFirstMenuItem()
-            }
-          }}
-        >
-          <RecordControlIcon name="add" />
-        </button>
-      </div>
-      <RecordOverlay
-        id={menuId}
-        open={open}
-        kind="menu"
-        labelledBy={menuLabelId}
-        anchorRef={assigned}
-        onClose={closeMenu}
-        className="record-menu record-tag-menu"
-      >
-        <div
-          className="record-menu__items record-tag-picker__list"
-          data-keyboard-navigation={keyboardNavigation}
-          onKeyDown={menuFocus.onKeyDown}
-          onPointerMove={() => setKeyboardNavigation(false)}
-        >
-          {visibleIds.map((id, index) => {
-            const selected = tags.ordered.includes(id)
-            const display = tags.display === id
-            const name = semanticName(localisation, 'record', 'tag', id)
-            return (
-              <div
-                key={id}
-                className={`record-tag-picker__row record-tag-picker__row--${tagPaletteFor(id)}`}
-                data-semantic-tag-id={id}
-                data-selected={selected || undefined}
-                data-display-tag={display || undefined}
-              >
-                <button
-                  ref={menuFocus.itemRef(index)}
-                  type="button"
-                  className="record-tag-picker__select"
-                  role="menuitemcheckbox"
-                  aria-checked={selected}
-                  aria-label={name.accessibleName}
-                  onPointerDown={() => setKeyboardNavigation(false)}
-                  onClick={() =>
-                    onChange(selected ? removeTag(tags, id) : addTag(tags, id))
-                  }
-                >
-                  <RecordTagBadge id={id} />
-                  <span className="record-tag-picker__check" aria-hidden="true">
-                    {selected ? <RecordControlIcon name="check" /> : null}
-                  </span>
-                </button>
-                {selected ? (
-                  <button
-                    type="button"
-                    className="record-tag-picker__main"
-                    role="menuitem"
-                    aria-label={localisation.t('record.tag.makeMain', {
-                      name: name.accessibleName,
-                    })}
-                    aria-pressed={display}
-                    onPointerDown={() => setKeyboardNavigation(false)}
-                    onClick={() => onChange(chooseDisplayTag(tags, id))}
-                  >
-                    {localisation.t('record.tag.main')}
-                  </button>
-                ) : null}
-              </div>
-            )
-          })}
-        </div>
-      </RecordOverlay>
+      <SelectionMenu
+        options={options}
+        selected={tags.ordered}
+        primary={tags.display}
+        multiple
+        allowPrimary
+        disabled={disabled}
+        menuLabel={localisation.t('record.tag.pickerLabel')}
+        triggerLabel={localisation.t('record.tag.manage')}
+        assignedClassName="record-tag-picker__assigned"
+        menuClassName="record-tag-menu"
+        listClassName="record-tag-picker__list"
+        rowClassName={({ value }) =>
+          `record-tag-picker__row--${tagPaletteFor(value)}`
+        }
+        renderAssigned={({ value }, display) => (
+          <RecordTagBadge id={value} display={display} />
+        )}
+        renderOption={({ value }) => <RecordTagBadge id={value} />}
+        mainAction={({ label: accessibleName }) => ({
+          label: localisation.t('record.tag.main'),
+          accessibleLabel: localisation.t('record.tag.makeMain', {
+            name: accessibleName,
+          }),
+        })}
+        onSelectionChange={(ordered) =>
+          onChange({
+            ordered,
+            display:
+              tags.display && ordered.includes(tags.display)
+                ? tags.display
+                : (ordered[0] ?? null),
+          })
+        }
+        onPrimaryChange={(id) => onChange(chooseDisplayTag(tags, id))}
+      />
     </div>
   )
 }

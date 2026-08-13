@@ -1,0 +1,202 @@
+/*
+ * Generic selection menu. Tags and Person connections share this complete
+ * interaction and add only their item content and feature-specific footer.
+ */
+.selection-picker {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-details-label);
+}
+
+.selection-picker__assigned {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-tight);
+}
+
+.selection-picker__assigned-trigger {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.selection-picker__assigned-trigger:disabled,
+.selection-picker__trigger:disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
+}
+
+.selection-picker__trigger {
+  display: grid;
+  width: var(--size-record-scale);
+  min-width: var(--size-record-scale);
+  min-height: var(--size-record-scale);
+  place-items: center;
+  padding: 0;
+  border: var(--border-hairline) solid var(--border-muted);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    border-color var(--motion-quick) var(--motion-ease),
+    background-color var(--motion-quick) var(--motion-ease),
+    color var(--motion-quick) var(--motion-ease),
+    transform var(--motion-instant) var(--motion-ease);
+}
+
+.selection-picker__trigger:hover:not(:disabled),
+.selection-picker__trigger[aria-expanded='true'] {
+  border-color: var(--border-strong);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
+.selection-picker__trigger:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.selection-menu__list {
+  gap: 0;
+}
+
+.selection-menu__row {
+  --selection-menu-main-width: calc(
+    var(--size-control-compact) + var(--space-standard)
+  );
+
+  position: relative;
+  display: grid;
+  min-height: var(--size-control-compact);
+  align-items: center;
+  column-gap: var(--space-md);
+  border-radius: var(--radius-small);
+  grid-template-columns:
+    minmax(0, 1fr) auto
+    var(--size-record-menu-check);
+  transition:
+    background-color var(--motion-instant) var(--motion-ease),
+    color var(--motion-instant) var(--motion-ease),
+    transform var(--motion-instant) var(--motion-ease);
+}
+
+.selection-menu__row[data-selected='true'] {
+  background: var(--color-dropdown-selected);
+}
+
+.selection-menu__row:hover {
+  background: var(--color-surface-raised);
+}
+
+.selection-menu__row[data-selected='true']:hover {
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 9%,
+    var(--color-dropdown-selected)
+  );
+}
+
+.selection-menu__list[data-keyboard-navigation='false']
+  :is(.selection-menu__select, .selection-menu__main):focus-visible {
+  outline: 0;
+}
+
+.selection-menu__select,
+.selection-menu__main {
+  display: flex;
+  min-height: var(--size-control-compact);
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: start;
+}
+
+.selection-menu__select {
+  z-index: 0;
+  display: grid;
+  min-width: 0;
+  padding-block: calc(var(--space-xs) / 2);
+  grid-column: 1 / -1;
+  grid-row: 1;
+  column-gap: var(--space-md);
+  grid-template-columns:
+    minmax(0, 1fr) auto
+    var(--size-record-menu-check);
+  font-size: var(--text-record-ui);
+}
+
+.selection-menu__row[data-selected='true'] .selection-menu__select {
+  grid-template-columns:
+    minmax(0, 1fr) var(--selection-menu-main-width)
+    var(--size-record-menu-check);
+}
+
+.selection-menu__row:active {
+  transform: scale(0.985);
+}
+
+.selection-menu__main {
+  z-index: 1;
+  min-width: var(--selection-menu-main-width);
+  height: calc(var(--size-control-compact) - var(--space-sm));
+  min-height: calc(var(--size-control-compact) - var(--space-sm));
+  align-self: center;
+  grid-column: 2;
+  grid-row: 1;
+  justify-content: center;
+  justify-self: end;
+  padding: 0 var(--space-control-inline);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-secondary);
+  font-size: var(--text-record-meta);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  text-align: center;
+  transition:
+    background-color var(--motion-instant) var(--motion-ease),
+    color var(--motion-instant) var(--motion-ease);
+}
+
+.selection-menu__main[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.selection-menu__main:hover,
+.selection-menu__main:focus-visible {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+}
+
+.selection-menu__main:disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
+}
+
+.selection-menu__check {
+  display: grid;
+  width: var(--size-record-menu-check);
+  height: var(--size-record-menu-check);
+  place-items: center;
+  color: var(--color-accent);
+  grid-column: 3;
+  justify-self: end;
+}
+
+.selection-menu__check .record-control-icon {
+  width: var(--size-record-list-glyph);
+  height: var(--size-record-list-glyph);
+  stroke-width: 2;
+}
