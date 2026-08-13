@@ -1,10 +1,11 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type {
   LifeArchiveClient,
   PersonSnapshot,
   StableId,
 } from '../../core/client'
 import { useTranslate } from '../../i18n'
+import { useMenuRovingFocus } from '../../ui/menu'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
 import { PeopleManager } from './PeopleManager'
 import { PersonAvatar } from './PersonAvatar'
@@ -36,7 +37,6 @@ export function PeopleChooser({
   const [pickerQuery, setPickerQuery] = useState('')
   const trigger = useRef<HTMLButtonElement>(null)
   const close = useRef<HTMLButtonElement>(null)
-  const items = useRef<(HTMLButtonElement | null)[]>([])
   const menuId = useId()
   const triggerId = useId()
   const summaryId = useId()
@@ -65,35 +65,7 @@ export function PeopleChooser({
         : [...value, id],
     )
   }
-  const moveFocus = (index: number) => {
-    const candidates = items.current.filter(
-      (item): item is HTMLButtonElement => item !== null,
-    )
-    const bounded = Math.max(0, Math.min(index, candidates.length - 1))
-    candidates[bounded]?.focus()
-  }
-  const onMenuKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    const candidates = items.current.filter(
-      (item): item is HTMLButtonElement => item !== null,
-    )
-    const current = candidates.indexOf(
-      document.activeElement as HTMLButtonElement,
-    )
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      closeMenu()
-      return
-    }
-    if (current < 0) return
-    if (event.key === 'ArrowDown' || event.key === 'ArrowRight')
-      moveFocus(current + 1)
-    else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft')
-      moveFocus(current - 1)
-    else if (event.key === 'Home') moveFocus(0)
-    else if (event.key === 'End') moveFocus(candidates.length - 1)
-    else return
-    event.preventDefault()
-  }
+  const menuFocus = useMenuRovingFocus({ onEscape: closeMenu })
   const closeTask = () => {
     setTaskClosing(true)
   }
@@ -148,8 +120,10 @@ export function PeopleChooser({
             if (people.state.listedQuery !== '') void people.list('')
             setMenuOpen(true)
             globalThis.queueMicrotask(() =>
-              moveFocus(
-                event.key === 'ArrowDown' ? 0 : items.current.length - 1,
+              menuFocus.focus(
+                event.key === 'ArrowDown'
+                  ? 0
+                  : menuFocus.items.current.length - 1,
               ),
             )
           }
@@ -179,7 +153,7 @@ export function PeopleChooser({
       >
         <div
           className="record-menu__items record-track-menu__items"
-          onKeyDown={onMenuKeyDown}
+          onKeyDown={menuFocus.onKeyDown}
         >
           <div className="people-menu__search" role="none">
             <label>
@@ -196,7 +170,7 @@ export function PeopleChooser({
                     closeMenu()
                   } else if (event.key === 'ArrowDown') {
                     event.preventDefault()
-                    moveFocus(0)
+                    menuFocus.focus(0)
                   }
                 }}
               />
@@ -208,7 +182,7 @@ export function PeopleChooser({
               <button
                 key={snapshot.person.id}
                 ref={(element) => {
-                  items.current[index] = element
+                  menuFocus.items.current[index] = element
                 }}
                 type="button"
                 role="menuitemcheckbox"
@@ -235,7 +209,7 @@ export function PeopleChooser({
           {people.state.hasMore ? (
             <button
               ref={(element) => {
-                items.current[available.length] = element
+                menuFocus.items.current[available.length] = element
               }}
               type="button"
               role="menuitem"
@@ -249,8 +223,9 @@ export function PeopleChooser({
           <span className="record-track-menu__separator" role="separator" />
           <button
             ref={(element) => {
-              items.current[available.length + (people.state.hasMore ? 1 : 0)] =
-                element
+              menuFocus.items.current[
+                available.length + (people.state.hasMore ? 1 : 0)
+              ] = element
             }}
             type="button"
             role="menuitem"
@@ -262,8 +237,9 @@ export function PeopleChooser({
           </button>
           <button
             ref={(element) => {
-              items.current[available.length + (people.state.hasMore ? 2 : 1)] =
-                element
+              menuFocus.items.current[
+                available.length + (people.state.hasMore ? 2 : 1)
+              ] = element
             }}
             type="button"
             role="menuitem"

@@ -1,6 +1,7 @@
-import { useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useId, useRef, useState } from 'react'
 import type { SemanticId, StructuredTags } from '../../../core/client'
 import { semanticName, useLocalisation } from '../../../i18n'
+import { useMenuRovingFocus } from '../../../ui/menu'
 import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 import {
   PREDEFINED_TAG_IDS,
@@ -105,8 +106,6 @@ export function RecordTagPicker({
   const assigned = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const opener = useRef<HTMLButtonElement | null>(null)
-  const firstTag = useRef<HTMLButtonElement>(null)
-  const menu = useRef<HTMLDivElement>(null)
   const menuId = useId()
   const triggerId = useId()
   const menuLabelId = useId()
@@ -116,7 +115,7 @@ export function RecordTagPicker({
   const visibleIds = [...PREDEFINED_TAG_IDS, ...unknownSelected]
   const focusFirstMenuItem = () => {
     setKeyboardNavigation(true)
-    globalThis.queueMicrotask(() => firstTag.current?.focus())
+    globalThis.queueMicrotask(() => menuFocus.focus(0))
   }
   const openMenu = (nextOpener: HTMLButtonElement, focusFirst: boolean) => {
     opener.current = nextOpener
@@ -131,44 +130,10 @@ export function RecordTagPicker({
       globalThis.queueMicrotask(() => focusTarget?.focus())
     }
   }
-  const moveFocus = (direction: 1 | -1) => {
-    const items = Array.from(
-      menu.current?.querySelectorAll<HTMLButtonElement>(
-        '.record-tag-picker__select',
-      ) ?? [],
-    )
-    if (items.length === 0) return
-    const current = items.indexOf(document.activeElement as HTMLButtonElement)
-    const next =
-      current < 0
-        ? direction > 0
-          ? 0
-          : items.length - 1
-        : (current + direction + items.length) % items.length
-    items[next]?.focus()
-  }
-  const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-      event.preventDefault()
-      setKeyboardNavigation(true)
-      moveFocus(1)
-    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-      event.preventDefault()
-      setKeyboardNavigation(true)
-      moveFocus(-1)
-    } else if (event.key === 'Home') {
-      event.preventDefault()
-      setKeyboardNavigation(true)
-      firstTag.current?.focus()
-    } else if (event.key === 'End') {
-      event.preventDefault()
-      setKeyboardNavigation(true)
-      const items = menu.current?.querySelectorAll<HTMLButtonElement>(
-        '.record-tag-picker__select',
-      )
-      items?.item(items.length - 1)?.focus()
-    }
-  }
+  const menuFocus = useMenuRovingFocus({
+    wrap: true,
+    onNavigate: () => setKeyboardNavigation(true),
+  })
 
   return (
     <div className="record-tag-picker">
@@ -220,10 +185,9 @@ export function RecordTagPicker({
         className="record-menu record-tag-menu"
       >
         <div
-          ref={menu}
           className="record-menu__items record-tag-picker__list"
           data-keyboard-navigation={keyboardNavigation}
-          onKeyDown={onMenuKeyDown}
+          onKeyDown={menuFocus.onKeyDown}
           onPointerMove={() => setKeyboardNavigation(false)}
         >
           {visibleIds.map((id, index) => {
@@ -239,7 +203,9 @@ export function RecordTagPicker({
                 data-display-tag={display || undefined}
               >
                 <button
-                  ref={index === 0 ? firstTag : undefined}
+                  ref={(element) => {
+                    menuFocus.items.current[index] = element
+                  }}
                   type="button"
                   className="record-tag-picker__select"
                   role="menuitemcheckbox"
