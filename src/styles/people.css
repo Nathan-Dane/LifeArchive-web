@@ -496,8 +496,7 @@
   justify-items: start;
 }
 
-.record-add-context,
-.record-people {
+.record-add-context {
   width: min(100%, var(--layout-reading-measure));
   margin: var(--space-lg) auto;
 }
@@ -530,44 +529,6 @@
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-popup);
-}
-
-.record-people {
-  display: grid;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  border: var(--border-hairline) solid var(--color-border);
-  border-radius: var(--radius-card);
-  background: var(--color-surface);
-}
-
-.record-people > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-lg);
-}
-
-.record-people > header h2 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.record-people__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.record-people__undo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-lg);
-  padding: 0.6rem var(--space-md);
-  border-radius: var(--radius-control);
-  background: var(--color-note);
 }
 
 .people-menu .record-menu__item {

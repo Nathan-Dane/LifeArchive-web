@@ -290,7 +290,10 @@ describe('RecordPeopleSection', () => {
     view(client)
     await screen.findByRole('heading', { name: 'People' })
 
-    await user.click(screen.getByRole('button', { name: 'Clear People' }))
+    await user.click(
+      screen.getByRole('button', { name: 'People section options' }),
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Clear People' }))
     expect(
       await screen.findByText(/People in this Entry changed elsewhere/),
     ).toBeInTheDocument()
@@ -412,11 +415,17 @@ describe('RecordPeopleSection', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     )
 
-    await user.click(screen.getByRole('button', { name: 'Clear People' }))
+    await user.click(
+      screen.getByRole('button', { name: 'People section options' }),
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Clear People' }))
     await screen.findByText('No People are linked to this Entry.')
     expect(screen.getByRole('heading', { name: 'People' })).toBeInTheDocument()
     await user.click(
-      screen.getByRole('button', { name: 'Remove People Section' }),
+      screen.getByRole('button', { name: 'People section options' }),
+    )
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Remove People Section' }),
     )
     await waitFor(() =>
       expect(

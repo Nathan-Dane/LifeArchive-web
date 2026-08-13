@@ -68,10 +68,13 @@ export function RecordPeopleSection({
   const headingId = useId()
   const contextHeadingId = useId()
   const entryManagerHeadingId = useId()
+  const sectionOptionsId = useId()
+  const sectionOptionsButtonId = useId()
   const contextClose = useRef<HTMLButtonElement>(null)
   const contextOpener = useRef<HTMLButtonElement>(null)
   const entryManagerClose = useRef<HTMLButtonElement>(null)
   const entryManagerOpener = useRef<HTMLButtonElement>(null)
+  const sectionOptionsOpener = useRef<HTMLButtonElement>(null)
   const requestGeneration = useRef(0)
   const mutationInFlight = useRef(false)
   const activeMutation = useRef(0)
@@ -87,6 +90,7 @@ export function RecordPeopleSection({
   const [undo, setUndo] = useState<UndoState | null>(null)
   const [editingPersonId, setEditingPersonId] = useState<StableId | null>(null)
   const [entryManagerOpen, setEntryManagerOpen] = useState(false)
+  const [sectionOptionsOpen, setSectionOptionsOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [pendingMutation, setPendingMutation] =
     useState<RecordPeopleMutation | null>(null)
@@ -132,6 +136,7 @@ export function RecordPeopleSection({
       setUndo(null)
       setEditingPersonId(null)
       setEntryManagerOpen(false)
+      setSectionOptionsOpen(false)
       setPendingMutation(null)
       setFailure(null)
       setBusy(false)
@@ -361,73 +366,115 @@ export function RecordPeopleSection({
       className="record-people record-people--weighted"
       aria-labelledby={headingId}
     >
-      <header>
+      <header className="record-people__header">
         <h2 id={headingId} aria-label={t('record.people.heading')}>
           {t('record.people.headingWithCount', {
             count: snapshot.links.length,
           })}
         </h2>
+        <div className="record-people__header-actions">
+          <button
+            ref={entryManagerOpener}
+            type="button"
+            className="record-people__header-action"
+            disabled={busy}
+            aria-label={t('record.people.manage')}
+            onClick={() => setEntryManagerOpen(true)}
+          >
+            <RecordControlIcon name="add" />
+          </button>
+          <button
+            id={sectionOptionsButtonId}
+            ref={sectionOptionsOpener}
+            type="button"
+            className="record-people__header-action"
+            disabled={busy}
+            aria-label={t('record.people.sectionOptions')}
+            aria-haspopup="menu"
+            aria-expanded={sectionOptionsOpen}
+            aria-controls={sectionOptionsId}
+            onClick={() => setSectionOptionsOpen((current) => !current)}
+          >
+            <RecordControlIcon name="more" />
+          </button>
+        </div>
       </header>
-      {failure ? (
-        <MutationFailure
-          failure={failure}
-          mutation={pendingMutation}
-          busy={busy}
-          onRetry={mutate}
-        />
-      ) : null}
-      {!failure && pendingMutation && !busy ? (
-        <MutationConflict mutation={pendingMutation} onRetry={mutate} />
-      ) : null}
-      {snapshot.links.length === 0 ? (
-        <p className="record-people__empty">{t('record.people.empty')}</p>
-      ) : (
-        <RecordPeopleHierarchy
-          client={client}
-          groups={groups}
-          personButtons={personButtons}
-          onOpen={openTask}
-        />
-      )}
-      <div className="record-people__actions">
-        <button
-          ref={entryManagerOpener}
-          type="button"
-          className="button button--secondary"
-          disabled={busy}
-          onClick={() => setEntryManagerOpen(true)}
-        >
-          <RecordControlIcon name="manage" />
-          <span>{t('record.people.manage')}</span>
-        </button>
-        <button
-          type="button"
-          className="button button--secondary"
-          disabled={busy || snapshot.links.length === 0}
-          onClick={() =>
-            void mutateWithUndo(
-              { kind: 'clearLinks' },
-              t('record.people.cleared'),
-            )
-          }
-        >
-          {t('record.people.clear')}
-        </button>
-        <button
-          type="button"
-          className="button button--secondary"
-          disabled={busy}
-          onClick={() =>
-            void mutateWithUndo(
-              { kind: 'removeSection', sectionId: 'people' },
-              t('record.people.sectionRemoved'),
-            )
-          }
-        >
-          {t('record.people.removeSection')}
-        </button>
+      <div className="record-people__body">
+        {failure ? (
+          <MutationFailure
+            failure={failure}
+            mutation={pendingMutation}
+            busy={busy}
+            onRetry={mutate}
+          />
+        ) : null}
+        {!failure && pendingMutation && !busy ? (
+          <MutationConflict mutation={pendingMutation} onRetry={mutate} />
+        ) : null}
+        {snapshot.links.length === 0 ? (
+          <div className="record-people__empty">
+            <p>{t('record.people.empty')}</p>
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={busy}
+              onClick={() => setEntryManagerOpen(true)}
+            >
+              {t('people.add')}
+            </button>
+          </div>
+        ) : (
+          <RecordPeopleHierarchy
+            client={client}
+            groups={groups}
+            personButtons={personButtons}
+            onOpen={openTask}
+          />
+        )}
       </div>
       <UndoNotice undo={undo} busy={busy} onUndo={restoreUndo} />
+      <RecordOverlay
+        id={sectionOptionsId}
+        open={sectionOptionsOpen}
+        kind="menu"
+        labelledBy={sectionOptionsButtonId}
+        anchorRef={sectionOptionsOpener}
+        onClose={() => setSectionOptionsOpen(false)}
+        className="record-menu record-people__section-menu"
+      >
+        <div className="record-menu__items">
+          <button
+            type="button"
+            className="record-menu__item"
+            role="menuitem"
+            disabled={busy || snapshot.links.length === 0}
+            onClick={() => {
+              setSectionOptionsOpen(false)
+              void mutateWithUndo(
+                { kind: 'clearLinks' },
+                t('record.people.cleared'),
+              )
+            }}
+          >
+            {t('record.people.clear')}
+          </button>
+          <button
+            type="button"
+            className="record-menu__item record-people__section-menu-danger"
+            role="menuitem"
+            disabled={busy}
+            onClick={() => {
+              setSectionOptionsOpen(false)
+              void mutateWithUndo(
+                { kind: 'removeSection', sectionId: 'people' },
+                t('record.people.sectionRemoved'),
+              )
+            }}
+          >
+            {t('record.people.removeSection')}
+          </button>
+        </div>
+      </RecordOverlay>
       <RecordOverlay
         open={editing !== null && !entryManagerOpen}
         kind="modal"
@@ -733,7 +780,6 @@ function PersonEntryTask({
   return (
     <>
       <header className="record-person-task__header">
-        <span className="eyebrow">{t('record.people.task.eyebrow')}</span>
         <button
           ref={closeRef}
           type="button"
@@ -743,64 +789,85 @@ function PersonEntryTask({
         >
           <RecordControlIcon name="close" />
         </button>
+        <strong>
+          {t('record.people.task.title', {
+            name: linked.person.displayName,
+          })}
+        </strong>
+        <span aria-hidden="true" />
       </header>
       <div className="record-person-task__body">
-        <div className="record-person-task__identity">
+        <div className="record-person-task__identity task-hero">
           <PersonAvatar
             client={client}
             name={linked.person.displayName}
             photo={linked.profilePhoto}
             size="large"
           />
-          <div>
-            <h2 id={headingId}>
-              <span className="visually-hidden">
-                {t('record.people.contextPrefix')}{' '}
-              </span>
-              {linked.person.displayName}
-            </h2>
-            {linked.person.connectionLabels[0] ? (
-              <p>{linked.person.connectionLabels[0]}</p>
-            ) : null}
-          </div>
+          <h2 id={headingId}>
+            <span className="visually-hidden">
+              {t('record.people.contextPrefix')}{' '}
+            </span>
+            {linked.person.displayName}
+          </h2>
+          {linked.person.connectionLabels[0] ? (
+            <p>{linked.person.connectionLabels[0]}</p>
+          ) : null}
         </div>
-        <RoleControls
-          person={snapshotOfLinked(linked)}
-          link={linkDraft(linked)}
-          allowsInteraction={allowsInteraction}
-          busy={busy}
-          onToggle={onToggleRole}
-        />
-        <div className="record-person-task__actions">
+        <section className="record-person-task__section">
+          <h3 className="eyebrow">{t('record.people.task.presence')}</h3>
+          <div className="record-person-task__role-row">
+            <RoleControls
+              person={snapshotOfLinked(linked)}
+              link={linkDraft(linked)}
+              allowsInteraction={allowsInteraction}
+              busy={busy}
+              onToggle={onToggleRole}
+            />
+            <button
+              type="button"
+              className="record-person-role__remove"
+              disabled={busy}
+              aria-label={t('record.people.remove', {
+                name: linked.person.displayName,
+              })}
+              onClick={() => void onRemove()}
+            >
+              <span className="record-person-role__bin" aria-hidden="true" />
+            </button>
+          </div>
+        </section>
+        <div className="record-person-task__actions action-list">
           {onViewPerson ? (
             <button
               type="button"
-              className="button button--primary"
               onClick={(event) =>
                 onViewPerson(linked.person.id, event.currentTarget)
               }
             >
-              {t('record.people.viewPerson')}
+              <span>{t('record.people.viewPerson')}</span>
+              <RecordControlIcon name="next" />
             </button>
           ) : null}
           {onEditPerson ? (
             <button
               type="button"
-              className="button button--secondary"
               onClick={(event) =>
                 onEditPerson(linked.person.id, event.currentTarget)
               }
             >
-              {t('record.people.editPerson')}
+              <span>{t('record.people.editPerson')}</span>
+              <RecordControlIcon name="next" />
             </button>
           ) : null}
           <button
             type="button"
-            className="button button--destructive"
+            className="is-danger"
             disabled={busy}
             onClick={() => void onRemove()}
           >
-            {t('record.people.removeFromEntry')}
+            <span>{t('record.people.removeFromEntry')}</span>
+            <RecordControlIcon name="close" />
           </button>
         </div>
         {!allowsInteraction ? (
@@ -1027,11 +1094,11 @@ function EntryPeopleManager({
           </button>
         ) : null}
       </div>
-      <footer className="record-overlay__footer">
+      <footer className="record-entry-people-manager__footer">
         <button
           ref={createOpener}
           type="button"
-          className="button button--primary"
+          className="record-entry-people-manager__create"
           disabled={busy}
           onClick={() => setQuickCreateOpen(true)}
         >
@@ -1104,19 +1171,49 @@ function ManagerPersonRow({
       className="record-entry-person-row"
       data-selected={selected || undefined}
     >
-      <div className="record-entry-person-row__identity">
+      <div className="record-entry-person-row__head">
         <PersonAvatar
           client={client}
           name={person.person.displayName}
           photo={person.profilePhoto}
           size="small"
         />
-        <span>
+        <span className="record-entry-person-row__identity-copy">
           <strong>{person.person.displayName}</strong>
-          {person.person.connectionLabels[0] ? (
+          {selected && link ? (
+            <small>
+              {t('record.people.assigned.meta', {
+                role: t(`record.people.role.${displayRoleFromDraft(link)}`),
+              })}
+            </small>
+          ) : person.person.connectionLabels[0] ? (
             <small>{person.person.connectionLabels[0]}</small>
           ) : null}
         </span>
+        {selected && onMove ? (
+          <div className="record-entry-person-row__order">
+            <button
+              type="button"
+              disabled={busy || !canMoveUp}
+              aria-label={t('record.people.moveUp', {
+                name: person.person.displayName,
+              })}
+              onClick={() => onMove(-1)}
+            >
+              <RecordControlIcon name="up" />
+            </button>
+            <button
+              type="button"
+              disabled={busy || !canMoveDown}
+              aria-label={t('record.people.moveDown', {
+                name: person.person.displayName,
+              })}
+              onClick={() => onMove(1)}
+            >
+              <RecordControlIcon name="down" />
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className="record-entry-person-row__controls">
         <RoleControls
@@ -1141,32 +1238,15 @@ function ManagerPersonRow({
           </button>
         ) : null}
       </div>
-      {selected && onMove ? (
-        <div className="record-entry-person-row__order">
-          <button
-            type="button"
-            disabled={busy || !canMoveUp}
-            aria-label={t('record.people.moveUp', {
-              name: person.person.displayName,
-            })}
-            onClick={() => onMove(-1)}
-          >
-            {t('record.people.up')}
-          </button>
-          <button
-            type="button"
-            disabled={busy || !canMoveDown}
-            aria-label={t('record.people.moveDown', {
-              name: person.person.displayName,
-            })}
-            onClick={() => onMove(1)}
-          >
-            {t('record.people.down')}
-          </button>
-        </div>
-      ) : null}
     </article>
   )
+}
+
+function displayRoleFromDraft(link: PersonLinkDraft): RecordPersonRole {
+  if (link.isSubject) return 'about'
+  if (link.interactionLevel === 'timeTogether') return 'together'
+  if (link.interactionLevel === 'brief') return 'brief'
+  return 'included'
 }
 
 function RoleControls({
