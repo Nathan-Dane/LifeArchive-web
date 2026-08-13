@@ -1,5 +1,4 @@
 export { SpanDetails } from './SpanDetails'
-export { SpanWritingEditor } from './SpanWritingEditor'
 export {
   useSpanEditor,
   type SpanDraftFields,

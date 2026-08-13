@@ -31,7 +31,7 @@ export function SpanDetails({
     isCivilDate(draft.startDate) &&
     (draft.ongoing || isCivilDate(draft.endDate))
   const createReady =
-    draft.title.length > 0 && draft.iconId.length > 0 && rangeReady && true
+    draft.title.length > 0 && draft.iconId.length > 0 && rangeReady
   const conversionReady = isCivilDate(conversionDate)
 
   return (
