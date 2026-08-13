@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { StructuredTags } from '../../../core/client'
 import { I18nProvider } from '../../../i18n'
-import { RecordSemanticIcon } from '../events'
+import { RecordSemanticIcon } from '.'
 import { RecordTagPicker } from './RecordTags'
 import { SemanticIconPicker } from './SemanticIconPicker'
 import {

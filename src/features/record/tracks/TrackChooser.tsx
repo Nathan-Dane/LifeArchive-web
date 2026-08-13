@@ -13,7 +13,7 @@ import type {
   TrackSummary,
 } from '../../../core/client'
 import { useTranslate } from '../../../i18n'
-import { RecordSemanticIcon } from '../events'
+import { RecordSemanticIcon } from '../metadata'
 import { RecordControlIcon, RecordOverlay } from '../overlays'
 import { newestRecordInvalidation } from '../recordInvalidation'
 import { TrackDetails } from './TrackDetails'

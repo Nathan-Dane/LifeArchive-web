@@ -23,8 +23,7 @@ import type {
   TimeWindow,
 } from '../../../core/client'
 import { failureMessage, useFormat, useLocalisation } from '../../../i18n'
-import { RecordSemanticIcon } from '../events'
-import { displayAccentClassName } from '../metadata'
+import { displayAccentClassName, RecordSemanticIcon } from '../metadata'
 import type {
   TemporalMotion,
   TemporalStatus,

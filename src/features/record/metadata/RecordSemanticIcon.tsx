@@ -1,9 +1,6 @@
 import type { SemanticId } from '../../../core/client'
 import { semanticName, useLocalisation } from '../../../i18n'
-import {
-  MATERIAL_UI_GLYPHS,
-  materialIconFor,
-} from '../metadata/semanticCatalog'
+import { MATERIAL_UI_GLYPHS, materialIconFor } from './semanticCatalog'
 
 export function RecordSemanticIcon({
   id,
