@@ -1,11 +1,21 @@
+import { useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { PersonMemorySummary } from '../../core/client'
-import { useFormat, useLocalisation } from '../../i18n'
+import {
+  civilDate,
+  isCivilDate,
+  type PersonMemorySummary,
+} from '../../core/client'
+import { failureMessage, useFormat, useLocalisation } from '../../i18n'
+import { deviceCalendar } from '../../platform/calendar'
+import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
+import '../../styles/person-pages.css'
 import type { People } from './usePeople'
 
 export function PersonInsights({ people }: { readonly people: People }) {
   const t = useLocalisation().t
   const format = useFormat()
+  const [contactTaskOpen, setContactTaskOpen] = useState(false)
+  const contactTaskOpener = useRef<HTMLButtonElement>(null)
   return (
     <>
       <section className="person-card person-derived">
@@ -62,6 +72,17 @@ export function PersonInsights({ people }: { readonly people: People }) {
         ) : (
           <p>{t('people.contact.none')}</p>
         )}
+        <button
+          ref={contactTaskOpener}
+          type="button"
+          className="button button--secondary"
+          onClick={() => {
+            people.resetContactLog()
+            setContactTaskOpen(true)
+          }}
+        >
+          {t('people.contact.log')}
+        </button>
         <fieldset className="person-contact-ranges">
           <legend>{t('people.contact.history')}</legend>
           {(['thirtyDays', 'sixMonths', 'all'] as const).map((range) => (
@@ -128,7 +149,123 @@ export function PersonInsights({ people }: { readonly people: People }) {
           </button>
         ) : null}
       </section>
+      <LogContactTask
+        people={people}
+        open={contactTaskOpen}
+        anchorRef={contactTaskOpener}
+        onClose={() => {
+          setContactTaskOpen(false)
+          people.resetContactLog()
+        }}
+      />
     </>
+  )
+}
+
+function LogContactTask({
+  people,
+  open,
+  anchorRef,
+  onClose,
+}: {
+  readonly people: People
+  readonly open: boolean
+  readonly anchorRef: React.RefObject<HTMLElement | null>
+  readonly onClose: () => void
+}) {
+  const localisation = useLocalisation()
+  const t = localisation.t
+  const headingId = useId()
+  const dateInput = useRef<HTMLInputElement>(null)
+  const [date, setDate] = useState<string>(() => deviceCalendar().today())
+  const valid = isCivilDate(date)
+  const busy = people.state.contactLogStatus === 'saving'
+  const succeeded = people.state.contactLogStatus === 'succeeded'
+  const retryUnsafe =
+    people.state.contactLogFailure?.durableOutcome === 'unknown'
+
+  const log = (interaction: 'brief' | 'timeTogether') => {
+    if (!valid) return
+    void people.logContact(civilDate(date), interaction)
+  }
+
+  return (
+    <RecordOverlay
+      open={open}
+      kind="modal"
+      modalPlacement="center"
+      labelledBy={headingId}
+      anchorRef={anchorRef}
+      initialFocusRef={dateInput}
+      onClose={onClose}
+      className="person-contact-task"
+    >
+      <header className="record-overlay__header">
+        <div>
+          <h2 id={headingId} className="ui-heading">
+            {t('people.contact.log')}
+          </h2>
+          <p className="meta-text">{t('people.contact.log.detail')}</p>
+        </div>
+        <button
+          type="button"
+          className="record-overlay__close"
+          disabled={busy}
+          aria-label={t('people.contact.log.close')}
+          onClick={onClose}
+        >
+          <RecordControlIcon name="close" />
+        </button>
+      </header>
+      <div className="person-contact-task__body">
+        {people.state.contactLogFailure ? (
+          <p role="alert" className="record-details__failure">
+            {failureMessage(localisation, people.state.contactLogFailure)}
+          </p>
+        ) : null}
+        {people.state.contactLogStatus === 'conflict' ? (
+          <p role="alert" className="record-details__failure">
+            {t('people.contact.log.conflict')}
+          </p>
+        ) : null}
+        {people.state.contactLogStatus === 'succeeded' ? (
+          <p role="status">{t('people.contact.log.succeeded')}</p>
+        ) : null}
+        <label className="person-field">
+          <span>{t('people.contact.log.date')}</span>
+          <input
+            ref={dateInput}
+            type="date"
+            value={date}
+            disabled={busy}
+            aria-invalid={!valid}
+            onChange={(event) => setDate(event.currentTarget.value)}
+          />
+        </label>
+        <div
+          className="person-contact-task__choices"
+          role="group"
+          aria-label={t('people.contact.log.kind')}
+        >
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={!valid || busy || succeeded || retryUnsafe}
+            onClick={() => log('brief')}
+          >
+            {t('record.people.role.brief')}
+          </button>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={!valid || busy || succeeded || retryUnsafe}
+            onClick={() => log('timeTogether')}
+          >
+            {t('record.people.role.together')}
+          </button>
+        </div>
+      </div>
+    </RecordOverlay>
   )
 }
 

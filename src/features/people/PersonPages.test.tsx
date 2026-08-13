@@ -141,6 +141,8 @@ function makePeople(overrides: Partial<People> = {}): People {
       contactSummary: null,
       contactHistory: null,
       contactRange: 'thirtyDays',
+      contactLogStatus: 'idle',
+      contactLogFailure: null,
       mergeConflict: false,
       pendingMutation: null,
     },
@@ -164,6 +166,8 @@ function makePeople(overrides: Partial<People> = {}): People {
     dismissMutationConflict: vi.fn(),
     loadMoreMemories: vi.fn(async () => undefined),
     loadContactHistory: vi.fn(async () => true),
+    logContact: vi.fn(async () => true),
+    resetContactLog: vi.fn(),
     active: true,
     ...overrides,
   } as People
@@ -228,6 +232,29 @@ describe('Person routed pages', () => {
     )
     expect(people.deletePerson).toHaveBeenCalledOnce()
     expect(onDeleted).toHaveBeenCalledOnce()
+  })
+
+  it('logs contact from a centered one-tap task', async () => {
+    const user = userEvent.setup()
+    const people = makePeople()
+    renderPage(
+      <PersonProfilePage
+        client={makeClient()}
+        people={people}
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Log Contact' }))
+    const task = screen.getByRole('dialog', { name: 'Log Contact' })
+    expect(task.parentElement).toHaveAttribute('data-placement', 'center')
+    await user.click(within(task).getByRole('button', { name: 'Together' }))
+    expect(people.logContact).toHaveBeenCalledWith(
+      expect.any(String),
+      'timeTogether',
+    )
   })
 
   it('shares every production field and keeps editor rail actions in order', async () => {
