@@ -59,13 +59,17 @@ test.describe('Index and canonical People routes', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'Maya Chen' }),
     ).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Edit Person' }),
+    ).toBeVisible()
     await expect(page.getByRole('button', { name: 'Archive' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Edit' }).click()
+    await page.getByRole('button', { name: 'Edit Person' }).click()
     await expect(page).toHaveURL(/\/index\/people\/[^/]+\/edit$/)
-    await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Save Changes' }),
+    ).toBeVisible()
     await expect(
       page.getByRole('button', { name: 'View Profile' }),
     ).toBeVisible()

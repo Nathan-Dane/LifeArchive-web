@@ -39,7 +39,7 @@ export function PersonProfileActions({
           disabled={busy}
           onClick={onEdit}
         >
-          {t('people.edit')}
+          {t('people.editPerson')}
         </button>
         <button
           type="button"
@@ -108,7 +108,7 @@ export function PersonEditorActions({
           disabled={!valid || busy}
           onClick={() => void save()}
         >
-          {t(busy ? 'people.saving' : 'people.save')}
+          {t(busy ? 'people.saving' : 'people.saveChanges')}
         </button>
         <button
           type="button"
@@ -134,7 +134,7 @@ export function PersonEditorActions({
           }
           onClick={() => setMergeOpen(true)}
         >
-          {t('people.merge')}
+          {t('people.mergeWith')}
         </button>
         <button
           type="button"

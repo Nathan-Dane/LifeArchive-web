@@ -4,6 +4,7 @@ import type {
   PersonSnapshot,
 } from '../../core/client'
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { useFormat, useLocalisation } from '../../i18n'
 import { RecordControlIcon } from '../../ui/overlay'
 import { PersonAvatar } from './PersonAvatar'
@@ -11,25 +12,63 @@ import { PersonAvatar } from './PersonAvatar'
 export function PersonPageBreadcrumb({
   onBack,
   backToRecord = false,
+  displayName,
+  editing = false,
+  onPerson,
 }: {
   readonly onBack: () => void
   readonly backToRecord?: boolean
+  readonly displayName: string
+  readonly editing?: boolean
+  readonly onPerson?: () => void
 }) {
   const t = useLocalisation().t
   return (
-    <button
-      type="button"
-      className="person-page__back"
-      aria-label={t(
-        backToRecord ? 'people.profile.backToRecord' : 'people.profile.back',
-      )}
-      onClick={onBack}
-    >
-      <RecordControlIcon name="back" />
-      <span>
-        {t(backToRecord ? 'people.profile.record' : 'people.page.title')}
-      </span>
-    </button>
+    <div className="person-page__navigation">
+      {backToRecord ? (
+        <button
+          type="button"
+          className="person-page__back"
+          aria-label={t('people.profile.backToRecord')}
+          onClick={onBack}
+        >
+          <RecordControlIcon name="back" />
+          <span>{t('people.profile.backToRecord')}</span>
+        </button>
+      ) : null}
+      <nav
+        className="person-page__breadcrumbs"
+        aria-label={t('people.breadcrumbs')}
+      >
+        <Link to="/index">{t('index.page.title')}</Link>
+        <RecordControlIcon name="next" />
+        {backToRecord ? (
+          <Link to="/index/people">{t('people.page.title')}</Link>
+        ) : (
+          <button
+            type="button"
+            aria-label={t('people.profile.back')}
+            onClick={onBack}
+          >
+            {t('people.page.title')}
+          </button>
+        )}
+        <RecordControlIcon name="next" />
+        {editing ? (
+          <>
+            <button type="button" onClick={onPerson}>
+              {displayName}
+            </button>
+            <RecordControlIcon name="next" />
+            <span aria-current="page">
+              {t('people.profile.editBreadcrumb')}
+            </span>
+          </>
+        ) : (
+          <span aria-current="page">{displayName}</span>
+        )}
+      </nav>
+    </div>
   )
 }
 
