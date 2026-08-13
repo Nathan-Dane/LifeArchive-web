@@ -96,6 +96,9 @@ export function RecordDatePicker({
   label,
   disabled = false,
   invalid = false,
+  minimum,
+  maximum,
+  controlRef,
   widthRef,
   onChange,
 }: {
@@ -103,6 +106,9 @@ export function RecordDatePicker({
   readonly label: string
   readonly disabled?: boolean
   readonly invalid?: boolean
+  readonly minimum?: string
+  readonly maximum?: string
+  readonly controlRef?: RefObject<HTMLButtonElement | null>
   readonly widthRef?: RefObject<HTMLElement | null>
   readonly onChange: (value: string) => void
 }) {
@@ -110,7 +116,7 @@ export function RecordDatePicker({
   const format = useFormat()
   const [open, setOpen] = useState(false)
   const [viewMonth, setViewMonth] = useState<CalendarMonth>(() =>
-    monthFor(value),
+    monthFor(value || minimum || maximum || ''),
   )
   const [editingYear, setEditingYear] = useState(false)
   const [yearDraft, setYearDraft] = useState('')
@@ -143,7 +149,7 @@ export function RecordDatePicker({
     })
   }
   const openMenu = () => {
-    setViewMonth(monthFor(value))
+    setViewMonth(monthFor(value || minimum || maximum || ''))
     setEditingYear(false)
     setOpen(true)
     focusCalendar()
@@ -156,6 +162,9 @@ export function RecordDatePicker({
     }
   }
   const choose = (nextValue: string) => {
+    if ((minimum && nextValue < minimum) || (maximum && nextValue > maximum)) {
+      return
+    }
     onChange(nextValue)
     closeMenu()
   }
@@ -223,7 +232,10 @@ export function RecordDatePicker({
     <div className="record-date-picker">
       <button
         id={triggerId}
-        ref={trigger}
+        ref={(element) => {
+          trigger.current = element
+          if (controlRef) controlRef.current = element
+        }}
         type="button"
         className="record-date-picker__trigger"
         aria-label={triggerLabel}
@@ -326,6 +338,9 @@ export function RecordDatePicker({
               const parts = parseDate(date)!
               const inMonth =
                 parts.year === viewMonth.year && parts.month === viewMonth.month
+              const outOfBounds =
+                (minimum !== undefined && date < minimum) ||
+                (maximum !== undefined && date > maximum)
               return (
                 <button
                   key={date}
@@ -342,6 +357,7 @@ export function RecordDatePicker({
                   aria-label={format.civilDate(date)}
                   aria-pressed={date === selectedValue}
                   aria-current={date === today ? 'date' : undefined}
+                  disabled={outOfBounds}
                   data-outside-month={!inMonth || undefined}
                   tabIndex={
                     date === selectedValue ||
@@ -358,7 +374,14 @@ export function RecordDatePicker({
             })}
           </div>
           <footer className="record-date-picker__footer">
-            <button type="button" onClick={() => choose(today)}>
+            <button
+              type="button"
+              disabled={
+                (minimum !== undefined && today < minimum) ||
+                (maximum !== undefined && today > maximum)
+              }
+              onClick={() => choose(today)}
+            >
               {t('record.navigation.today')}
             </button>
           </footer>

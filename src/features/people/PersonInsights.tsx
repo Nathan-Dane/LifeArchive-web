@@ -6,6 +6,7 @@ import {
   type PersonMemorySummary,
 } from '../../core/client'
 import { failureMessage, useFormat, useLocalisation } from '../../i18n'
+import { RecordDatePicker } from '../record/metadata'
 import { deviceCalendar } from '../../platform/calendar'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
 import '../../styles/person-pages.css'
@@ -176,7 +177,7 @@ function LogContactTask({
   const localisation = useLocalisation()
   const t = localisation.t
   const headingId = useId()
-  const dateInput = useRef<HTMLInputElement>(null)
+  const dateControl = useRef<HTMLButtonElement>(null)
   const [date, setDate] = useState<string>(() => deviceCalendar().today())
   const valid = isCivilDate(date)
   const busy = people.state.contactLogStatus === 'saving'
@@ -196,7 +197,7 @@ function LogContactTask({
       modalPlacement="center"
       labelledBy={headingId}
       anchorRef={anchorRef}
-      initialFocusRef={dateInput}
+      initialFocusRef={dateControl}
       onClose={onClose}
       className="person-contact-task"
     >
@@ -231,17 +232,17 @@ function LogContactTask({
         {people.state.contactLogStatus === 'succeeded' ? (
           <p role="status">{t('people.contact.log.succeeded')}</p>
         ) : null}
-        <label className="person-field">
+        <div className="person-field">
           <span>{t('people.contact.log.date')}</span>
-          <input
-            ref={dateInput}
-            type="date"
+          <RecordDatePicker
+            controlRef={dateControl}
+            label={t('people.contact.log.date')}
             value={date}
             disabled={busy}
-            aria-invalid={!valid}
-            onChange={(event) => setDate(event.currentTarget.value)}
+            invalid={!valid}
+            onChange={setDate}
           />
-        </label>
+        </div>
         <div
           className="person-contact-task__choices"
           role="group"

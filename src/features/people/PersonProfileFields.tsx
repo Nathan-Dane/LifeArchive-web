@@ -6,6 +6,7 @@ import type {
 } from '../../core/client'
 import { useLocalisation } from '../../i18n'
 import { RecordControlIcon } from '../../ui/overlay'
+import { PeopleSelect } from './PeopleSelect'
 
 const OTHER_NAME_KINDS = [
   'nickname',
@@ -40,20 +41,16 @@ export function OtherNameRow({
   const t = useLocalisation().t
   return (
     <div className="person-repeat__row">
-      <select
-        aria-label={t('people.otherNames.kindLabel', { number: index + 1 })}
+      <PeopleSelect
+        ariaLabel={t('people.otherNames.kindLabel', { number: index + 1 })}
         value={name.kindId}
         disabled={disabled}
-        onChange={(event) =>
-          onChange({ ...name, kindId: event.currentTarget.value })
-        }
-      >
-        {OTHER_NAME_KINDS.map((kind) => (
-          <option key={kind} value={kind}>
-            {t(`people.otherNames.kind.${kind}`)}
-          </option>
-        ))}
-      </select>
+        options={OTHER_NAME_KINDS.map((kind) => ({
+          value: kind,
+          label: t(`people.otherNames.kind.${kind}`),
+        }))}
+        onChange={(kindId) => onChange({ ...name, kindId })}
+      />
       <input
         aria-label={t('people.otherNames.valueLabel', { number: index + 1 })}
         value={name.value}
@@ -92,20 +89,16 @@ export function ReferenceRow({
   const t = useLocalisation().t
   return (
     <div className="person-reference">
-      <select
-        aria-label={t('people.references.kindLabel', { number: index + 1 })}
+      <PeopleSelect
+        ariaLabel={t('people.references.kindLabel', { number: index + 1 })}
         value={reference.kindId}
         disabled={disabled}
-        onChange={(event) =>
-          onChange({ ...reference, kindId: event.currentTarget.value })
-        }
-      >
-        {REFERENCE_KINDS.map((kind) => (
-          <option key={kind} value={kind}>
-            {t(`people.references.kind.${kind}`)}
-          </option>
-        ))}
-      </select>
+        options={REFERENCE_KINDS.map((kind) => ({
+          value: kind,
+          label: t(`people.references.kind.${kind}`),
+        }))}
+        onChange={(kindId) => onChange({ ...reference, kindId })}
+      />
       <input
         aria-label={t('people.references.labelNumbered', {
           number: index + 1,
@@ -182,26 +175,29 @@ export function PartialDateEditor({
       </label>
       {value ? (
         <div className="person-date__fields">
-          <label>
+          <div className="person-date__field">
             <span>{t('people.date.precision')}</span>
-            <select
+            <PeopleSelect
               value={precision}
+              ariaLabel={t('people.date.precision')}
               disabled={disabled}
-              onChange={(event) =>
-                updatePrecision(
-                  event.currentTarget.value as PersonDatePrecision,
-                )
-              }
-            >
-              <option value="day">{t('people.date.precision.fullDate')}</option>
-              <option value="month">
-                {t('people.date.precision.monthYear')}
-              </option>
-              <option value="year">
-                {t('people.date.precision.yearOnly')}
-              </option>
-            </select>
-          </label>
+              options={[
+                {
+                  value: 'day',
+                  label: t('people.date.precision.fullDate'),
+                },
+                {
+                  value: 'month',
+                  label: t('people.date.precision.monthYear'),
+                },
+                {
+                  value: 'year',
+                  label: t('people.date.precision.yearOnly'),
+                },
+              ]}
+              onChange={(next) => updatePrecision(next as PersonDatePrecision)}
+            />
+          </div>
           {precision === 'day' ? (
             <label>
               <span>{t('people.date.dayField')}</span>

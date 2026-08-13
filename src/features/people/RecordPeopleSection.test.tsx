@@ -470,10 +470,15 @@ describe('RecordPeopleSection', () => {
       name: /Ada Lovelace/,
     })
     expect(within(dialog).queryByRole('radio')).not.toBeInTheDocument()
-    const contactDate = within(dialog).getByLabelText('Contact date')
-    expect(contactDate).toHaveAttribute('min', '2026-03-01')
-    expect(contactDate).toHaveAttribute('max', '2026-03-07')
-    await user.type(contactDate, '2026-03-04')
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Choose Contact date' }),
+    )
+    const calendar = await screen.findByRole('dialog', {
+      name: 'Choose Contact date',
+    })
+    await user.click(
+      within(calendar).getByRole('gridcell', { name: 'March 4, 2026' }),
+    )
     await user.click(
       within(dialog).getByRole('button', { name: 'Log Contact' }),
     )

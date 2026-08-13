@@ -173,12 +173,13 @@ describe('PeopleChooser', () => {
     await user.clear(displayName)
     await user.type(displayName, 'Katherine Johnson')
     await user.click(
-      within(dialog).getByRole('button', { name: '+ Add Connection' }),
+      within(dialog).getByRole('button', { name: 'Choose connections' }),
     )
-    const connections = await screen.findByRole('dialog', {
+    const connections = await screen.findByRole('menu', {
       name: 'How you know them',
     })
-    const standardConnections = within(connections).getAllByRole('checkbox')
+    const standardConnections =
+      within(connections).getAllByRole('menuitemcheckbox')
     expect(
       standardConnections.slice(0, 3).map((item) => item.textContent),
     ).toEqual([
@@ -187,17 +188,17 @@ describe('PeopleChooser', () => {
       expect.stringContaining('Colleague'),
     ])
     await user.click(
-      within(connections).getByRole('checkbox', { name: 'Friend' }),
+      within(connections).getByRole('menuitemcheckbox', { name: 'Friend' }),
     )
     await user.click(
-      within(connections).getByRole('checkbox', { name: 'Family' }),
+      within(connections).getByRole('menuitemcheckbox', { name: 'Family' }),
     )
     await user.click(
-      within(connections).getByRole('button', { name: 'Make primary' }),
+      within(connections).getByRole('menuitem', { name: 'Make primary' }),
     )
     expect(
       within(connections)
-        .getAllByRole('checkbox')
+        .getAllByRole('menuitemcheckbox')
         .slice(0, 3)
         .map((item) => item.textContent),
     ).toEqual([
@@ -208,7 +209,7 @@ describe('PeopleChooser', () => {
     await user.keyboard('{Escape}')
     await waitFor(() =>
       expect(
-        screen.queryByRole('dialog', { name: 'How you know them' }),
+        screen.queryByRole('menu', { name: 'How you know them' }),
       ).not.toBeInTheDocument(),
     )
 
@@ -216,10 +217,8 @@ describe('PeopleChooser', () => {
     await user.click(
       within(birth).getByRole('checkbox', { name: 'Not recorded' }),
     )
-    await user.selectOptions(
-      within(birth).getByRole('combobox', { name: 'Precision' }),
-      'month',
-    )
+    await user.click(within(birth).getByRole('button', { name: 'Precision' }))
+    await user.click(screen.getByRole('menuitemradio', { name: 'Month' }))
     expect(
       within(birth).getByRole('spinbutton', { name: 'Month' }),
     ).toHaveValue(null)

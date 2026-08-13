@@ -19,6 +19,8 @@ import { civilDate } from '../../core/client'
 import { failureMessage, useLocalisation } from '../../i18n'
 import { deviceCalendar } from '../../platform/calendar'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
+import { RecordDatePicker } from '../record/metadata'
+import { PeopleSelect } from './PeopleSelect'
 import { PersonAvatar } from './PersonAvatar'
 import { PersonQuickCreateDialog } from './PersonQuickCreateDialog'
 import {
@@ -813,33 +815,34 @@ function PersonEntryTask({
             {logSucceeded ? (
               <p role="status">{t('record.people.logSucceeded')}</p>
             ) : null}
-            <label>
+            <div className="person-field">
               <span>{t('record.people.contactDate')}</span>
-              <input
-                type="date"
+              <RecordDatePicker
+                label={t('record.people.contactDate')}
                 value={contactDate}
-                min={contactDateBounds?.minimum}
-                max={contactDateBounds?.maximum}
-                aria-invalid={!contactDateValid && contactDate.length > 0}
-                onChange={(event) => setContactDate(event.currentTarget.value)}
+                minimum={contactDateBounds?.minimum}
+                maximum={contactDateBounds?.maximum}
+                invalid={!contactDateValid && contactDate.length > 0}
+                onChange={setContactDate}
               />
-            </label>
-            <label>
+            </div>
+            <div className="person-field">
               <span>{t('record.people.contactKind')}</span>
-              <select
+              <PeopleSelect
                 value={contactKind}
-                onChange={(event) =>
-                  setContactKind(
-                    event.currentTarget.value as PersonInteractionLevel,
-                  )
+                ariaLabel={t('record.people.contactKind')}
+                options={[
+                  { value: 'brief', label: t('record.people.role.brief') },
+                  {
+                    value: 'timeTogether',
+                    label: t('record.people.role.together'),
+                  },
+                ]}
+                onChange={(next) =>
+                  setContactKind(next as PersonInteractionLevel)
                 }
-              >
-                <option value="brief">{t('record.people.role.brief')}</option>
-                <option value="timeTogether">
-                  {t('record.people.role.together')}
-                </option>
-              </select>
-            </label>
+              />
+            </div>
             <button
               type="button"
               className="button button--secondary"
