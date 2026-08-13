@@ -16,21 +16,39 @@ const STYLESHEETS = import.meta.glob('/src/styles/*.css', {
   eager: true,
 }) as Record<string, string>
 
+const RAW_STYLESHEETS = import.meta.glob('/src/styles/*.css', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
+
 function styles(name: string): string {
   const source = STYLESHEETS[`/src/styles/${name}`]
   if (source === undefined) throw new Error(`No stylesheet named ${name}`)
   return source
 }
 
+function rawStyles(name: string): string {
+  const source = RAW_STYLESHEETS[`/src/styles/${name}`]
+  if (source === undefined) throw new Error(`No raw stylesheet named ${name}`)
+  return source
+}
+
 const TOKENS_CSS = styles('tokens.css')
-const LAYOUT_CSS = styles('layout.css')
+const LAYOUT_STYLESHEET_NAMES = [
+  'people.css',
+  'shell.css',
+  'settings.css',
+  'archive.css',
+  'record.css',
+  'controls.css',
+] as const
+const LAYOUT_STYLESHEETS = LAYOUT_STYLESHEET_NAMES.map(styles)
+const LAYOUT_CSS = LAYOUT_STYLESHEETS.join('\n')
 const TYPOGRAPHY_CSS = styles('typography.css')
 const GLOBAL_CSS = styles('global.css')
-const ALL_CSS = [TOKENS_CSS, LAYOUT_CSS, TYPOGRAPHY_CSS, GLOBAL_CSS]
-const RECORD_CSS = LAYOUT_CSS.slice(
-  LAYOUT_CSS.indexOf('Record time navigation.'),
-  LAYOUT_CSS.indexOf('.app-notice'),
-)
+const ALL_CSS = [TOKENS_CSS, ...LAYOUT_STYLESHEETS, TYPOGRAPHY_CSS, GLOBAL_CSS]
+const RECORD_CSS = styles('record.css')
 
 interface AppearancePair {
   readonly light: string
@@ -106,6 +124,30 @@ const SURFACES = [
   '--color-surface-raised',
   '--color-details-panel',
 ] as const
+
+describe('the layout stylesheet composition', () => {
+  it('imports every layout domain once in cascade order', () => {
+    const imports = [
+      ...rawStyles('layout.css').matchAll(/@import\s+['"]\.\/([^'"]+)['"]/g),
+    ].map((match) => match[1])
+
+    expect(imports).toEqual(LAYOUT_STYLESHEET_NAMES)
+  })
+
+  it('keeps persistent workspace scrollbars hidden without reserving width', () => {
+    const scrollers = String.raw`\.workspace\s+:is\(\s*\.record-objects__groups,\s*\.workspace__content,\s*\.record-details\s*\)`
+
+    expect(RECORD_CSS).toMatch(
+      new RegExp(`${scrollers}\\s*\\{[^}]*scrollbar-width:\\s*none`, 's'),
+    )
+    expect(RECORD_CSS).toMatch(
+      new RegExp(
+        `${scrollers}::-webkit-scrollbar\\s*\\{[^}]*display:\\s*none`,
+        's',
+      ),
+    )
+  })
+})
 
 describe('the colour tokens', () => {
   it('specifies both appearances for every colour', () => {
