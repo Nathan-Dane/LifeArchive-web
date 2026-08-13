@@ -5,7 +5,7 @@
  * The root .shell rule is independent of the People selectors, so it lives
  * with the shell domain without changing specificity or rendered behavior.
  */
-@import './people.css';
+@import './people-shared.css';
 @import './index.css';
 @import './record-people.css';
 @import './shell.css';

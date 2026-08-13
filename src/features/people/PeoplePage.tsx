@@ -14,6 +14,7 @@ import {
   type StableId,
 } from '../../core/client'
 import { failureMessage, useLocalisation } from '../../i18n'
+import '../../styles/people.css'
 import { RecordControlIcon } from '../../ui/overlay'
 import { useRecordPersonOrigin } from '../../ui/navigation/recordPersonOrigin'
 import { PeopleManager } from './PeopleManager'

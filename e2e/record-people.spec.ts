@@ -15,7 +15,7 @@ test.describe('People in Record', () => {
     await person.click()
 
     const task = page.getByRole('dialog', {
-      name: /Person in this Entry: Maya Chen/,
+      name: /Person in this entry: Maya Chen/,
     })
     await expect(task).toBeVisible()
     const roles = task.getByRole('group', { name: 'Context for Maya Chen' })
@@ -23,7 +23,7 @@ test.describe('People in Record', () => {
     await expect(roles.getByRole('button')).toHaveCount(4)
     await expect(
       roles.getByRole('button', { name: 'Included' }),
-    ).toHaveAttribute('aria-pressed', 'true')
+    ).toHaveAttribute('aria-pressed', 'false')
     await expect(roles.getByRole('button', { name: 'Brief' })).toHaveAttribute(
       'aria-pressed',
       'false',
@@ -36,7 +36,7 @@ test.describe('People in Record', () => {
       'false',
     )
     await expect(
-      task.getByRole('button', { name: 'Remove from This Entry' }),
+      task.getByRole('button', { name: 'Remove from this entry' }),
     ).toBeVisible()
   })
 
@@ -51,17 +51,15 @@ test.describe('People in Record', () => {
     await trigger.click()
 
     const manager = page.getByRole('dialog', {
-      name: 'Manage People in This Entry',
+      name: 'People in this entry',
     })
     await expect(manager).toBeVisible()
+    await expect(manager.getByPlaceholder('Search People')).toBeVisible()
     await expect(
-      manager.getByPlaceholder('Search by name or connection'),
+      manager.getByRole('heading', { name: 'In this entry', exact: true }),
     ).toBeVisible()
     await expect(
-      manager.getByRole('heading', { name: 'In this Entry', exact: true }),
-    ).toBeVisible()
-    await expect(
-      manager.getByRole('heading', { name: 'Other People' }),
+      manager.getByRole('heading', { name: 'Other people' }),
     ).toBeVisible()
     await expect(
       manager.getByRole('group', { name: 'Context for Maya Chen' }),
@@ -92,7 +90,7 @@ test.describe('People in Record', () => {
     await managerTrigger.click()
     await page.keyboard.press('Escape')
     await expect(
-      page.getByRole('dialog', { name: 'Manage People in This Entry' }),
+      page.getByRole('dialog', { name: 'People in this entry' }),
     ).toHaveCount(0)
     await expect(managerTrigger).toBeFocused()
   })
@@ -106,8 +104,8 @@ test.describe('People in Record', () => {
     })
 
     await person.click()
-    const view = page.getByRole('button', { name: 'View Person' })
-    const edit = page.getByRole('button', { name: 'Edit Person' })
+    const view = page.getByRole('button', { name: 'View person' })
+    const edit = page.getByRole('button', { name: 'Edit person' })
     await expect(view).toBeVisible()
     await expect(edit).toBeVisible()
     await view.click()
@@ -123,7 +121,7 @@ test.describe('People in Record', () => {
     await expect(person).toBeFocused()
 
     await person.click()
-    await page.getByRole('button', { name: 'Edit Person' }).click()
+    await page.getByRole('button', { name: 'Edit person' }).click()
     await expect(page).toHaveURL(/\/index\/people\/[^/]+\/edit$/)
     await expect(
       page.getByRole('button', { name: 'View Profile' }),
