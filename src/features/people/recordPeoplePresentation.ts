@@ -2,7 +2,7 @@ import type { LinkedPersonSnapshot, PersonLinkDraft } from '../../core/client'
 
 export type RecordPersonRole = 'included' | 'brief' | 'together' | 'about'
 
-/** One visual group per Person, while the underlying context stays lossless. */
+/** One visual group per Person. Legacy compound links use a stable priority. */
 export function displayRole(linked: LinkedPersonSnapshot): RecordPersonRole {
   if (linked.link.isSubject) return 'about'
   if (linked.link.interactionLevel === 'timeTogether') return 'together'
@@ -25,9 +25,9 @@ export function groupRecordPeople(
 }
 
 /**
- * Map the four presentation controls onto the three independent durable
- * dimensions. Brief and Together share the interaction enum; participation
- * and subject context never overwrite it or one another.
+ * Map the four mutually-exclusive presentation states onto core's durable
+ * link fields. Choosing the selected state is idempotent and always clears
+ * the other three state representations.
  */
 export function toggleRecordPersonRole(
   link: PersonLinkDraft,
@@ -35,20 +35,33 @@ export function toggleRecordPersonRole(
 ): PersonLinkDraft {
   switch (role) {
     case 'included':
-      return { ...link, tookPart: !link.tookPart }
+      return {
+        ...link,
+        interactionLevel: 'none',
+        tookPart: true,
+        isSubject: false,
+      }
     case 'brief':
       return {
         ...link,
-        interactionLevel: link.interactionLevel === 'brief' ? 'none' : 'brief',
+        interactionLevel: 'brief',
+        tookPart: false,
+        isSubject: false,
       }
     case 'together':
       return {
         ...link,
-        interactionLevel:
-          link.interactionLevel === 'timeTogether' ? 'none' : 'timeTogether',
+        interactionLevel: 'timeTogether',
+        tookPart: false,
+        isSubject: false,
       }
     case 'about':
-      return { ...link, isSubject: !link.isSubject }
+      return {
+        ...link,
+        interactionLevel: 'none',
+        tookPart: false,
+        isSubject: true,
+      }
   }
 }
 
@@ -57,14 +70,8 @@ export function recordPersonRoleSelected(
   role: RecordPersonRole,
 ): boolean {
   if (!link) return false
-  switch (role) {
-    case 'included':
-      return link.tookPart
-    case 'brief':
-      return link.interactionLevel === 'brief'
-    case 'together':
-      return link.interactionLevel === 'timeTogether'
-    case 'about':
-      return link.isSubject
-  }
+  if (link.isSubject) return role === 'about'
+  if (link.interactionLevel === 'timeTogether') return role === 'together'
+  if (link.interactionLevel === 'brief') return role === 'brief'
+  return role === 'included'
 }

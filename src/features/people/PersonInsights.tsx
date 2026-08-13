@@ -6,10 +6,11 @@ import {
   type PersonMemorySummary,
 } from '../../core/client'
 import { failureMessage, useFormat, useLocalisation } from '../../i18n'
-import { RecordDatePicker } from '../record/metadata'
 import { deviceCalendar } from '../../platform/calendar'
-import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
+import { RecordOverlay } from '../../ui/overlay'
 import '../../styles/person-pages.css'
+import { RecordDatePicker } from '../record/metadata'
+import { PeopleTaskHeader } from './PeopleTaskHeader'
 import type { People } from './usePeople'
 
 export function PersonInsights({ people }: { readonly people: People }) {
@@ -201,24 +202,17 @@ function LogContactTask({
       onClose={onClose}
       className="person-contact-task"
     >
-      <header className="record-overlay__header">
-        <div>
-          <h2 id={headingId} className="ui-heading">
-            {t('people.contact.log')}
-          </h2>
-          <p className="meta-text">{t('people.contact.log.detail')}</p>
-        </div>
-        <button
-          type="button"
-          className="record-overlay__close"
-          disabled={busy}
-          aria-label={t('people.contact.log.close')}
-          onClick={onClose}
-        >
-          <RecordControlIcon name="close" />
-        </button>
-      </header>
+      <PeopleTaskHeader
+        headingId={headingId}
+        title={t('people.contact.log')}
+        closeLabel={t('people.contact.log.close')}
+        disabled={busy}
+        onClose={onClose}
+      />
       <div className="person-contact-task__body">
+        <p className="meta-text people-task-detail">
+          {t('people.contact.log.detail')}
+        </p>
         {people.state.contactLogFailure ? (
           <p role="alert" className="record-details__failure">
             {failureMessage(localisation, people.state.contactLogFailure)}

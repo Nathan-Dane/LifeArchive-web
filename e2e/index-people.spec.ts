@@ -142,7 +142,7 @@ test.describe('People responsive containment', () => {
         .getByRole('button', { name: /Maya Chen.*Open Person context/ })
         .click()
       const personTask = page.getByRole('dialog', {
-        name: /Person in this Entry: Maya Chen/,
+        name: /Person in this entry: Maya Chen/,
       })
       await expectCentered(page, personTask)
       await expect.poll(() => horizontalOverflow(page)).toBeLessThanOrEqual(0)
@@ -152,7 +152,7 @@ test.describe('People responsive containment', () => {
         .getByRole('button', { name: 'Manage People in This Entry' })
         .click()
       const entryManager = page.getByRole('dialog', {
-        name: 'Manage People in This Entry',
+        name: 'People in this entry',
       })
       await expectCentered(page, entryManager)
       await expect.poll(() => horizontalOverflow(page)).toBeLessThanOrEqual(0)

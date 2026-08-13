@@ -1,8 +1,9 @@
 import { useId, useRef, useState, type RefObject } from 'react'
 import type { PersonSnapshot } from '../../core/client'
 import { failureMessage, useLocalisation } from '../../i18n'
-import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
+import { RecordOverlay } from '../../ui/overlay'
 import { PeopleSelect } from './PeopleSelect'
+import { PeopleTaskHeader } from './PeopleTaskHeader'
 import { STANDARD_CONNECTION_LABELS } from './connectionLabels'
 import type { People } from './usePeople'
 
@@ -80,24 +81,17 @@ export function PersonQuickCreateDialog({
       onClose={close}
       className="people-quick-create"
     >
-      <header className="record-overlay__header">
-        <div>
-          <h2 id={headingId} className="ui-heading">
-            {t('people.create.heading')}
-          </h2>
-          <p className="meta-text">{t('people.create.quick.detail')}</p>
-        </div>
-        <button
-          type="button"
-          className="record-overlay__close"
-          aria-label={t('people.cancel')}
-          disabled={busy}
-          onClick={close}
-        >
-          <RecordControlIcon name="close" />
-        </button>
-      </header>
+      <PeopleTaskHeader
+        headingId={headingId}
+        title={t('people.create.heading')}
+        closeLabel={t('people.cancel')}
+        disabled={busy}
+        onClose={close}
+      />
       <div className="people-quick-create__body">
+        <p className="meta-text people-task-detail">
+          {t('people.create.quick.detail')}
+        </p>
         {people.state.quickCreateFailure ? (
           <p role="alert" className="record-details__failure">
             {failureMessage(localisation, people.state.quickCreateFailure)}
