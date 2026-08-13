@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/mini'
 import webRuntimePolicy from '../../../runtime/web-runtime-policy.json'
 
 const exactVersion = /^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){0,2}$/
@@ -8,12 +8,13 @@ const identifier = /^[A-Za-z][A-Za-z0-9._-]{0,127}$/
 const sha256 = /^[0-9a-f]{64}$/
 const bundlePath = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/
 
-const exactVersionSchema = z.string().regex(exactVersion)
-const bundlePathSchema = z
-  .string()
-  .regex(bundlePath)
-  .refine((value) => value.split('/').every((part) => part !== '.'))
-  .refine((value) => value.split('/').every((part) => part !== '..'))
+const regexString = (pattern: RegExp) => z.string().check(z.regex(pattern))
+
+const exactVersionSchema = regexString(exactVersion)
+const bundlePathSchema = regexString(bundlePath).check(
+  z.refine((value) => value.split('/').every((part) => part !== '.')),
+  z.refine((value) => value.split('/').every((part) => part !== '..')),
+)
 
 export const WEB_V0_1_CAPABILITIES = webRuntimePolicy.capabilities.map(
   ({ name, version }) => [name, version] as const,
@@ -36,29 +37,31 @@ const unpinnedRuntimeLockSchema = z.strictObject({
 const pinnedRuntimeLockSchema = z
   .strictObject({
     manifestVersion: z.literal(1),
-    runtimeVersion: z.string().regex(exactRuntimeVersion),
+    runtimeVersion: regexString(exactRuntimeVersion),
     artifactUrl: z.url(),
-    sha256: z.string().regex(sha256),
+    sha256: regexString(sha256),
     productContract: exactVersionSchema,
     bindingsAbi: exactVersionSchema,
     status: z.literal('pinned'),
   })
-  .superRefine((lock, context) => {
-    const url = new URL(lock.artifactUrl)
-    if (
-      url.protocol !== 'https:' ||
-      url.search !== '' ||
-      url.hash !== '' ||
-      !url.pathname.includes(lock.runtimeVersion) ||
-      /(^|[./_-])(latest|main|master)([./_-]|$)/i.test(url.pathname)
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'artifactUrl must be an immutable HTTPS runtime-version URL',
-        path: ['artifactUrl'],
-      })
-    }
-  })
+  .check(
+    z.superRefine((lock, context) => {
+      const url = new URL(lock.artifactUrl)
+      if (
+        url.protocol !== 'https:' ||
+        url.search !== '' ||
+        url.hash !== '' ||
+        !url.pathname.includes(lock.runtimeVersion) ||
+        /(^|[./_-])(latest|main|master)([./_-]|$)/i.test(url.pathname)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message: 'artifactUrl must be an immutable HTTPS runtime-version URL',
+          path: ['artifactUrl'],
+        })
+      }
+    }),
+  )
 
 export const runtimeLockSchema = z.union([
   unpinnedRuntimeLockSchema,
@@ -66,20 +69,20 @@ export const runtimeLockSchema = z.union([
 ])
 
 const capabilitySchema = z.strictObject({
-  name: z.string().regex(/^[a-z][A-Za-z0-9]*(\.[a-z][A-Za-z0-9]*)+$/),
+  name: regexString(/^[a-z][A-Za-z0-9]*(\.[a-z][A-Za-z0-9]*)+$/),
   version: exactVersionSchema,
 })
 
 const runtimeFileSchema = z.strictObject({
   path: bundlePathSchema,
-  sha256: z.string().regex(sha256),
+  sha256: regexString(sha256),
 })
 
 export const runtimeManifestSchema = z
   .strictObject({
     manifestVersion: z.literal(1),
-    runtimeVersion: z.string().regex(exactRuntimeVersion),
-    buildId: z.string().regex(identifier),
+    runtimeVersion: regexString(exactRuntimeVersion),
+    buildId: regexString(identifier),
     productContract: exactVersionSchema,
     bindingsAbi: exactVersionSchema,
     dependencyVersions: z.strictObject({
@@ -97,21 +100,21 @@ export const runtimeManifestSchema = z
     }),
     capabilities: z
       .array(capabilitySchema)
-      .length(WEB_V0_1_CAPABILITIES.length),
+      .check(z.length(WEB_V0_1_CAPABILITIES.length)),
     modules: z.strictObject({
       loader: bundlePathSchema,
       wasm: bundlePathSchema,
       types: bundlePathSchema,
     }),
-    files: z.array(runtimeFileSchema).length(5),
+    files: z.array(runtimeFileSchema).check(z.length(5)),
     persistence: z.strictObject({
-      backend: z.string().regex(identifier),
+      backend: regexString(identifier),
       durable: z.boolean(),
     }),
     requiredEnvironment: z.strictObject({
       executionContext: z.literal('dedicated-worker'),
       secureContext: z.literal(true),
-      features: z.array(z.string().regex(identifier)).min(1),
+      features: z.array(regexString(identifier)).check(z.minLength(1)),
     }),
     licence: z.strictObject({
       id: z.literal('proprietary'),
@@ -119,123 +122,126 @@ export const runtimeManifestSchema = z
       noticesPath: bundlePathSchema,
     }),
   })
-  .superRefine((manifest, context) => {
-    if (manifest.productContract !== webRuntimePolicy.productContract) {
-      context.addIssue({
-        code: 'custom',
-        message: 'product contract must match the web runtime policy',
-        path: ['productContract'],
-      })
-    }
-    if (manifest.bindingsAbi !== webRuntimePolicy.bindingsAbi) {
-      context.addIssue({
-        code: 'custom',
-        message: 'bindings ABI must match the web runtime policy',
-        path: ['bindingsAbi'],
-      })
-    }
+  .check(
+    z.superRefine((manifest, context) => {
+      if (manifest.productContract !== webRuntimePolicy.productContract) {
+        context.addIssue({
+          code: 'custom',
+          message: 'product contract must match the web runtime policy',
+          path: ['productContract'],
+        })
+      }
+      if (manifest.bindingsAbi !== webRuntimePolicy.bindingsAbi) {
+        context.addIssue({
+          code: 'custom',
+          message: 'bindings ABI must match the web runtime policy',
+          path: ['bindingsAbi'],
+        })
+      }
 
-    if (/^[0-9a-f]{40}$|^[0-9a-f]{64}$/i.test(manifest.buildId)) {
-      context.addIssue({
-        code: 'custom',
-        message: 'buildId must be opaque and must not be a commit SHA',
-        path: ['buildId'],
-      })
-    }
+      if (/^[0-9a-f]{40}$|^[0-9a-f]{64}$/i.test(manifest.buildId)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'buildId must be opaque and must not be a commit SHA',
+          path: ['buildId'],
+        })
+      }
 
-    const runtimeSeries = manifest.runtimeVersion.split('-', 1)[0]
-    const expectedDependencies =
-      WEB_V0_1_DEPENDENCY_PROFILES[runtimeSeries ?? '']
-    if (
-      expectedDependencies === undefined ||
-      Object.keys(manifest.dependencyVersions).length !==
-        Object.keys(expectedDependencies).length ||
-      Object.entries(expectedDependencies).some(
-        ([name, version]) =>
-          manifest.dependencyVersions[
-            name as keyof typeof manifest.dependencyVersions
-          ] !== version,
+      const runtimeSeries = manifest.runtimeVersion.split('-', 1)[0]
+      const expectedDependencies =
+        WEB_V0_1_DEPENDENCY_PROFILES[runtimeSeries ?? '']
+      if (
+        expectedDependencies === undefined ||
+        Object.keys(manifest.dependencyVersions).length !==
+          Object.keys(expectedDependencies).length ||
+        Object.entries(expectedDependencies).some(
+          ([name, version]) =>
+            manifest.dependencyVersions[
+              name as keyof typeof manifest.dependencyVersions
+            ] !== version,
+        )
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'dependency versions must match the approved runtime version profile',
+          path: ['dependencyVersions'],
+        })
+      }
+
+      const expectedCapabilities = WEB_V0_1_CAPABILITIES.map(
+        ([name, version]) => `${name}@${version}`,
       )
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message:
-          'dependency versions must match the approved runtime version profile',
-        path: ['dependencyVersions'],
-      })
-    }
-
-    const expectedCapabilities = WEB_V0_1_CAPABILITIES.map(
-      ([name, version]) => `${name}@${version}`,
-    )
-    const actualCapabilities = manifest.capabilities.map(
-      ({ name, version }) => `${name}@${version}`,
-    )
-    if (
-      actualCapabilities.some(
-        (capability, index) => capability !== expectedCapabilities[index],
-      ) ||
-      new Set(actualCapabilities).size !== actualCapabilities.length
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'capabilities must equal the ordered web v0.1 inventory',
-        path: ['capabilities'],
-      })
-    }
-
-    const filePaths = manifest.files.map((file) => file.path)
-    if (new Set(filePaths).size !== filePaths.length) {
-      context.addIssue({
-        code: 'custom',
-        message: 'runtime file paths must be unique',
-        path: ['files'],
-      })
-    }
-
-    const referencedPaths = [
-      manifest.modules.loader,
-      manifest.modules.wasm,
-      manifest.modules.types,
-      manifest.licence.licencePath,
-      manifest.licence.noticesPath,
-    ]
-    if (
-      new Set(referencedPaths).size !== referencedPaths.length ||
-      referencedPaths.some((path) => !filePaths.includes(path))
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'module, licence, and notices paths must name distinct files',
-        path: ['files'],
-      })
-    }
-
-    const features = manifest.requiredEnvironment.features
-    if (
-      new Set(features).size !== features.length ||
-      features.some(
-        (feature, index) => index > 0 && features[index - 1] >= feature,
+      const actualCapabilities = manifest.capabilities.map(
+        ({ name, version }) => `${name}@${version}`,
       )
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'environment features must be unique and sorted',
-        path: ['requiredEnvironment', 'features'],
-      })
-    }
+      if (
+        actualCapabilities.some(
+          (capability, index) => capability !== expectedCapabilities[index],
+        ) ||
+        new Set(actualCapabilities).size !== actualCapabilities.length
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message: 'capabilities must equal the ordered web v0.1 inventory',
+          path: ['capabilities'],
+        })
+      }
 
-    if (
-      manifest.persistence.backend === 'unproven' &&
-      manifest.persistence.durable
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'an unproven persistence backend cannot claim durability',
-        path: ['persistence'],
-      })
-    }
-  })
+      const filePaths = manifest.files.map((file) => file.path)
+      if (new Set(filePaths).size !== filePaths.length) {
+        context.addIssue({
+          code: 'custom',
+          message: 'runtime file paths must be unique',
+          path: ['files'],
+        })
+      }
+
+      const referencedPaths = [
+        manifest.modules.loader,
+        manifest.modules.wasm,
+        manifest.modules.types,
+        manifest.licence.licencePath,
+        manifest.licence.noticesPath,
+      ]
+      if (
+        new Set(referencedPaths).size !== referencedPaths.length ||
+        referencedPaths.some((path) => !filePaths.includes(path))
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'module, licence, and notices paths must name distinct files',
+          path: ['files'],
+        })
+      }
+
+      const features = manifest.requiredEnvironment.features
+      if (
+        new Set(features).size !== features.length ||
+        features.some(
+          (feature, index) => index > 0 && features[index - 1] >= feature,
+        )
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message: 'environment features must be unique and sorted',
+          path: ['requiredEnvironment', 'features'],
+        })
+      }
+
+      if (
+        manifest.persistence.backend === 'unproven' &&
+        manifest.persistence.durable
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message: 'an unproven persistence backend cannot claim durability',
+          path: ['persistence'],
+        })
+      }
+    }),
+  )
 
 export type RuntimeLock = z.infer<typeof runtimeLockSchema>
 export type RuntimeManifest = z.infer<typeof runtimeManifestSchema>
