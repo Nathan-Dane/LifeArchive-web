@@ -48,7 +48,7 @@ jobs:
   pinned-runtime:
     name: Verify pinned runtime
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Check out the repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -69,9 +69,15 @@ jobs:
         id: runtime
         run: pnpm runtime:fetch
 
+      - name: Install accepted browser engines
+        if: steps.runtime.outputs.available == 'true'
+        run: pnpm exec playwright install --with-deps chromium firefox
+
       - name: Run runtime integration checks
         if: steps.runtime.outputs.available == 'true'
-        run: pnpm check
+        env:
+          LIFEARCHIVE_RUNTIME_E2E: '1'
+        run: pnpm test:e2e:runtime
 
   browser:
     name: Browser smoke tests
