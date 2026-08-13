@@ -44,6 +44,7 @@ export const peopleMessages = {
   'people.profile.recordOriginExpired':
     'The Record return point expired. This Person remains open.',
   'people.profile.notRecorded': 'Not recorded',
+  'people.profile.details': 'Details',
   'people.profile.approximateDate': 'About {date}',
   'people.save': 'Save',
   'people.saveChanges': 'Save Changes',
