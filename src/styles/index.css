@@ -1,0 +1,211 @@
+/* Index gathers reusable archive collections without turning them into Record
+ * metadata. Its cards use the same surfaces, borders, type, and controls as
+ * the rest of the workspace. */
+
+.archive-index {
+  width: min(100%, 1180px);
+  margin-inline: auto;
+}
+
+.archive-index--narrow {
+  width: min(100%, 900px);
+}
+
+.archive-index__header {
+  display: flex;
+  gap: var(--space-content);
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-block: var(--space-standard) var(--space-content);
+}
+
+.archive-index__header h1 {
+  margin: var(--space-tight) 0 var(--space-compact);
+}
+
+.archive-index__header p {
+  max-width: var(--layout-reading-measure);
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.archive-index__grid {
+  display: grid;
+  gap: var(--space-standard);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.archive-index-card {
+  display: flex;
+  min-height: 190px;
+  flex-direction: column;
+  gap: var(--space-standard);
+  justify-content: space-between;
+  padding: var(--space-content);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition:
+    transform var(--motion-instant) var(--motion-ease),
+    border-color var(--motion-instant) var(--motion-ease),
+    background var(--motion-instant) var(--motion-ease);
+}
+
+.archive-index-card:is(a):hover {
+  border-color: var(--border-muted);
+  background: var(--color-surface-alt);
+  transform: translateY(-2px);
+}
+
+.archive-index-card__icon {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-control);
+  background: color-mix(
+    in srgb,
+    var(--color-accent) calc(var(--opacity-tint-fill) * 100%),
+    transparent
+  );
+  color: var(--color-accent);
+}
+
+.archive-index-card__icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.archive-index-card__title,
+.archive-index-card__detail {
+  display: block;
+}
+
+.archive-index-card__title {
+  margin-bottom: var(--space-tight);
+  font-family: var(--font-display);
+  font-size: var(--text-size-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-display);
+}
+
+.archive-index-card__detail,
+.archive-index-card__footer {
+  color: var(--color-text-secondary);
+}
+
+.archive-index-card__next::before {
+  content: '→';
+}
+
+.archive-index-card__footer {
+  display: flex;
+  gap: var(--space-standard);
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-meta);
+}
+
+.archive-index-card--deferred {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.archive-index-card--deferred .archive-index-card__icon {
+  background: var(--color-surface-alt);
+  color: var(--color-text-tertiary);
+}
+
+.archive-index-card__badge {
+  padding: var(--space-2xs) var(--space-compact);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-record-control);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  text-transform: uppercase;
+}
+
+.archive-index-breadcrumbs {
+  display: flex;
+  gap: var(--space-compact);
+  align-items: center;
+  margin-bottom: var(--space-standard);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-meta);
+}
+
+.archive-index-breadcrumbs a {
+  color: var(--color-text-secondary);
+}
+
+.archive-index-breadcrumbs__separator::before {
+  content: '/';
+}
+
+.archive-index__manager {
+  overflow: hidden;
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.archive-index__manager .record-track-manager__header,
+.archive-index__manager .record-track-manager__footer {
+  position: static;
+}
+
+.archive-index__manager .record-track-manager__body {
+  max-height: none;
+}
+
+.archive-index__status {
+  display: flex;
+  min-height: 170px;
+  flex-direction: column;
+  gap: var(--space-standard);
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-content);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.archive-index__status p {
+  margin: 0;
+}
+
+@media (max-width: 820px) {
+  .archive-index__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-index-card {
+    min-height: 146px;
+  }
+}
+
+@media (max-width: 480px) {
+  .archive-index__header {
+    margin-top: 0;
+  }
+
+  .archive-index-card {
+    padding: var(--space-section);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .archive-index-card {
+    transition: none;
+  }
+}

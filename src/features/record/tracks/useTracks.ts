@@ -69,7 +69,7 @@ export interface Tracks {
   readonly retry: () => void
   readonly select: (summary: TrackSummary) => void
   readonly clearSelection: () => void
-  readonly startCreate: (date: CivilDate) => void
+  readonly startCreate: (date?: CivilDate) => void
   readonly cancelCreate: () => void
   readonly updateTrack: (change: Partial<TrackDraftFields>) => void
   readonly updateMember: (change: Partial<TrackMemberDraftFields>) => void
@@ -298,7 +298,7 @@ export function useTracks(
   }, [developmentMock, publish])
 
   const startCreate = useCallback(
-    (_date: CivilDate) => {
+    (_date?: CivilDate) => {
       loadGeneration.current += 1
       const current = model.current
       current.selected = null

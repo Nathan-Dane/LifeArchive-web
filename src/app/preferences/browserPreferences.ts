@@ -11,7 +11,7 @@ export const WEEK_START_PREFERENCES = ['system', 'monday', 'sunday'] as const
 export const OPEN_APP_PREFERENCES = [
   'record',
   'timeline',
-  'people',
+  'index',
   'last',
 ] as const
 export const DATE_FORMAT_PREFERENCES = [
@@ -26,7 +26,7 @@ export const RECORD_INITIAL_SCALE_PREFERENCES = [
   'month',
   'year',
 ] as const
-export const APP_DESTINATIONS = ['record', 'timeline', 'people'] as const
+export const APP_DESTINATIONS = ['record', 'timeline', 'index'] as const
 
 export type ThemePreference = (typeof THEME_PREFERENCES)[number]
 export type FontPreference = (typeof FONT_PREFERENCES)[number]
@@ -189,7 +189,14 @@ function readStoredValue<Key extends BrowserPreferenceKey>(
   storage: Storage | null,
 ): BrowserPreferences[Key] {
   try {
-    const stored = storage?.getItem(BROWSER_PREFERENCE_STORAGE_KEYS[key])
+    const raw = storage?.getItem(BROWSER_PREFERENCE_STORAGE_KEYS[key])
+    // People used to be a top-level destination. Index now owns People, and
+    // this presentation-only migration keeps an existing startup preference
+    // useful without retaining a second navigation identity for the feature.
+    const stored =
+      (key === 'openAppTo' || key === 'lastOpenedPage') && raw === 'people'
+        ? 'index'
+        : raw
     if (typeof DEFAULT_BROWSER_PREFERENCES[key] === 'boolean') {
       return (
         stored === 'true'

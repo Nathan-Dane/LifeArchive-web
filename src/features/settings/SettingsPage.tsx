@@ -41,7 +41,7 @@ const DATE_FORMAT_LABELS = {
 const OPEN_APP_LABELS = {
   record: 'settings.general.openAppTo.record',
   timeline: 'settings.general.openAppTo.timeline',
-  people: 'settings.general.openAppTo.people',
+  index: 'settings.general.openAppTo.index',
   last: 'settings.general.openAppTo.last',
 } as const
 

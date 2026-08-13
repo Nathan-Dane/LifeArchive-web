@@ -9,6 +9,7 @@
 
 import { mergeCatalogs } from '../../catalog'
 import { appMessages } from './app'
+import { archiveIndexMessages } from './archiveIndex'
 import { archiveMessages } from './archive'
 import { developmentMessages } from './development'
 import { failureMessages } from './failure'
@@ -21,6 +22,7 @@ import { timelineMessages } from './timeline'
 
 export {
   appMessages,
+  archiveIndexMessages,
   archiveMessages,
   developmentMessages,
   failureMessages,
@@ -35,6 +37,7 @@ export {
 /** The feature catalogs, in the order they are merged. */
 export const FEATURE_CATALOGS = [
   appMessages,
+  archiveIndexMessages,
   archiveMessages,
   developmentMessages,
   failureMessages,
@@ -48,6 +51,7 @@ export const FEATURE_CATALOGS = [
 
 /** Every message the application can show, keyed by its stable identifier. */
 export type Messages = typeof appMessages &
+  typeof archiveIndexMessages &
   typeof archiveMessages &
   typeof developmentMessages &
   typeof failureMessages &

@@ -37,6 +37,7 @@ function rawStyles(name: string): string {
 const TOKENS_CSS = styles('tokens.css')
 const LAYOUT_STYLESHEET_NAMES = [
   'people.css',
+  'index.css',
   'shell.css',
   'settings.css',
   'archive.css',

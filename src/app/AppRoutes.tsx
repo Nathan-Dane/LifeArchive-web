@@ -28,9 +28,14 @@ const TimelinePage = lazy(async () => {
   return { default: module.TimelinePage }
 })
 
-const PeoplePage = lazy(async () => {
-  const module = await import('../features/people')
-  return { default: module.PeoplePage }
+const IndexRoutes = lazy(async () => {
+  const module = await import('../features/index')
+  return { default: module.IndexRoutes }
+})
+
+const LegacyPeopleRedirect = lazy(async () => {
+  const module = await import('../features/index')
+  return { default: module.LegacyPeopleRedirect }
 })
 
 const SettingsPage = lazy(async () => {
@@ -100,13 +105,13 @@ const MAIN_ROUTES = [
     ),
   },
   {
-    path: '/people',
-    navigationPath: '/people',
-    label: 'app.navigation.people',
-    icon: 'people',
-    element: (client: LifeArchiveClient) => (
+    path: '/index/*',
+    navigationPath: '/index',
+    label: 'app.navigation.index',
+    icon: 'index',
+    element: (client: LifeArchiveClient, developmentMock: boolean) => (
       <DeferredRoute>
-        <PeoplePage client={client} />
+        <IndexRoutes client={client} developmentMock={developmentMock} />
       </DeferredRoute>
     ),
   },
@@ -138,7 +143,10 @@ const MAIN_ROUTES = [
   readonly navigationPath: string
   readonly label: string
   readonly icon: ShellIconName
-  readonly element: (client: LifeArchiveClient) => ReactNode
+  readonly element: (
+    client: LifeArchiveClient,
+    developmentMock: boolean,
+  ) => ReactNode
   readonly regions?: (client: LifeArchiveClient) => WorkspaceRegions
   readonly surround?: (
     client: LifeArchiveClient,
@@ -241,8 +249,8 @@ function RememberMainDestination({ pathname }: { readonly pathname: string }) {
         ? 'record'
         : pathname === '/timeline'
           ? 'timeline'
-          : pathname === '/people'
-            ? 'people'
+          : pathname === '/index' || pathname.startsWith('/index/')
+            ? 'index'
             : null
     if (destination && preferences.lastOpenedPage !== destination) {
       setPreference('lastOpenedPage', destination)
@@ -285,9 +293,17 @@ export function AppRoutes({
           <Route
             key={route.path}
             path={route.path}
-            element={routeElement(route.element(client))}
+            element={routeElement(route.element(client, developmentMock))}
           />
         ))}
+        <Route
+          path="/people/*"
+          element={routeElement(
+            <DeferredRoute>
+              <LegacyPeopleRedirect />
+            </DeferredRoute>,
+          )}
+        />
         <Route path="*" element={<Navigate to="/record" replace />} />
       </Routes>
     </WorkspaceLayout>

@@ -31,6 +31,10 @@ const ROUTES = [
   { path: '/', heading: 'Record' },
   { path: '/record', heading: 'Record' },
   { path: '/timeline', heading: 'Timeline' },
+  { path: '/index', heading: 'Index' },
+  { path: '/index/people', heading: 'People' },
+  { path: '/index/tracks', heading: 'Tracks' },
+  { path: '/people', heading: 'People' },
   { path: '/settings', heading: 'Overview' },
   { path: '/settings/overview', heading: 'Overview' },
   { path: '/settings/life-details', heading: 'Life Details' },
@@ -95,11 +99,72 @@ describe('ready application routes', () => {
       settings.querySelector('[data-material-icon="settings"]'),
     ).toBeInTheDocument()
 
-    for (const heading of ['Timeline', 'Overview', 'Record']) {
+    for (const heading of ['Timeline', 'Index', 'Overview', 'Record']) {
       const linkName = heading === 'Overview' ? 'Settings' : heading
       await user.click(within(nav).getByRole('link', { name: linkName }))
       expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
     }
+  })
+
+  it('keeps People and Tracks as peer Index destinations and Media inert', async () => {
+    const user = userEvent.setup()
+    renderAppAt('/index')
+
+    const main = await screen.findByRole('navigation', { name: 'Main' })
+    expect(within(main).getByRole('link', { name: 'Index' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(
+      screen.getByRole('link', { name: /People.*Browse People/ }),
+    ).toHaveAttribute('href', '/index/people')
+    expect(
+      screen.getByRole('link', { name: /Tracks.*Threads running/ }),
+    ).toHaveAttribute('href', '/index/tracks')
+    const media = screen.getByRole('group', {
+      name: 'Media, planned and unavailable',
+    })
+    expect(within(media).queryByRole('link')).toBeNull()
+    expect(within(media).queryByRole('button')).toBeNull()
+
+    await user.click(
+      screen.getByRole('link', { name: /People.*Browse People/ }),
+    )
+    expect(screen.getByRole('heading', { name: 'People' })).toBeInTheDocument()
+    expect(within(main).getByRole('link', { name: 'Index' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+  })
+
+  it('redirects legacy People paths into the canonical Index route family', async () => {
+    function LocationProbe() {
+      return <output>{useLocation().pathname}</output>
+    }
+    renderAppAt('/people/person-1/edit', undefined, {
+      within: <LocationProbe />,
+    })
+
+    expect(
+      await screen.findByText('/index/people/person-1/edit', {
+        selector: 'output',
+      }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'People' })).toBeInTheDocument()
+  })
+
+  it('uses the canonical Track manager from the Tracks Index destination', async () => {
+    const user = userEvent.setup()
+    renderAppAt('/index/tracks')
+
+    expect(
+      await screen.findByRole('heading', { name: 'Manage Tracks' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Archived')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'New Track' }))
+    expect(
+      screen.getByRole('dialog', { name: 'New Track' }),
+    ).toBeInTheDocument()
   })
 
   it('resolves the Settings index and invalid destinations to Overview', async () => {
@@ -140,7 +205,7 @@ describe('ready application routes', () => {
     ).toBeInTheDocument()
   })
 
-  it('restores the last Record or Timeline destination at startup', async () => {
+  it('restores the last main destination at startup', async () => {
     globalThis.localStorage.setItem(
       BROWSER_PREFERENCE_STORAGE_KEYS.openAppTo,
       'last',
@@ -152,6 +217,17 @@ describe('ready application routes', () => {
     renderAppAt('/')
     expect(
       await screen.findByRole('heading', { name: 'Timeline' }),
+    ).toBeInTheDocument()
+  })
+
+  it('opens Index from the startup preference', async () => {
+    globalThis.localStorage.setItem(
+      BROWSER_PREFERENCE_STORAGE_KEYS.openAppTo,
+      'index',
+    )
+    renderAppAt('/')
+    expect(
+      await screen.findByRole('heading', { name: 'Index' }),
     ).toBeInTheDocument()
   })
 
