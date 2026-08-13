@@ -19,7 +19,7 @@ import { civilDate } from '../../core/client'
 import { failureMessage, useLocalisation } from '../../i18n'
 import { deviceCalendar } from '../../platform/calendar'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
-import { RecordDatePicker } from '../record/metadata'
+import { MATERIAL_UI_GLYPHS, RecordDatePicker } from '../record/metadata'
 import { PeopleSelect } from './PeopleSelect'
 import { PersonAvatar } from './PersonAvatar'
 import { PersonQuickCreateDialog } from './PersonQuickCreateDialog'
@@ -834,43 +834,38 @@ function PersonEntryTask({
               })}
               onClick={() => void onRemove()}
             >
-              <span className="record-person-role__bin" aria-hidden="true" />
+              <span className="material-symbols-rounded" aria-hidden="true">
+                {MATERIAL_UI_GLYPHS.delete}
+              </span>
             </button>
           </div>
         </section>
-        <div className="record-person-task__actions action-list">
-          {onViewPerson ? (
-            <button
-              type="button"
-              onClick={(event) =>
-                onViewPerson(linked.person.id, event.currentTarget)
-              }
-            >
-              <span>{t('record.people.viewPerson')}</span>
-              <RecordControlIcon name="next" />
-            </button>
-          ) : null}
-          {onEditPerson ? (
-            <button
-              type="button"
-              onClick={(event) =>
-                onEditPerson(linked.person.id, event.currentTarget)
-              }
-            >
-              <span>{t('record.people.editPerson')}</span>
-              <RecordControlIcon name="next" />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="is-danger"
-            disabled={busy}
-            onClick={() => void onRemove()}
-          >
-            <span>{t('record.people.removeFromEntry')}</span>
-            <RecordControlIcon name="close" />
-          </button>
-        </div>
+        {onViewPerson || onEditPerson ? (
+          <div className="record-person-task__actions action-list">
+            {onViewPerson ? (
+              <button
+                type="button"
+                onClick={(event) =>
+                  onViewPerson(linked.person.id, event.currentTarget)
+                }
+              >
+                <span>{t('record.people.viewPerson')}</span>
+                <RecordControlIcon name="next" />
+              </button>
+            ) : null}
+            {onEditPerson ? (
+              <button
+                type="button"
+                onClick={(event) =>
+                  onEditPerson(linked.person.id, event.currentTarget)
+                }
+              >
+                <span>{t('record.people.editPerson')}</span>
+                <RecordControlIcon name="next" />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {!allowsInteraction ? (
           <fieldset className="record-person-task__contact">
             <legend>{t('record.people.logOnDate')}</legend>

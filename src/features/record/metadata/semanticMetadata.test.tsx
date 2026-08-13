@@ -127,6 +127,7 @@ describe('the negotiated semantic catalogue adapter', () => {
       allIcons.querySelector('[data-material-icon="grid_view"]'),
     ).toBeInTheDocument()
     expect(MATERIAL_UI_GLYPHS.all).toBe('grid_view')
+    expect(MATERIAL_UI_GLYPHS.delete).toBe('delete')
     expect(screen.getByRole('separator')).toBeVisible()
     expect(screen.getAllByRole('region')).toHaveLength(12)
     const choices = screen.getAllByRole('option')
