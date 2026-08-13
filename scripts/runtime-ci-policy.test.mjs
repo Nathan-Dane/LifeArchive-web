@@ -38,3 +38,15 @@ test('CI uses the same authoritative check command documented for local use', as
   assert.match(packageMetadata.scripts.check, /pnpm test:policy/)
   assert.match(packageMetadata.scripts.check, /pnpm safety:production/)
 })
+
+test('hosted actions are pinned to immutable commits', async () => {
+  const workflow = await readFile(
+    path.join(root, '.github/workflows/ci.yml'),
+    'utf8',
+  )
+  const actions = [...workflow.matchAll(/^\s*uses:\s+([^\s#]+)(?:\s+#.*)?$/gm)]
+  assert(actions.length > 0)
+  for (const [, action] of actions) {
+    assert.match(action, /^[^@]+@[0-9a-f]{40}$/, action)
+  }
+})
