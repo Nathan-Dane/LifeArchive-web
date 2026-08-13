@@ -36,7 +36,7 @@ function rawStyles(name: string): string {
 
 const TOKENS_CSS = styles('tokens.css')
 const LAYOUT_STYLESHEET_NAMES = [
-  'people.css',
+  'people-shared.css',
   'index.css',
   'record-people.css',
   'shell.css',
@@ -49,10 +49,16 @@ const LAYOUT_STYLESHEETS = LAYOUT_STYLESHEET_NAMES.map(styles)
 const LAYOUT_CSS = LAYOUT_STYLESHEETS.join('\n')
 const TYPOGRAPHY_CSS = styles('typography.css')
 const GLOBAL_CSS = styles('global.css')
-const ALL_CSS = [TOKENS_CSS, ...LAYOUT_STYLESHEETS, TYPOGRAPHY_CSS, GLOBAL_CSS]
+const PEOPLE_CSS = styles('people.css')
+const ALL_CSS = [
+  TOKENS_CSS,
+  ...LAYOUT_STYLESHEETS,
+  PEOPLE_CSS,
+  TYPOGRAPHY_CSS,
+  GLOBAL_CSS,
+]
 const ALL_RAW_CSS = Object.values(RAW_STYLESHEETS).join('\n')
 const RECORD_CSS = styles('record.css')
-const PEOPLE_CSS = styles('people.css')
 
 interface AppearancePair {
   readonly light: string
