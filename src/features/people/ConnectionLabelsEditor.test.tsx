@@ -20,12 +20,12 @@ describe('ConnectionLabelsEditor', () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: /Choir/ }))
-    const task = await screen.findByRole('dialog', {
+    const task = await screen.findByRole('menu', {
       name: 'How you know them',
     })
     const customRows = () =>
       within(task)
-        .getAllByRole('checkbox')
+        .getAllByRole('menuitemcheckbox')
         .filter((checkbox) =>
           ['Choir', 'Cycling'].includes(checkbox.textContent ?? ''),
         )
@@ -34,9 +34,11 @@ describe('ConnectionLabelsEditor', () => {
       'Choir',
       'Cycling',
     ])
-    const cyclingRow = customRows()[1]!.closest('.person-connections__option')!
+    const cyclingRow = customRows()[1]!.closest(
+      '.person-connection-picker__row',
+    )!
     await user.click(
-      within(cyclingRow as HTMLElement).getByRole('button', {
+      within(cyclingRow as HTMLElement).getByRole('menuitem', {
         name: 'Make primary',
       }),
     )
