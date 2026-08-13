@@ -123,7 +123,7 @@ export function PeopleChooser({
               menuFocus.focus(
                 event.key === 'ArrowDown'
                   ? 0
-                  : menuFocus.items.current.length - 1,
+                  : available.length + (people.state.hasMore ? 2 : 1) - 1,
               ),
             )
           }
@@ -181,9 +181,7 @@ export function PeopleChooser({
             return (
               <button
                 key={snapshot.person.id}
-                ref={(element) => {
-                  menuFocus.items.current[index] = element
-                }}
+                ref={menuFocus.itemRef(index)}
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked={checked}
@@ -208,9 +206,7 @@ export function PeopleChooser({
           })}
           {people.state.hasMore ? (
             <button
-              ref={(element) => {
-                menuFocus.items.current[available.length] = element
-              }}
+              ref={menuFocus.itemRef(available.length)}
               type="button"
               role="menuitem"
               className="record-menu__item record-track-menu__action"
@@ -222,11 +218,9 @@ export function PeopleChooser({
           ) : null}
           <span className="record-track-menu__separator" role="separator" />
           <button
-            ref={(element) => {
-              menuFocus.items.current[
-                available.length + (people.state.hasMore ? 1 : 0)
-              ] = element
-            }}
+            ref={menuFocus.itemRef(
+              available.length + (people.state.hasMore ? 1 : 0),
+            )}
             type="button"
             role="menuitem"
             className="record-menu__item record-track-menu__action record-track-menu__action--primary"
@@ -236,11 +230,9 @@ export function PeopleChooser({
             <span>{t('people.new')}</span>
           </button>
           <button
-            ref={(element) => {
-              menuFocus.items.current[
-                available.length + (people.state.hasMore ? 2 : 1)
-              ] = element
-            }}
+            ref={menuFocus.itemRef(
+              available.length + (people.state.hasMore ? 2 : 1),
+            )}
             type="button"
             role="menuitem"
             className="record-menu__item record-track-menu__action"
