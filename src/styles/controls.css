@@ -57,3 +57,136 @@
   color: var(--color-on-accent);
   font-weight: var(--weight-medium);
 }
+
+/*
+ * One web-owned text-entry treatment. Feature selectors may adjust dimensions
+ * or layout, while every text-like field retains the same surface, boundary,
+ * placeholder, focus, invalid, and disabled states.
+ */
+:where(
+  .text-entry,
+  input:not([type]),
+  input[type='text'],
+  input[type='search'],
+  input[type='email'],
+  input[type='url'],
+  input[type='tel'],
+  input[type='password'],
+  input[type='number'],
+  textarea
+) {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--size-control-compact);
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--border-hairline) solid var(--border-strong);
+  border-radius: var(--radius-small);
+  appearance: none;
+  background: var(--color-surface);
+  box-shadow: none;
+  caret-color: var(--color-accent);
+  color: var(--color-text-primary);
+  transition:
+    border-color var(--motion-instant) var(--motion-ease),
+    background-color var(--motion-instant) var(--motion-ease),
+    box-shadow var(--motion-instant) var(--motion-ease);
+}
+
+:where(
+  .text-entry,
+  input:not([type]),
+  input[type='text'],
+  input[type='search'],
+  input[type='email'],
+  input[type='url'],
+  input[type='tel'],
+  input[type='password'],
+  input[type='number'],
+  textarea
+)::placeholder {
+  color: var(--color-text-tertiary);
+  opacity: 1;
+}
+
+:where(
+    .text-entry,
+    input:not([type]),
+    input[type='text'],
+    input[type='search'],
+    input[type='email'],
+    input[type='url'],
+    input[type='tel'],
+    input[type='password'],
+    input[type='number'],
+    textarea
+  ):hover:not(:disabled) {
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 28%,
+    var(--border-strong)
+  );
+  background: var(--color-surface-alt);
+}
+
+:where(
+  .text-entry,
+  input:not([type]),
+  input[type='text'],
+  input[type='search'],
+  input[type='email'],
+  input[type='url'],
+  input[type='tel'],
+  input[type='password'],
+  input[type='number'],
+  textarea
+):focus-visible {
+  border-color: var(--color-accent);
+  outline: 0;
+  background: var(--color-surface);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+:where(
+  .text-entry,
+  input:not([type]),
+  input[type='text'],
+  input[type='search'],
+  input[type='email'],
+  input[type='url'],
+  input[type='tel'],
+  input[type='password'],
+  input[type='number'],
+  textarea
+)[aria-invalid='true'] {
+  border-color: var(--color-destructive);
+}
+
+:where(
+  .text-entry,
+  input:not([type]),
+  input[type='text'],
+  input[type='search'],
+  input[type='email'],
+  input[type='url'],
+  input[type='tel'],
+  input[type='password'],
+  input[type='number'],
+  textarea
+):disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
+}
+
+:where(textarea, textarea.text-entry) {
+  resize: vertical;
+}
+
+:where(input[type='number']) {
+  appearance: textfield;
+}
+
+:where(input[type='number'])::-webkit-inner-spin-button,
+:where(input[type='number'])::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
