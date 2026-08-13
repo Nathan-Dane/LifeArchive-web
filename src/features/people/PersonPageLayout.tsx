@@ -41,7 +41,9 @@ export function PersonPageBreadcrumb({
         aria-label={t('people.breadcrumbs')}
       >
         <Link to="/index">{t('index.page.title')}</Link>
-        <RecordControlIcon name="next" />
+        <span className="person-page__breadcrumb-separator" aria-hidden="true">
+          /
+        </span>
         {backToRecord ? (
           <Link to="/index/people">{t('people.page.title')}</Link>
         ) : (
@@ -53,13 +55,20 @@ export function PersonPageBreadcrumb({
             {t('people.page.title')}
           </button>
         )}
-        <RecordControlIcon name="next" />
+        <span className="person-page__breadcrumb-separator" aria-hidden="true">
+          /
+        </span>
         {editing ? (
           <>
             <button type="button" onClick={onPerson}>
               {displayName}
             </button>
-            <RecordControlIcon name="next" />
+            <span
+              className="person-page__breadcrumb-separator"
+              aria-hidden="true"
+            >
+              /
+            </span>
             <span aria-current="page">
               {t('people.profile.editBreadcrumb')}
             </span>
@@ -76,16 +85,13 @@ export function PersonIdentityRail({
   client,
   selected,
   displayName = selected.person.displayName,
-  editing = false,
   children,
 }: {
   readonly client: LifeArchiveClient
   readonly selected: PersonSnapshot
   readonly displayName?: string
-  readonly editing?: boolean
   readonly children: ReactNode
 }) {
-  const t = useLocalisation().t
   const person = selected.person
 
   return (
@@ -102,18 +108,6 @@ export function PersonIdentityRail({
           {person.connectionLabels[0] ? (
             <p>{person.connectionLabels[0]}</p>
           ) : null}
-          {person.pronouns ? (
-            <p className="meta-text">{person.pronouns}</p>
-          ) : null}
-          {editing ? (
-            <span className="person-page__status">
-              {t('people.profile.editing')}
-            </span>
-          ) : person.isArchived ? (
-            <span className="person-page__status">
-              {t('people.archived.label')}
-            </span>
-          ) : null}
         </div>
         {person.connectionLabels.length > 1 ? (
           <ul className="person-page__connections">
@@ -122,8 +116,8 @@ export function PersonIdentityRail({
             ))}
           </ul>
         ) : null}
-        {children}
       </section>
+      {children}
     </aside>
   )
 }
@@ -145,13 +139,8 @@ export function PersonProfileDetails({
       </section>
 
       <section className="person-card person-profile-card">
-        <h2>{t('people.names')}</h2>
+        <h2>{t('people.profile.details')}</h2>
         <dl className="person-profile-list">
-          <ProfileValue
-            label={t('people.pronunciation')}
-            value={person.pronunciation}
-          />
-          <ProfileValue label={t('people.pronouns')} value={person.pronouns} />
           {person.otherNames.map((name, index) => (
             <ProfileValue
               key={`${name.kindId}-${index}`}
@@ -159,12 +148,11 @@ export function PersonProfileDetails({
               value={name.value}
             />
           ))}
-        </dl>
-      </section>
-
-      <section className="person-card person-profile-card">
-        <h2>{t('people.life')}</h2>
-        <dl className="person-profile-list">
+          <ProfileValue
+            label={t('people.pronunciation')}
+            value={person.pronunciation}
+          />
+          <ProfileValue label={t('people.pronouns')} value={person.pronouns} />
           <ProfileValue
             label={t('people.life.status')}
             value={t(`people.life.status.${person.lifeStatus}`)}

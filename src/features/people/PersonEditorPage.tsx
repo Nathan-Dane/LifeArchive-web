@@ -54,7 +54,6 @@ export function PersonEditorPage({
           client={client}
           selected={selected}
           displayName={draft.displayName || selected.person.displayName}
-          editing
         >
           <PersonEditorActions
             people={people}

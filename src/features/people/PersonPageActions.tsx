@@ -48,6 +48,7 @@ export function PersonProfileActions({
           onClick={() => void archive()}
         >
           {t(selected.person.isArchived ? 'people.restore' : 'people.archive')}
+          <RecordControlIcon name="next" />
         </button>
         <button
           type="button"
@@ -56,6 +57,7 @@ export function PersonProfileActions({
           onClick={() => setDeleteOpen(true)}
         >
           {t('people.delete')}
+          <RecordControlIcon name="next" />
         </button>
       </div>
       <DeletePersonTask
@@ -117,6 +119,7 @@ export function PersonEditorActions({
           onClick={onViewProfile}
         >
           {t('people.viewProfile')}
+          <RecordControlIcon name="next" />
         </button>
         <button
           type="button"
@@ -125,6 +128,7 @@ export function PersonEditorActions({
           onClick={() => void archive()}
         >
           {t(selected.person.isArchived ? 'people.restore' : 'people.archive')}
+          <RecordControlIcon name="next" />
         </button>
         <button
           type="button"
@@ -135,6 +139,7 @@ export function PersonEditorActions({
           onClick={() => setMergeOpen(true)}
         >
           {t('people.mergeWith')}
+          <RecordControlIcon name="next" />
         </button>
         <button
           type="button"
@@ -143,6 +148,7 @@ export function PersonEditorActions({
           onClick={() => setDeleteOpen(true)}
         >
           {t('people.delete')}
+          <RecordControlIcon name="next" />
         </button>
       </div>
       <MergePersonTask
