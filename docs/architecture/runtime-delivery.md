@@ -111,11 +111,10 @@ A second tab receives `already-open`, does not wait or take over, and cannot
 open an alternate empty root. The UI remains unavailable until an explicit
 retry succeeds.
 
-The concrete browser lock API is intentionally undecided until the private
-real-browser persistence proof. Whichever primitive is selected must acquire
-the origin lock before runtime/filesystem handles and release it after
-successful product close. Lock loss or worker crash requires same-root recovery
-before a mutation can be retried.
+The worker uses an exclusive Web Lock with `ifAvailable: true`. It acquires the
+origin lock before runtime/filesystem handles and releases it after successful
+product close. Lock loss or worker crash requires same-root recovery before a
+mutation can be retried.
 
 ## Capability negotiation
 
