@@ -8,10 +8,11 @@ import {
   validateSubset,
 } from './update-material-symbols.mjs'
 
-test('embeds the generated font bytes in a local stylesheet', () => {
-  const css = generatedSubsetCss(Buffer.from('woff2-test'))
+test('references the generated local font asset', () => {
+  const css = generatedSubsetCss()
   assert.match(css, /@font-face/)
-  assert.match(css, /url\('data:font\/woff2;base64,d29mZjItdGVzdA=='\)/)
+  assert.match(css, /url\('\.\/material-symbols-rounded-subset\.woff2'\)/)
+  assert.doesNotMatch(css, /base64/)
   assert.doesNotMatch(css, /https?:\/\//)
 })
 
