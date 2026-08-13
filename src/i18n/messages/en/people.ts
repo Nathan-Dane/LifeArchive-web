@@ -162,6 +162,15 @@ export const peopleMessages = {
   'people.memory.detail': '{kind}, {range}. {context}',
   'people.contact': 'Recorded Contact',
   'people.contact.none': 'No recorded contact yet.',
+  'people.contact.log': 'Log Contact',
+  'people.contact.log.detail':
+    'Choose a date, then record Brief or Together with one action.',
+  'people.contact.log.close': 'Close Log Contact',
+  'people.contact.log.date': 'Contact date',
+  'people.contact.log.kind': 'Contact kind',
+  'people.contact.log.conflict':
+    'That Day changed elsewhere. Review it before trying again.',
+  'people.contact.log.succeeded': 'Contact recorded.',
   'people.contact.last': 'Last recorded contact: {date}',
   'people.contact.current': {
     one: '{count} contact day in the last 30 days',

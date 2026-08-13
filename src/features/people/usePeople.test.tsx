@@ -14,6 +14,7 @@ import {
   type PersonSnapshot,
 } from '../../core/client'
 import { TestLifeArchiveClient } from '../../test/TestLifeArchiveClient'
+import { coreWindow } from '../../test/timeFixtures'
 import { usePeople } from './usePeople'
 
 const STORE_ID = stableId('a1000000-0000-4000-8000-000000000101')
@@ -577,6 +578,78 @@ describe('usePeople', () => {
       }),
     )
     expect(rendered.result.current.state.contactHistory?.hasMore).toBe(false)
+  })
+
+  it('logs profile contact on a core-produced Day and refreshes its summary', async () => {
+    const date = civilDate('2026-03-04')
+    const day = coreWindow('day', date)
+    const window = vi.fn<LifeArchiveClient['time']['window']>(async () =>
+      ok(day),
+    )
+    const logContact = vi.fn<LifeArchiveClient['people']['logContact']>(
+      async () =>
+        ok({
+          outcome: 'updated',
+          current: {
+            entryId: ENTRY_ID,
+            entryRevision: revision('3'),
+            sectionIds: ['people'],
+            peopleSectionVisible: true,
+            links: [],
+          },
+          invalidation: INVALIDATION,
+        }),
+    )
+    const contactSummary = vi
+      .fn<LifeArchiveClient['people']['contactSummary']>()
+      .mockResolvedValueOnce(
+        ok({
+          summary: {
+            lastRecordedContactDate: null,
+            current30DayContactDays: 0,
+            previous30DayContactDays: 0,
+            current30DayTimeTogetherDays: 0,
+          },
+          invalidation: INVALIDATION,
+        }),
+      )
+      .mockResolvedValueOnce(
+        ok({
+          summary: {
+            lastRecordedContactDate: date,
+            current30DayContactDays: 1,
+            previous30DayContactDays: 0,
+            current30DayTimeTogetherDays: 1,
+          },
+          invalidation: INVALIDATION,
+        }),
+      )
+    const base = client({ logContact, contactSummary })
+    const testClient = { ...base, time: { ...base.time, window } }
+    const rendered = renderHook(() => usePeople(testClient))
+    await waitFor(() =>
+      expect(rendered.result.current.state.people).toHaveLength(1),
+    )
+    await act(async () => rendered.result.current.select(snapshot()))
+
+    await act(async () =>
+      rendered.result.current.logContact(date, 'timeTogether'),
+    )
+
+    expect(window).toHaveBeenCalledWith(
+      expect.objectContaining({ scale: 'day', containing: date }),
+    )
+    expect(logContact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        personId: PERSON_ID,
+        interactionLevel: 'timeTogether',
+        day,
+      }),
+    )
+    expect(
+      rendered.result.current.state.contactSummary?.lastRecordedContactDate,
+    ).toBe(date)
+    expect(rendered.result.current.state.contactLogStatus).toBe('succeeded')
   })
 
   it('rejects a stale contact-history response after the range changes', async () => {

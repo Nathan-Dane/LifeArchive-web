@@ -294,6 +294,32 @@
   }
 }
 
+.person-contact-task {
+  display: flex;
+  width: min(28rem, calc(100vw - var(--space-2xl)));
+  max-height: calc(100dvh - var(--space-2xl));
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.person-contact-task__body {
+  display: grid;
+  gap: var(--space-lg);
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-lg) var(--space-content) var(--space-content);
+}
+
+.person-contact-task__choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.person-contact-task__choices > .button {
+  justify-content: center;
+}
+
 @media (max-width: 680px) {
   .person-page {
     padding: var(--space-lg);

@@ -6,6 +6,7 @@ import type {
   PersonContactHistoryPage,
   PersonContactHistoryRange,
   PersonContactSummary,
+  PersonInteractionLevel,
   PersonListCursor,
   PersonMemorySummary,
   PersonProfile,
@@ -60,6 +61,9 @@ interface PeopleState {
   readonly contactSummary: PersonContactSummary | null
   readonly contactHistory: PersonContactHistoryPage | null
   readonly contactRange: PersonContactHistoryRange
+  readonly contactLogStatus:
+    'idle' | 'saving' | 'failed' | 'conflict' | 'succeeded'
+  readonly contactLogFailure: ClientFailure | null
   readonly mergeConflict: boolean
   readonly pendingMutation: PendingPeopleMutation | null
 }
@@ -97,6 +101,7 @@ export function usePeople(client: LifeArchiveClient) {
   const listGeneration = useRef(0)
   const profileGeneration = useRef(0)
   const contactGeneration = useRef(0)
+  const contactLogGeneration = useRef(0)
   const [state, setState] = useState<PeopleState>({
     status: 'loading',
     listStatus: 'loading',
@@ -124,6 +129,8 @@ export function usePeople(client: LifeArchiveClient) {
     contactSummary: null,
     contactHistory: null,
     contactRange: 'thirtyDays',
+    contactLogStatus: 'idle',
+    contactLogFailure: null,
     mergeConflict: false,
     pendingMutation: null,
   })
@@ -216,6 +223,7 @@ export function usePeople(client: LifeArchiveClient) {
   const selectById = useCallback(
     async (personId: PersonSnapshot['person']['id']) => {
       const requestGeneration = ++profileGeneration.current
+      contactLogGeneration.current += 1
       setState((current) => ({
         ...current,
         status: 'loading',
@@ -229,6 +237,8 @@ export function usePeople(client: LifeArchiveClient) {
         memories: [],
         contactSummary: null,
         contactHistory: null,
+        contactLogStatus: 'idle',
+        contactLogFailure: null,
         mergeConflict: false,
         pendingMutation: null,
       }))
@@ -302,6 +312,7 @@ export function usePeople(client: LifeArchiveClient) {
   const startCreate = useCallback(() => {
     profileGeneration.current += 1
     contactGeneration.current += 1
+    contactLogGeneration.current += 1
     setState((current) => ({
       ...current,
       selected: null,
@@ -314,6 +325,8 @@ export function usePeople(client: LifeArchiveClient) {
       memories: [],
       contactSummary: null,
       contactHistory: null,
+      contactLogStatus: 'idle',
+      contactLogFailure: null,
       mergeConflict: false,
       pendingMutation: null,
     }))
@@ -322,6 +335,7 @@ export function usePeople(client: LifeArchiveClient) {
   const closeEditor = useCallback(() => {
     profileGeneration.current += 1
     contactGeneration.current += 1
+    contactLogGeneration.current += 1
     setState((current) => ({
       ...current,
       selected: null,
@@ -334,6 +348,8 @@ export function usePeople(client: LifeArchiveClient) {
       memories: [],
       contactSummary: null,
       contactHistory: null,
+      contactLogStatus: 'idle',
+      contactLogFailure: null,
       mergeConflict: false,
       pendingMutation: null,
     }))
@@ -841,6 +857,116 @@ export function usePeople(client: LifeArchiveClient) {
     [client],
   )
 
+  const logContact = useCallback(
+    async (
+      date: ReturnType<typeof civilToday>,
+      interactionLevel: Exclude<PersonInteractionLevel, 'none'>,
+    ) => {
+      const current = stateRef.current
+      if (!current.selected) return false
+      const personId = current.selected.person.id
+      const requestGeneration = ++contactLogGeneration.current
+      setState((value) => ({
+        ...value,
+        contactLogStatus: 'saving',
+        contactLogFailure: null,
+      }))
+      const calendar = deviceCalendar()
+      const day = await client.time.window({
+        scale: 'day',
+        containing: date,
+        timeZoneId: calendar.timeZoneId,
+        weekRules: calendar.weekRules,
+      })
+      if (contactLogGeneration.current !== requestGeneration) return false
+      if (day.status === 'failed') {
+        setState((value) => ({
+          ...value,
+          contactLogStatus: 'failed',
+          contactLogFailure: day.failure,
+        }))
+        return false
+      }
+      const result = await client.people.logContact({
+        personId,
+        interactionLevel,
+        day: day.value,
+        newEntryId: client.operations.newStableId(),
+        nowMs: Date.now(),
+      })
+      if (
+        contactLogGeneration.current !== requestGeneration ||
+        stateRef.current.selected?.person.id !== personId
+      )
+        return false
+      if (result.status === 'failed') {
+        setState((value) => ({
+          ...value,
+          contactLogStatus: 'failed',
+          contactLogFailure: result.failure,
+        }))
+        return false
+      }
+      if (result.value.outcome === 'conflict') {
+        setState((value) => ({
+          ...value,
+          contactLogStatus: 'conflict',
+          contactLogFailure: null,
+        }))
+        return false
+      }
+      const success = result.value
+      const [summary, history] = await Promise.all([
+        client.people.contactSummary({
+          personId,
+          asOfDate: civilToday(),
+        }),
+        current.contactHistory
+          ? client.people.contactHistory({
+              personId,
+              asOfDate: civilToday(),
+              range: current.contactRange,
+              limit: 30,
+              beforeDate: null,
+            })
+          : null,
+      ])
+      if (
+        contactLogGeneration.current !== requestGeneration ||
+        stateRef.current.selected?.person.id !== personId
+      )
+        return false
+      setState((value) => ({
+        ...value,
+        contactLogStatus: 'succeeded',
+        contactLogFailure: null,
+        contactSummary:
+          summary.status === 'ok'
+            ? summary.value.summary
+            : value.contactSummary,
+        contactHistory:
+          history?.status === 'ok' ? history.value : value.contactHistory,
+        invalidation:
+          history?.status === 'ok'
+            ? history.value.invalidation
+            : summary.status === 'ok'
+              ? summary.value.invalidation
+              : success.invalidation,
+      }))
+      return true
+    },
+    [client],
+  )
+
+  const resetContactLog = useCallback(() => {
+    contactLogGeneration.current += 1
+    setState((current) => ({
+      ...current,
+      contactLogStatus: 'idle',
+      contactLogFailure: null,
+    }))
+  }, [])
+
   const loadMoreMemories = useCallback(async () => {
     const current = stateRef.current
     if (!current.selected || current.memories.length === 0) return
@@ -924,6 +1050,8 @@ export function usePeople(client: LifeArchiveClient) {
     dismissMutationConflict,
     loadMoreMemories,
     loadContactHistory,
+    logContact,
+    resetContactLog,
     active: state.creating || state.selected !== null,
   }
 }
