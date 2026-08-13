@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import {
   matchPath,
   Navigate,
@@ -17,14 +17,26 @@ import {
 import { SettingsNavigationRegion, SettingsPage } from '../features/settings'
 import { ArchiveOverviewProvider } from '../features/settings/archive'
 import { useBrowserPreferences } from './preferences'
-import { TimelinePage } from '../features/timeline/TimelinePage'
-import { PeoplePage } from '../features/people'
 import type { LifeArchiveClient, TimeScale } from '../core/client'
 import { civilDate, isCivilDate } from '../core/client'
 import { useTranslate } from '../i18n'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { WorkspaceLayout } from './shell'
 import { ShellIcon, type ShellIconName } from './shell/ShellIcon'
+
+const TimelinePage = lazy(async () => {
+  const module = await import('../features/timeline/TimelinePage')
+  return { default: module.TimelinePage }
+})
+
+const PeoplePage = lazy(async () => {
+  const module = await import('../features/people')
+  return { default: module.PeoplePage }
+})
+
+function DeferredRoute({ children }: { readonly children: ReactNode }) {
+  return <Suspense fallback={null}>{children}</Suspense>
+}
 
 /** The flanking regions a route offers, if it offers any. */
 interface WorkspaceRegions {
@@ -72,14 +84,22 @@ const MAIN_ROUTES = [
     navigationPath: '/timeline',
     label: 'app.navigation.timeline',
     icon: 'timeline',
-    element: () => <TimelinePage />,
+    element: () => (
+      <DeferredRoute>
+        <TimelinePage />
+      </DeferredRoute>
+    ),
   },
   {
     path: '/people',
     navigationPath: '/people',
     label: 'app.navigation.people',
     icon: 'people',
-    element: (client: LifeArchiveClient) => <PeoplePage client={client} />,
+    element: (client: LifeArchiveClient) => (
+      <DeferredRoute>
+        <PeoplePage client={client} />
+      </DeferredRoute>
+    ),
   },
   {
     path: '/settings/*',
