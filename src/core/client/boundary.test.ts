@@ -93,9 +93,12 @@ describe('client boundary', () => {
     expect(SOURCES.map((file) => file.path)).toContain('core/client/index.ts')
     expect(clientSources.map((file) => file.path)).toEqual([
       'core/client/LifeArchiveClient.ts',
+      'core/client/archiveTypes.ts',
       'core/client/capabilities.ts',
       'core/client/errors.ts',
       'core/client/index.ts',
+      'core/client/peopleTypes.ts',
+      'core/client/recordTypes.ts',
       'core/client/types.ts',
     ])
   })

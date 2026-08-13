@@ -8,10 +8,11 @@
  * A failure never carries partial success, never advances invalidation, and
  * never justifies discarding the user's buffer. Expected outcomes that a
  * feature must branch on — absence, a revision conflict, a stale snapshot —
- * are result states in `types.ts`, not failures.
+ * are result states in the client domain types, not failures.
  */
 
-import type { DurableOutcome, Revision, StableId } from './types'
+import type { DurableOutcome } from './archiveTypes'
+import type { Revision, StableId } from './types'
 
 /**
  * The broad stable area that owns a failure. `transport` covers the worker and
