@@ -20,11 +20,14 @@ export function PeopleManager({
   showClose = true,
   initialScroll = 0,
   initialShowArchived = false,
+  presentation = 'overlay',
+  manageMode = false,
   onScrollChange,
   onShowArchivedChange,
   onClose,
   onCreate,
   onSelect,
+  onSetArchived,
 }: {
   readonly client: LifeArchiveClient
   readonly people: People
@@ -33,11 +36,14 @@ export function PeopleManager({
   readonly showClose?: boolean
   readonly initialScroll?: number
   readonly initialShowArchived?: boolean
+  readonly presentation?: 'overlay' | 'directory'
+  readonly manageMode?: boolean
   readonly onScrollChange?: (value: number) => void
   readonly onShowArchivedChange?: (value: boolean) => void
   readonly onClose?: () => void
   readonly onCreate: () => void
   readonly onSelect: (snapshot: PersonSnapshot) => void
+  readonly onSetArchived?: (snapshot: PersonSnapshot, archived: boolean) => void
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
@@ -61,28 +67,31 @@ export function PeopleManager({
 
   return (
     <>
-      <header className="record-overlay__header people-manager__header">
-        <div>
-          <h2 id={headingId} className="ui-heading">
-            {t('people.manage')}
-          </h2>
-          <p className="meta-text">{t('people.manage.detail')}</p>
-        </div>
-        {showClose ? (
-          <button
-            ref={closeRef}
-            type="button"
-            className="record-overlay__close"
-            aria-label={t('people.close.manager')}
-            onClick={onClose}
-          >
-            <RecordControlIcon name="close" />
-          </button>
-        ) : null}
-      </header>
+      {presentation === 'overlay' ? (
+        <header className="record-overlay__header people-manager__header">
+          <div>
+            <h2 id={headingId} className="ui-heading">
+              {t('people.manage')}
+            </h2>
+            <p className="meta-text">{t('people.manage.detail')}</p>
+          </div>
+          {showClose ? (
+            <button
+              ref={closeRef}
+              type="button"
+              className="record-overlay__close"
+              aria-label={t('people.close.manager')}
+              onClick={onClose}
+            >
+              <RecordControlIcon name="close" />
+            </button>
+          ) : null}
+        </header>
+      ) : null}
       <div
         ref={body}
         className="people-manager__body"
+        data-presentation={presentation}
         onScroll={(event) => onScrollChange?.(event.currentTarget.scrollTop)}
       >
         <label className="people-manager__search">
@@ -97,9 +106,9 @@ export function PeopleManager({
             }}
           />
         </label>
-        {people.state.failure ? (
+        {people.state.listFailure && people.state.listStatus === 'failed' ? (
           <div role="alert" className="record-details__failure">
-            <p>{failureMessage(localisation, people.state.failure)}</p>
+            <p>{failureMessage(localisation, people.state.listFailure)}</p>
             <button
               type="button"
               className="button"
@@ -109,7 +118,7 @@ export function PeopleManager({
             </button>
           </div>
         ) : null}
-        {people.state.status === 'loading' &&
+        {people.state.listStatus === 'loading' &&
         people.state.people.length === 0 ? (
           <p role="status">{t('people.loading')}</p>
         ) : null}
@@ -117,7 +126,10 @@ export function PeopleManager({
           client={client}
           heading={t('people.active')}
           people={active}
+          manageMode={manageMode}
+          pendingPersonId={people.state.directoryMutationPersonId}
           onSelect={onSelect}
+          onSetArchived={onSetArchived}
         />
         {archived.length > 0 ? (
           <section className="people-manager__archived">
@@ -142,38 +154,74 @@ export function PeopleManager({
                 heading={t('people.archived')}
                 people={archived}
                 archived
+                manageMode={manageMode}
+                pendingPersonId={people.state.directoryMutationPersonId}
                 onSelect={onSelect}
+                onSetArchived={onSetArchived}
               />
             ) : null}
           </section>
         ) : null}
         {active.length === 0 &&
         (archived.length === 0 || !showArchived) &&
-        people.state.status !== 'loading' ? (
+        people.state.listStatus !== 'loading' ? (
           <p className="people-manager__empty">
             {t(query ? 'people.empty.search' : 'people.empty')}
           </p>
         ) : null}
-        {people.state.hasMore ? (
+        {people.state.listStatus === 'appendFailed' &&
+        people.state.listFailure ? (
+          <div role="alert" className="record-details__failure">
+            <p>{failureMessage(localisation, people.state.listFailure)}</p>
+            <button
+              type="button"
+              className="button"
+              onClick={() => void people.loadMore()}
+            >
+              {t('people.retry')}
+            </button>
+          </div>
+        ) : null}
+        {people.state.directoryMutationFailure ? (
+          <p role="alert" className="record-details__failure">
+            {failureMessage(
+              localisation,
+              people.state.directoryMutationFailure,
+            )}
+          </p>
+        ) : null}
+        {people.state.directoryMutationConflict ? (
+          <p role="alert" className="record-details__failure">
+            {t('people.mutationConflict.detail')}
+          </p>
+        ) : null}
+        {people.state.hasMore && people.state.listStatus !== 'appendFailed' ? (
           <button
             type="button"
             className="button button--secondary"
+            disabled={people.state.listStatus === 'loadingMore'}
             onClick={() => void people.loadMore()}
           >
-            {t('people.loadMore')}
+            {t(
+              people.state.listStatus === 'loadingMore'
+                ? 'people.loading'
+                : 'people.loadMore',
+            )}
           </button>
         ) : null}
       </div>
-      <footer className="record-overlay__footer people-manager__footer">
-        <button
-          type="button"
-          className="button button--primary"
-          onClick={onCreate}
-        >
-          <RecordControlIcon name="add" />
-          <span>{t('people.new')}</span>
-        </button>
-      </footer>
+      {presentation === 'overlay' ? (
+        <footer className="record-overlay__footer people-manager__footer">
+          <button
+            type="button"
+            className="button button--primary"
+            onClick={onCreate}
+          >
+            <RecordControlIcon name="add" />
+            <span>{t('people.new')}</span>
+          </button>
+        </footer>
+      ) : null}
     </>
   )
 }
@@ -183,13 +231,19 @@ function PeopleGroup({
   heading,
   people,
   archived = false,
+  manageMode = false,
+  pendingPersonId,
   onSelect,
+  onSetArchived,
 }: {
   readonly client: LifeArchiveClient
   readonly heading: string
   readonly people: readonly PersonSnapshot[]
   readonly archived?: boolean
+  readonly manageMode?: boolean
+  readonly pendingPersonId: PersonSnapshot['person']['id'] | null
   readonly onSelect: (snapshot: PersonSnapshot) => void
+  readonly onSetArchived?: (snapshot: PersonSnapshot, archived: boolean) => void
 }) {
   const t = useLocalisation().t
   const format = useFormat()
@@ -209,7 +263,13 @@ function PeopleGroup({
           <button
             key={snapshot.person.id}
             type="button"
-            onClick={() => onSelect(snapshot)}
+            data-person-id={snapshot.person.id}
+            disabled={pendingPersonId === snapshot.person.id}
+            onClick={() =>
+              manageMode && onSetArchived
+                ? onSetArchived(snapshot, !snapshot.person.isArchived)
+                : onSelect(snapshot)
+            }
           >
             <PersonAvatar
               client={client}
@@ -240,9 +300,15 @@ function PeopleGroup({
                 <span className="meta-text">{t('people.archived.label')}</span>
               ) : null}
             </span>
-            <span aria-hidden="true">
-              <RecordControlIcon name="next" />
-            </span>
+            {manageMode ? (
+              <span className="people-manager__row-action">
+                {t(archived ? 'people.restore' : 'people.archive')}
+              </span>
+            ) : (
+              <span aria-hidden="true">
+                <RecordControlIcon name="next" />
+              </span>
+            )}
           </button>
         ))}
       </div>

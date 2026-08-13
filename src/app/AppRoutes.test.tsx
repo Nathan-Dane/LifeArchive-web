@@ -150,7 +150,9 @@ describe('ready application routes', () => {
         selector: 'output',
       }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'People' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Person not available' }),
+    ).toBeInTheDocument()
   })
 
   it('uses the canonical Track manager from the Tracks Index destination', async () => {
