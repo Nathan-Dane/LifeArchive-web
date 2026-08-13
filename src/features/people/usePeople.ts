@@ -34,6 +34,10 @@ type PendingPeopleMutation =
 
 interface PeopleState {
   readonly status: 'loading' | 'ready' | 'failed' | 'saving'
+  readonly listStatus:
+    'loading' | 'ready' | 'failed' | 'loadingMore' | 'appendFailed'
+  readonly profileStatus: 'idle' | 'loading' | 'ready' | 'failed'
+  readonly quickCreateStatus: 'idle' | 'saving' | 'failed'
   readonly people: readonly PersonSnapshot[]
   readonly hasMore: boolean
   readonly nextCursor: PersonListCursor | null
@@ -43,6 +47,12 @@ interface PeopleState {
   readonly draft: PersonDraft | null
   readonly creating: boolean
   readonly failure: ClientFailure | null
+  readonly listFailure: ClientFailure | null
+  readonly profileFailure: ClientFailure | null
+  readonly quickCreateFailure: ClientFailure | null
+  readonly directoryMutationPersonId: PersonSnapshot['person']['id'] | null
+  readonly directoryMutationFailure: ClientFailure | null
+  readonly directoryMutationConflict: boolean
   readonly conflict: PersonSnapshot | null
   readonly invalidation: InvalidationToken | null
   readonly memories: readonly PersonMemorySummary[]
@@ -84,10 +94,14 @@ export function personDraft(snapshot: PersonSnapshot): PersonDraft {
 }
 
 export function usePeople(client: LifeArchiveClient) {
-  const generation = useRef(0)
+  const listGeneration = useRef(0)
+  const profileGeneration = useRef(0)
   const contactGeneration = useRef(0)
   const [state, setState] = useState<PeopleState>({
     status: 'loading',
+    listStatus: 'loading',
+    profileStatus: 'idle',
+    quickCreateStatus: 'idle',
     people: [],
     hasMore: false,
     nextCursor: null,
@@ -97,6 +111,12 @@ export function usePeople(client: LifeArchiveClient) {
     draft: null,
     creating: false,
     failure: null,
+    listFailure: null,
+    profileFailure: null,
+    quickCreateFailure: null,
+    directoryMutationPersonId: null,
+    directoryMutationFailure: null,
+    directoryMutationConflict: false,
     conflict: null,
     invalidation: null,
     memories: [],
@@ -115,17 +135,29 @@ export function usePeople(client: LifeArchiveClient) {
 
   const list = useCallback(
     async (query = '', append = false) => {
-      const requestGeneration = ++generation.current
+      const requestGeneration = ++listGeneration.current
       setState((current) => ({
         ...current,
-        status: append ? current.status : 'loading',
+        status: append
+          ? current.status
+          : current.selected
+            ? current.status
+            : 'loading',
+        listStatus: append ? 'loadingMore' : 'loading',
         query,
-        failure: null,
+        listFailure: null,
       }))
       const current = stateRef.current
       const after = append ? current.nextCursor : null
       if (append && !after) {
-        setState((value) => ({ ...value, status: 'ready' }))
+        setState((value) => ({
+          ...value,
+          listStatus: 'ready',
+          status:
+            value.selected || value.profileStatus === 'loading'
+              ? value.status
+              : 'ready',
+        }))
         return false
       }
       const result = await client.people.list({
@@ -134,18 +166,27 @@ export function usePeople(client: LifeArchiveClient) {
         limit: 25,
         after,
       })
-      if (generation.current !== requestGeneration) return false
+      if (listGeneration.current !== requestGeneration) return false
       if (result.status === 'failed') {
         setState((value) => ({
           ...value,
-          status: 'failed',
-          failure: result.failure,
+          status:
+            append || value.selected || value.profileStatus === 'loading'
+              ? value.status
+              : 'failed',
+          listStatus: append ? 'appendFailed' : 'failed',
+          listFailure: result.failure,
         }))
         return false
       }
       setState((value) => ({
         ...value,
-        status: 'ready',
+        status:
+          value.selected || value.profileStatus === 'loading'
+            ? value.status
+            : 'ready',
+        listStatus: 'ready',
+        listFailure: null,
         people: append
           ? mergePeople(value.people, result.value.people)
           : result.value.people,
@@ -166,22 +207,24 @@ export function usePeople(client: LifeArchiveClient) {
     })
     return () => {
       active = false
-      generation.current += 1
+      listGeneration.current += 1
     }
     // The first request belongs to this mounted archive generation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client])
 
-  const select = useCallback(
-    async (snapshot: PersonSnapshot) => {
-      const requestGeneration = ++generation.current
+  const selectById = useCallback(
+    async (personId: PersonSnapshot['person']['id']) => {
+      const requestGeneration = ++profileGeneration.current
       setState((current) => ({
         ...current,
         status: 'loading',
+        profileStatus: 'loading',
         selected: null,
         draft: null,
         creating: false,
         failure: null,
+        profileFailure: null,
         conflict: null,
         memories: [],
         contactSummary: null,
@@ -189,13 +232,15 @@ export function usePeople(client: LifeArchiveClient) {
         mergeConflict: false,
         pendingMutation: null,
       }))
-      const loaded = await client.people.load(snapshot.person.id)
-      if (generation.current !== requestGeneration) return false
+      const loaded = await client.people.load(personId)
+      if (profileGeneration.current !== requestGeneration) return false
       if (loaded.status === 'failed') {
         setState((current) => ({
           ...current,
           status: 'failed',
+          profileStatus: 'failed',
           failure: loaded.failure,
+          profileFailure: loaded.failure,
         }))
         return false
       }
@@ -203,6 +248,7 @@ export function usePeople(client: LifeArchiveClient) {
       setState((current) => ({
         ...current,
         status: 'ready',
+        profileStatus: 'ready',
         selected: currentSnapshot,
         draft: personDraft(currentSnapshot),
         people: replacePerson(current.people, currentSnapshot),
@@ -219,7 +265,7 @@ export function usePeople(client: LifeArchiveClient) {
           asOfDate: civilToday(),
         }),
       ])
-      if (generation.current !== requestGeneration) return false
+      if (profileGeneration.current !== requestGeneration) return false
       setState((current) => {
         if (current.selected?.person.id !== currentSnapshot.person.id)
           return current
@@ -248,15 +294,22 @@ export function usePeople(client: LifeArchiveClient) {
     [client],
   )
 
+  const select = useCallback(
+    (snapshot: PersonSnapshot) => selectById(snapshot.person.id),
+    [selectById],
+  )
+
   const startCreate = useCallback(() => {
-    generation.current += 1
+    profileGeneration.current += 1
     contactGeneration.current += 1
     setState((current) => ({
       ...current,
       selected: null,
+      profileStatus: 'ready',
       draft: { ...EMPTY_PROFILE },
       creating: true,
       failure: null,
+      profileFailure: null,
       conflict: null,
       memories: [],
       contactSummary: null,
@@ -267,14 +320,16 @@ export function usePeople(client: LifeArchiveClient) {
   }, [])
 
   const closeEditor = useCallback(() => {
-    generation.current += 1
+    profileGeneration.current += 1
     contactGeneration.current += 1
     setState((current) => ({
       ...current,
       selected: null,
+      profileStatus: 'idle',
       draft: null,
       creating: false,
       failure: null,
+      profileFailure: null,
       conflict: null,
       memories: [],
       contactSummary: null,
@@ -317,6 +372,7 @@ export function usePeople(client: LifeArchiveClient) {
     setState((value) => ({
       ...value,
       status: 'saving',
+      profileStatus: 'ready',
       failure: null,
       pendingMutation: { kind: 'create' },
     }))
@@ -342,6 +398,7 @@ export function usePeople(client: LifeArchiveClient) {
     setState((value) => ({
       ...value,
       status: 'ready',
+      profileStatus: 'ready',
       people: replacePerson(value.people, snapshot),
       selected: snapshot,
       draft: personDraft(snapshot),
@@ -351,6 +408,62 @@ export function usePeople(client: LifeArchiveClient) {
     }))
     return { snapshot, invalidation: success.invalidation }
   }, [client])
+
+  const quickCreate = useCallback(
+    async (displayName: string, connectionLabel: string | null) => {
+      const trimmedName = displayName.trim()
+      if (!trimmedName) return null
+      setState((value) => ({
+        ...value,
+        quickCreateStatus: 'saving',
+        quickCreateFailure: null,
+      }))
+      const result = await client.people.create({
+        newPersonId: client.operations.newStableId(),
+        profile: {
+          ...EMPTY_PROFILE,
+          displayName: trimmedName,
+          connectionLabels: connectionLabel ? [connectionLabel] : [],
+        },
+        nowMs: Date.now(),
+      })
+      if (result.status === 'failed') {
+        setState((value) => ({
+          ...value,
+          quickCreateStatus: 'failed',
+          quickCreateFailure: result.failure,
+        }))
+        return null
+      }
+      if (result.value.outcome === 'conflict') {
+        setState((value) => ({ ...value, quickCreateStatus: 'idle' }))
+        return null
+      }
+      const success = result.value
+      const snapshot = success.current
+      setState((value) => ({
+        ...value,
+        people: replacePerson(value.people, snapshot),
+        selected: snapshot,
+        draft: personDraft(snapshot),
+        creating: false,
+        profileStatus: 'ready',
+        quickCreateStatus: 'idle',
+        quickCreateFailure: null,
+        invalidation: success.invalidation,
+      }))
+      return snapshot
+    },
+    [client],
+  )
+
+  const resetQuickCreate = useCallback(() => {
+    setState((current) => ({
+      ...current,
+      quickCreateStatus: 'idle',
+      quickCreateFailure: null,
+    }))
+  }, [])
 
   const saveSnapshot = useCallback(
     async (selected: PersonSnapshot, submitted: PersonDraft) => {
@@ -457,6 +570,53 @@ export function usePeople(client: LifeArchiveClient) {
       return true
     },
     [client, replaceSnapshot],
+  )
+
+  const setArchivedFromDirectory = useCallback(
+    async (snapshot: PersonSnapshot, archived: boolean) => {
+      setState((value) => ({
+        ...value,
+        directoryMutationPersonId: snapshot.person.id,
+        directoryMutationFailure: null,
+        directoryMutationConflict: false,
+      }))
+      const result = await client.people.save({
+        id: snapshot.person.id,
+        expectedRevision: snapshot.revision,
+        profile: personDraft(snapshot),
+        isArchived: archived,
+        nowMs: Date.now(),
+      })
+      if (result.status === 'failed') {
+        setState((value) => ({
+          ...value,
+          directoryMutationPersonId: null,
+          directoryMutationFailure: result.failure,
+        }))
+        return false
+      }
+      if (result.value.outcome === 'conflict') {
+        const conflict = result.value
+        setState((value) => ({
+          ...value,
+          people: replacePerson(value.people, conflict.conflict.current),
+          directoryMutationPersonId: null,
+          directoryMutationConflict: true,
+        }))
+        return false
+      }
+      const success = result.value
+      setState((value) => ({
+        ...value,
+        people: replacePerson(value.people, success.current),
+        invalidation: success.invalidation,
+        directoryMutationPersonId: null,
+        directoryMutationFailure: null,
+        directoryMutationConflict: false,
+      }))
+      return true
+    },
+    [client],
   )
 
   const importPhoto = useCallback(
@@ -743,15 +903,19 @@ export function usePeople(client: LifeArchiveClient) {
     list,
     loadMore: () => list(state.query, true),
     select,
+    selectById,
     startCreate,
     closeEditor,
     update,
     setQuery,
     create,
+    quickCreate,
+    resetQuickCreate,
     save,
     saveMine,
     useArchiveVersion,
     setArchived,
+    setArchivedFromDirectory,
     importPhoto,
     removePhoto,
     deletePerson,

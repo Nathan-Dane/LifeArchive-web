@@ -1,7 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  clientFailure,
   civilDate,
+  failed,
   ok,
   revision,
   stableId,
@@ -105,6 +107,132 @@ function client(
 }
 
 describe('usePeople', () => {
+  it('loads a directly addressed Person without cancelling the first directory page', async () => {
+    let resolveList!: (page: ClientResult<PersonListPage>) => void
+    const list = vi.fn<LifeArchiveClient['people']['list']>(
+      () => new Promise((resolve) => (resolveList = resolve)),
+    )
+    const testClient = client({ list })
+    const rendered = renderHook(() => usePeople(testClient))
+    await waitFor(() => expect(list).toHaveBeenCalledOnce())
+
+    await act(async () => rendered.result.current.selectById(PERSON_ID))
+    expect(rendered.result.current.state.selected?.person.id).toBe(PERSON_ID)
+
+    await act(async () => {
+      resolveList(
+        ok({
+          people: [snapshot()],
+          hasMore: false,
+          nextCursor: null,
+          invalidation: INVALIDATION,
+        }),
+      )
+    })
+    expect(rendered.result.current.state.people).toHaveLength(1)
+    expect(rendered.result.current.state.selected?.person.id).toBe(PERSON_ID)
+    expect(rendered.result.current.state.listStatus).toBe('ready')
+  })
+
+  it('keeps listed People visible when loading the next page fails', async () => {
+    const cursor = {
+      displayName: 'Ada Lovelace',
+      createdAtMs: 2,
+      personId: PERSON_ID,
+    }
+    const list = vi
+      .fn<LifeArchiveClient['people']['list']>()
+      .mockResolvedValueOnce(
+        ok({
+          people: [snapshot()],
+          hasMore: true,
+          nextCursor: cursor,
+          invalidation: INVALIDATION,
+        }),
+      )
+      .mockResolvedValueOnce(
+        failed(
+          clientFailure({
+            area: 'person',
+            code: 'busyRetryable',
+            phase: 'snapshot',
+            retryable: true,
+          }),
+        ),
+      )
+    const testClient = client({ list })
+    const rendered = renderHook(() => usePeople(testClient))
+    await waitFor(() =>
+      expect(rendered.result.current.state.people).toHaveLength(1),
+    )
+
+    await act(async () => rendered.result.current.loadMore())
+
+    expect(rendered.result.current.state.people).toHaveLength(1)
+    expect(rendered.result.current.state.listStatus).toBe('appendFailed')
+    expect(rendered.result.current.state.listFailure?.code).toBe(
+      'busyRetryable',
+    )
+  })
+
+  it('quick-creates a minimal Person and keeps the full editor draft ready', async () => {
+    const created = snapshot(PERSON_ID, 'Ada Lovelace', '1')
+    const create = vi.fn<LifeArchiveClient['people']['create']>(async () =>
+      ok({ outcome: 'created', current: created, invalidation: INVALIDATION }),
+    )
+    const testClient = client({ create })
+    const rendered = renderHook(() => usePeople(testClient))
+    await waitFor(() =>
+      expect(rendered.result.current.state.people).toHaveLength(1),
+    )
+
+    await act(async () =>
+      rendered.result.current.quickCreate('  Ada Lovelace  ', 'Friend'),
+    )
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({
+          displayName: 'Ada Lovelace',
+          connectionLabels: ['Friend'],
+        }),
+      }),
+    )
+    expect(rendered.result.current.state.selected).toEqual(created)
+    expect(rendered.result.current.state.draft?.displayName).toBe(
+      'Ada Lovelace',
+    )
+    expect(rendered.result.current.state.quickCreateStatus).toBe('idle')
+  })
+
+  it('archives a listed Person directly from directory manage mode', async () => {
+    const archived: PersonSnapshot = {
+      ...snapshot(PERSON_ID, 'Ada Lovelace', '3'),
+      person: { ...snapshot().person, isArchived: true },
+    }
+    const save = vi.fn<LifeArchiveClient['people']['save']>(async () =>
+      ok({ outcome: 'updated', current: archived, invalidation: INVALIDATION }),
+    )
+    const testClient = client({ save })
+    const rendered = renderHook(() => usePeople(testClient))
+    await waitFor(() =>
+      expect(rendered.result.current.state.people).toHaveLength(1),
+    )
+
+    await act(async () =>
+      rendered.result.current.setArchivedFromDirectory(snapshot(), true),
+    )
+
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: PERSON_ID,
+        expectedRevision: revision('2'),
+        isArchived: true,
+      }),
+    )
+    expect(rendered.result.current.state.people[0]).toEqual(archived)
+  })
+
   it('rejects stale search responses and sends the core cursor for paging', async () => {
     const opaqueCursor = {
       displayName: 'core-owned cursor value',
