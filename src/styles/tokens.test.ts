@@ -48,6 +48,7 @@ const LAYOUT_CSS = LAYOUT_STYLESHEETS.join('\n')
 const TYPOGRAPHY_CSS = styles('typography.css')
 const GLOBAL_CSS = styles('global.css')
 const ALL_CSS = [TOKENS_CSS, ...LAYOUT_STYLESHEETS, TYPOGRAPHY_CSS, GLOBAL_CSS]
+const ALL_RAW_CSS = Object.values(RAW_STYLESHEETS).join('\n')
 const RECORD_CSS = styles('record.css')
 
 interface AppearancePair {
@@ -134,18 +135,13 @@ describe('the layout stylesheet composition', () => {
     expect(imports).toEqual(LAYOUT_STYLESHEET_NAMES)
   })
 
-  it('keeps persistent workspace scrollbars hidden without reserving width', () => {
-    const scrollers = String.raw`\.workspace\s+:is\(\s*\.record-objects__groups,\s*\.workspace__content,\s*\.record-details\s*\)`
-
-    expect(RECORD_CSS).toMatch(
-      new RegExp(`${scrollers}\\s*\\{[^}]*scrollbar-width:\\s*none`, 's'),
+  it('keeps every scrollbar hidden without reserving layout space', () => {
+    expect(GLOBAL_CSS).toMatch(/\*\s*\{[^}]*scrollbar-width:\s*none/s)
+    expect(GLOBAL_CSS).toMatch(
+      /\*::-webkit-scrollbar\s*\{[^}]*(?:display:\s*none)[^}]*(?:width:\s*0)[^}]*(?:height:\s*0)/s,
     )
-    expect(RECORD_CSS).toMatch(
-      new RegExp(
-        `${scrollers}::-webkit-scrollbar\\s*\\{[^}]*display:\\s*none`,
-        's',
-      ),
-    )
+    expect(ALL_RAW_CSS).not.toMatch(/scrollbar-width:\s*(?:auto|thin)/)
+    expect(ALL_RAW_CSS).not.toMatch(/scrollbar-gutter:/)
   })
 })
 
