@@ -14,7 +14,6 @@ import {
   RecordNavigationRegion,
   RecordPage,
 } from '../features/record'
-import { SettingsNavigationRegion, SettingsPage } from '../features/settings'
 import { ArchiveOverviewProvider } from '../features/settings/archive'
 import { useBrowserPreferences } from './preferences'
 import type { LifeArchiveClient, TimeScale } from '../core/client'
@@ -32,6 +31,16 @@ const TimelinePage = lazy(async () => {
 const PeoplePage = lazy(async () => {
   const module = await import('../features/people')
   return { default: module.PeoplePage }
+})
+
+const SettingsPage = lazy(async () => {
+  const module = await import('../features/settings/SettingsPage')
+  return { default: module.SettingsPage }
+})
+
+const SettingsNavigationRegion = lazy(async () => {
+  const module = await import('../features/settings/SettingsNavigation')
+  return { default: module.SettingsNavigationRegion }
 })
 
 function DeferredRoute({ children }: { readonly children: ReactNode }) {
@@ -106,9 +115,17 @@ const MAIN_ROUTES = [
     navigationPath: '/settings',
     label: 'app.navigation.settings',
     icon: 'settings',
-    element: (client: LifeArchiveClient) => <SettingsPage client={client} />,
+    element: (client: LifeArchiveClient) => (
+      <DeferredRoute>
+        <SettingsPage client={client} />
+      </DeferredRoute>
+    ),
     regions: (client: LifeArchiveClient): WorkspaceRegions => ({
-      navigation: <SettingsNavigationRegion client={client} />,
+      navigation: (
+        <DeferredRoute>
+          <SettingsNavigationRegion client={client} />
+        </DeferredRoute>
+      ),
     }),
     surround: (client: LifeArchiveClient, workspace: ReactNode) => (
       <ArchiveOverviewProvider client={client}>
