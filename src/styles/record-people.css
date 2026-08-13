@@ -1,8 +1,8 @@
 /* Record's role-weighted People context, matched to the approved reference. */
 .record-people {
   display: grid;
-  width: min(100%, var(--layout-reading-measure));
-  margin: var(--space-section) auto 0;
+  width: 100%;
+  margin: var(--space-section) 0 0;
   overflow: visible;
   border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-card);

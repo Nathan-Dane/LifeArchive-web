@@ -60,6 +60,8 @@ const ALL_CSS = [
 ]
 const ALL_RAW_CSS = Object.values(RAW_STYLESHEETS).join('\n')
 const RECORD_CSS = styles('record.css')
+const RECORD_PEOPLE_CSS = styles('record-people.css')
+const PERSON_PAGES_CSS = styles('person-pages.css')
 
 interface AppearancePair {
   readonly light: string
@@ -171,6 +173,28 @@ describe('the layout stylesheet composition', () => {
     expect(LAYOUT_CSS).toMatch(/\):focus-visible\s*\{[^}]*outline:\s*0/s)
     expect(LAYOUT_CSS).toMatch(
       /\)\[aria-invalid='true'\]\s*\{[^}]*border-color:\s*var\(--color-destructive\)/s,
+    )
+  })
+})
+
+describe('People route composition', () => {
+  it('lets Record People use the same full content width as adjacent sections', () => {
+    expect(RECORD_PEOPLE_CSS).toMatch(
+      /\.record-people\s*\{[^}]*width:\s*100%[^}]*margin:\s*var\(--space-section\) 0 0/s,
+    )
+    expect(RECORD_PEOPLE_CSS).not.toContain('var(--layout-reading-measure)')
+  })
+
+  it('starts routed Person content at the workspace inset and sticks its rail nearby', () => {
+    expect(PERSON_PAGES_CSS).toMatch(/\.person-page\s*\{[^}]*padding:\s*0/s)
+    expect(PERSON_PAGES_CSS).toMatch(
+      /\.person-page__navigation\s*\{[^}]*margin-block-end:\s*var\(--space-md\)/s,
+    )
+    expect(PERSON_PAGES_CSS).toMatch(
+      /\.person-page__rail\s*\{[^}]*top:\s*var\(--space-md\)/s,
+    )
+    expect(PERSON_PAGES_CSS).toMatch(
+      /\.workspace__content:has\([^)]*person-page\[data-page\][^)]*\)\s*\{[^}]*padding-bottom:\s*0/s,
     )
   })
 })
