@@ -78,7 +78,7 @@ import {
 import { useTranslate } from '../../../i18n'
 import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 import { EditorIcon, type EditorIconName } from './EditorIcon'
-import type { WritingSurfaceProps } from './WritingSurface'
+import type { WritingSurfaceProps } from './writingSurfaceTypes'
 
 type BlockStyle = 'paragraph' | 'headingTwo' | 'headingThree'
 type ListStyle = 'bullet' | 'number' | null

@@ -1,10 +1,5 @@
 import { lazy, type ComponentType } from 'react'
-
-export interface WritingSurfaceProps {
-  readonly value: string
-  readonly disabled: boolean
-  readonly onChange: (markdown: string) => void
-}
+import type { WritingSurfaceProps } from './writingSurfaceTypes'
 
 /**
  * The feature-facing seam for visual Markdown editing.
