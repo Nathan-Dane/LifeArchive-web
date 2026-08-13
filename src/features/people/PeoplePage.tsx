@@ -15,12 +15,12 @@ import {
   type StableId,
 } from '../../core/client'
 import { failureMessage, useLocalisation } from '../../i18n'
-import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
+import { RecordControlIcon } from '../../ui/overlay'
 import { useRecordPersonOrigin } from '../../ui/navigation/recordPersonOrigin'
-import { STANDARD_CONNECTION_LABELS } from './connectionLabels'
 import { PeopleManager } from './PeopleManager'
 import { PersonEditorPage } from './PersonEditorPage'
 import { PersonProfilePage } from './PersonProfilePage'
+import { PersonQuickCreateDialog } from './PersonQuickCreateDialog'
 import { usePeople, type People } from './usePeople'
 
 export function PeoplePage({ client }: { readonly client: LifeArchiveClient }) {
@@ -116,7 +116,7 @@ export function PeoplePage({ client }: { readonly client: LifeArchiveClient }) {
         />
         <Route path="*" element={<Navigate to="/index/people" replace />} />
       </Routes>
-      <QuickCreateDialog
+      <PersonQuickCreateDialog
         people={people}
         open={quickCreateOpen}
         anchorRef={newPersonButton}
@@ -124,9 +124,9 @@ export function PeoplePage({ client }: { readonly client: LifeArchiveClient }) {
           setQuickCreateOpen(false)
           people.resetQuickCreate()
         }}
-        onCreated={(personId) => {
+        onCreated={(snapshot) => {
           setQuickCreateOpen(false)
-          navigate(`${personId}/edit`)
+          navigate(`/index/people/${snapshot.person.id}/edit`)
         }}
       />
     </div>
@@ -303,123 +303,5 @@ function PersonLoadFailure({
         </button>
       </div>
     </section>
-  )
-}
-
-function QuickCreateDialog({
-  people,
-  open,
-  anchorRef,
-  onClose,
-  onCreated,
-}: {
-  readonly people: People
-  readonly open: boolean
-  readonly anchorRef: RefObject<HTMLElement | null>
-  readonly onClose: () => void
-  readonly onCreated: (personId: string) => void
-}) {
-  const localisation = useLocalisation()
-  const t = localisation.t
-  const headingId = useId()
-  const nameInput = useRef<HTMLInputElement>(null)
-  const [name, setName] = useState('')
-  const [connection, setConnection] = useState('')
-  const busy = people.state.quickCreateStatus === 'saving'
-  const valid = /\S/u.test(name)
-
-  const close = () => {
-    if (busy) return
-    setName('')
-    setConnection('')
-    onClose()
-  }
-  const create = async () => {
-    const snapshot = await people.quickCreate(name, connection || null)
-    if (!snapshot) return
-    setName('')
-    setConnection('')
-    onCreated(snapshot.person.id)
-  }
-
-  return (
-    <RecordOverlay
-      open={open}
-      kind="modal"
-      modalPlacement="center"
-      labelledBy={headingId}
-      anchorRef={anchorRef}
-      initialFocusRef={nameInput}
-      onClose={close}
-      className="people-quick-create"
-    >
-      <header className="record-overlay__header">
-        <div>
-          <h2 id={headingId} className="ui-heading">
-            {t('people.create.heading')}
-          </h2>
-          <p className="meta-text">{t('people.create.quick.detail')}</p>
-        </div>
-        <button
-          type="button"
-          className="record-overlay__close"
-          aria-label={t('people.cancel')}
-          disabled={busy}
-          onClick={close}
-        >
-          <RecordControlIcon name="close" />
-        </button>
-      </header>
-      <div className="people-quick-create__body">
-        {people.state.quickCreateFailure ? (
-          <p role="alert" className="record-details__failure">
-            {failureMessage(localisation, people.state.quickCreateFailure)}
-          </p>
-        ) : null}
-        <label className="person-field">
-          <span>{t('people.name')}</span>
-          <input
-            ref={nameInput}
-            value={name}
-            disabled={busy}
-            required
-            onChange={(event) => setName(event.currentTarget.value)}
-          />
-        </label>
-        <label className="person-field">
-          <span>{t('people.connections.optional')}</span>
-          <select
-            value={connection}
-            disabled={busy}
-            onChange={(event) => setConnection(event.currentTarget.value)}
-          >
-            <option value="">{t('people.connections.none')}</option>
-            {STANDARD_CONNECTION_LABELS.map(({ value, message }) => (
-              <option key={value} value={value}>
-                {t(message)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <footer className="record-overlay__footer people-quick-create__footer">
-        <button
-          type="button"
-          className="button button--secondary"
-          disabled={busy}
-          onClick={close}
-        >
-          {t('people.cancel')}
-        </button>
-        <button
-          type="button"
-          className="button button--primary"
-          disabled={!valid || busy}
-          onClick={() => void create()}
-        >
-          {t(busy ? 'people.saving' : 'people.create.continue')}
-        </button>
-      </footer>
-    </RecordOverlay>
   )
 }

@@ -20,6 +20,7 @@ import { failureMessage, useLocalisation } from '../../i18n'
 import { deviceCalendar } from '../../platform/calendar'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
 import { PersonAvatar } from './PersonAvatar'
+import { PersonQuickCreateDialog } from './PersonQuickCreateDialog'
 import {
   displayRole,
   groupRecordPeople,
@@ -42,7 +43,6 @@ export function RecordPeopleSection({
   onEntryRevision,
   onViewPerson,
   onEditPerson,
-  onCreatePerson,
 }: {
   readonly client: LifeArchiveClient
   readonly target: RecordPeopleTarget | null
@@ -60,7 +60,6 @@ export function RecordPeopleSection({
     personId: StableId,
     opener: HTMLButtonElement,
   ) => void
-  readonly onCreatePerson?: (opener: HTMLButtonElement) => void
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
@@ -499,7 +498,13 @@ export function RecordPeopleSection({
             )
           }}
           onRemove={remove}
-          onCreatePerson={onCreatePerson}
+          onCreatedPerson={async (person, opener) => {
+            const attached = await updateRole(person, 'included')
+            if (!attached) return false
+            onEditPerson?.(person.person.id, opener)
+            setEntryManagerOpen(false)
+            return true
+          }}
         />
       </RecordOverlay>
     </section>
@@ -866,7 +871,7 @@ function EntryPeopleManager({
   onToggleRole,
   onMove,
   onRemove,
-  onCreatePerson,
+  onCreatedPerson,
 }: {
   readonly client: LifeArchiveClient
   readonly headingId: string
@@ -881,12 +886,17 @@ function EntryPeopleManager({
   ) => Promise<boolean>
   readonly onMove: (index: number, offset: -1 | 1) => void
   readonly onRemove: (linked: LinkedPersonSnapshot) => Promise<boolean>
-  readonly onCreatePerson?: (opener: HTMLButtonElement) => void
+  readonly onCreatedPerson: (
+    person: PersonSnapshot,
+    opener: HTMLButtonElement,
+  ) => Promise<boolean>
 }) {
   const localisation = useLocalisation()
   const t = localisation.t
   const people = usePeople(client)
+  const createOpener = useRef<HTMLButtonElement>(null)
   const [query, setQuery] = useState('')
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false)
   const listPeople = people.list
   const listedQuery = people.state.listedQuery
 
@@ -1014,18 +1024,29 @@ function EntryPeopleManager({
           </button>
         ) : null}
       </div>
-      {onCreatePerson ? (
-        <footer className="record-overlay__footer">
-          <button
-            type="button"
-            className="button button--primary"
-            onClick={(event) => onCreatePerson(event.currentTarget)}
-          >
-            <RecordControlIcon name="add" />
-            <span>{t('people.new')}</span>
-          </button>
-        </footer>
-      ) : null}
+      <footer className="record-overlay__footer">
+        <button
+          ref={createOpener}
+          type="button"
+          className="button button--primary"
+          disabled={busy}
+          onClick={() => setQuickCreateOpen(true)}
+        >
+          <RecordControlIcon name="add" />
+          <span>{t('people.new')}</span>
+        </button>
+      </footer>
+      <PersonQuickCreateDialog
+        people={people}
+        open={quickCreateOpen}
+        anchorRef={createOpener}
+        externallyBusy={busy}
+        onClose={() => setQuickCreateOpen(false)}
+        onCreated={(person) => {
+          const opener = createOpener.current
+          return opener ? onCreatedPerson(person, opener) : false
+        }}
+      />
     </>
   )
 }

@@ -2,7 +2,9 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  clientFailure,
   civilDate,
+  failed,
   ok,
   revision,
   stableId,
@@ -650,6 +652,123 @@ describe('RecordPeopleSection', () => {
         name: 'Remove Margaret Hamilton',
       }),
     ).toBeInTheDocument()
+  })
+
+  it('quick-creates from Record, attaches Included, then opens the canonical editor', async () => {
+    const user = userEvent.setup()
+    const made = makeClient()
+    const create = vi.fn<LifeArchiveClient['people']['create']>(async () =>
+      ok({
+        outcome: 'created',
+        current: snapshotOf(MARGARET),
+        invalidation: INVALIDATION,
+      }),
+    )
+    const client: LifeArchiveClient = {
+      ...made.client,
+      people: { ...made.client.people, create },
+    }
+    const onEditPerson = vi.fn()
+    view(client, vi.fn(), 'day', undefined, { onEditPerson })
+    await screen.findByRole('heading', { name: 'People' })
+    await user.click(
+      screen.getByRole('button', { name: 'Manage People in This Entry' }),
+    )
+    const manager = await screen.findByRole('dialog', {
+      name: 'Manage People in This Entry',
+    })
+    const createOpener = within(manager).getByRole('button', {
+      name: 'New Person',
+    })
+    await user.click(createOpener)
+    const task = await screen.findByRole('dialog', { name: 'New Person' })
+    expect(task.closest('.record-overlay')).toHaveAttribute(
+      'data-placement',
+      'center',
+    )
+    await user.type(
+      within(task).getByRole('textbox', { name: 'Display name' }),
+      'Katherine Johnson',
+    )
+    await user.click(
+      within(task).getByRole('button', { name: 'Create and continue' }),
+    )
+
+    await waitFor(() =>
+      expect(made.mutateRecordContext).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          mutation: {
+            kind: 'upsertLink',
+            link: {
+              personId: MARGARET_ID,
+              interactionLevel: 'none',
+              tookPart: true,
+              isSubject: false,
+            },
+          },
+        }),
+      ),
+    )
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profile: expect.objectContaining({ displayName: 'Katherine Johnson' }),
+      }),
+    )
+    expect(onEditPerson).toHaveBeenCalledWith(MARGARET_ID, createOpener)
+  })
+
+  it('retries only the Record attachment when quick-create already succeeded', async () => {
+    const user = userEvent.setup()
+    const made = makeClient()
+    made.mutateRecordContext.mockResolvedValueOnce(
+      failed(
+        clientFailure({
+          area: 'person',
+          code: 'ioFailure',
+          phase: 'mutation',
+          retryable: true,
+        }),
+      ),
+    )
+    const create = vi.fn<LifeArchiveClient['people']['create']>(async () =>
+      ok({
+        outcome: 'created',
+        current: snapshotOf(MARGARET),
+        invalidation: INVALIDATION,
+      }),
+    )
+    const client: LifeArchiveClient = {
+      ...made.client,
+      people: { ...made.client.people, create },
+    }
+    const onEditPerson = vi.fn()
+    view(client, vi.fn(), 'day', undefined, { onEditPerson })
+    await screen.findByRole('heading', { name: 'People' })
+    await user.click(
+      screen.getByRole('button', { name: 'Manage People in This Entry' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'New Person' }))
+    const task = await screen.findByRole('dialog', { name: 'New Person' })
+    await user.type(
+      within(task).getByRole('textbox', { name: 'Display name' }),
+      'Katherine Johnson',
+    )
+    await user.click(
+      within(task).getByRole('button', { name: 'Create and continue' }),
+    )
+
+    expect(
+      await within(task).findByText(
+        /Person was created, but could not be added/,
+      ),
+    ).toBeVisible()
+    expect(
+      within(task).getByRole('textbox', { name: 'Display name' }),
+    ).toHaveValue('Katherine Johnson')
+    await user.click(within(task).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(onEditPerson).toHaveBeenCalledOnce())
+    expect(create).toHaveBeenCalledOnce()
+    expect(made.mutateRecordContext).toHaveBeenCalledTimes(2)
   })
 
   it('hands canonical View and Edit actions to the route origin coordinator', async () => {
