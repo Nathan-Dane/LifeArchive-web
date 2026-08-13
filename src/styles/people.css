@@ -118,6 +118,33 @@
   flex-direction: column;
 }
 
+.people-task-header {
+  display: grid;
+  min-height: 3.5rem;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
+  gap: 0;
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.people-task-header > h2 {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-interface);
+  font-size: var(--text-record-ui);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.people-task-header > .record-overlay__close {
+  margin-inline-start: 0;
+}
+
+.people-task-detail {
+  margin: 0;
+}
+
 .people-quick-create__body {
   display: grid;
   gap: var(--space-lg);

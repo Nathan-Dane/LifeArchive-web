@@ -3,6 +3,7 @@ import type { PersonSnapshot } from '../../core/client'
 import { useLocalisation } from '../../i18n'
 import { RecordControlIcon, RecordOverlay } from '../../ui/overlay'
 import { PeopleSelect } from './PeopleSelect'
+import { PeopleTaskHeader } from './PeopleTaskHeader'
 import type { People } from './usePeople'
 
 interface CommonActionsProps {
@@ -205,20 +206,13 @@ function DeletePersonTask({
       onClose={close}
       className="person-lifecycle-task"
     >
-      <header className="record-overlay__header">
-        <h2 id={headingId} className="ui-heading">
-          {t('people.delete')}
-        </h2>
-        <button
-          ref={closeRef}
-          type="button"
-          className="record-overlay__close"
-          aria-label={t('people.cancelDelete')}
-          onClick={close}
-        >
-          <RecordControlIcon name="close" />
-        </button>
-      </header>
+      <PeopleTaskHeader
+        headingId={headingId}
+        title={t('people.delete')}
+        closeLabel={t('people.cancelDelete')}
+        closeRef={closeRef}
+        onClose={close}
+      />
       <div className="person-lifecycle-task__body">
         <p>{t('people.delete.confirm')}</p>
         {attempted && people.state.failure ? (
@@ -299,20 +293,13 @@ function MergePersonTask({
       onClose={onClose}
       className="person-lifecycle-task person-lifecycle-task--merge"
     >
-      <header className="record-overlay__header">
-        <h2 id={headingId} className="ui-heading">
-          {t('people.merge.heading')}
-        </h2>
-        <button
-          ref={closeRef}
-          type="button"
-          className="record-overlay__close"
-          aria-label={t('people.cancelMerge')}
-          onClick={onClose}
-        >
-          <RecordControlIcon name="close" />
-        </button>
-      </header>
+      <PeopleTaskHeader
+        headingId={headingId}
+        title={t('people.merge.heading')}
+        closeLabel={t('people.cancelMerge')}
+        closeRef={closeRef}
+        onClose={onClose}
+      />
       <div className="person-lifecycle-task__body person-merge">
         {people.state.mergeConflict ? (
           <p role="alert">{t('people.merge.conflict')}</p>

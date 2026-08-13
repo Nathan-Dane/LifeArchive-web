@@ -23,6 +23,7 @@ import { RecordDatePicker } from '../record/metadata'
 import { PeopleSelect } from './PeopleSelect'
 import { PersonAvatar } from './PersonAvatar'
 import { PersonQuickCreateDialog } from './PersonQuickCreateDialog'
+import { PeopleTaskHeader } from './PeopleTaskHeader'
 import {
   displayRole,
   groupRecordPeople,
@@ -991,30 +992,20 @@ function EntryPeopleManager({
 
   return (
     <>
-      <header className="record-overlay__header">
-        <div>
-          <h2 id={headingId} className="ui-heading">
-            {t('record.people.manage')}
-          </h2>
-          <p className="meta-text">{t('record.people.manage.detail')}</p>
-        </div>
-        <button
-          ref={closeRef}
-          type="button"
-          className="record-overlay__close"
-          aria-label={t('record.people.closeManager')}
-          onClick={onClose}
-        >
-          <RecordControlIcon name="close" />
-        </button>
-      </header>
+      <PeopleTaskHeader
+        headingId={headingId}
+        title={t('record.people.manager.title')}
+        closeLabel={t('record.people.closeManager')}
+        closeRef={closeRef}
+        onClose={onClose}
+      />
       <div className="record-entry-people-manager__body">
         <label className="record-entry-people-manager__search">
           <span className="visually-hidden">{t('people.search')}</span>
           <input
             type="search"
             value={query}
-            placeholder={t('people.search.placeholder')}
+            placeholder={t('people.search.placeholder.directory')}
             onChange={(event) => {
               const value = event.currentTarget.value
               setQuery(value)
