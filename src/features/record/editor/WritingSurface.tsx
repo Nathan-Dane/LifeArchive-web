@@ -11,11 +11,11 @@ export interface WritingSurfaceAdapter {
   readonly Surface: ComponentType<WritingSurfaceProps>
 }
 
-const lexicalAdapter: WritingSurfaceAdapter = {
+const pellAdapter: WritingSurfaceAdapter = {
   Surface: lazy(async () => {
     const module = await import('./MarkdownWritingSurface')
     return { default: module.MarkdownWritingSurface }
   }),
 }
 
-export const WritingSurface = lexicalAdapter.Surface
+export const WritingSurface = pellAdapter.Surface

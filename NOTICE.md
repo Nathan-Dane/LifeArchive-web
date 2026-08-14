@@ -20,6 +20,12 @@ Apache License 2.0, available at
 repository and served by the application; the deployed frontend makes no
 request to Google Fonts.
 
+### Pell
+
+The visual writing surface includes Pell 1.0.6, copyright 2017 James Coyle,
+under the MIT License. The upstream license is available at
+<https://github.com/jaredreich/pell/blob/master/LICENSE>.
+
 ## 2. Compiled LifeArchive runtime — separate proprietary software
 
 The compiled LifeArchive runtime (the Wasm module built from the private

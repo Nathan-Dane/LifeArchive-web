@@ -433,12 +433,20 @@ function decodedForSchemeCheck(value: string) {
   return decoded
 }
 
+function containsControlCharacter(value: string) {
+  for (const character of value) {
+    const code = character.charCodeAt(0)
+    if (code <= 0x1f || code === 0x7f) return true
+  }
+  return false
+}
+
 /** The existing product policy permits HTTP(S), mail, and same-origin links. */
 export function safeLinkUrl(input: string): string | null {
   let value = input.trim()
-  if (!value || /[\u0000-\u001f\u007f]/u.test(value)) return null
+  if (!value || containsControlCharacter(value)) return null
   const decoded = decodedForSchemeCheck(value)
-  if (!decoded || /[\u0000-\u001f\u007f]/u.test(decoded)) return null
+  if (!decoded || containsControlCharacter(decoded)) return null
   const scheme = decoded.match(/^([a-z][a-z0-9+.-]*):/iu)?.[1]?.toLowerCase()
   if (scheme && !['http', 'https', 'mailto'].includes(scheme)) return null
   if (
@@ -943,10 +951,15 @@ function decodeList(
 function decodeBlocksFromNodes(nodes: Iterable<Node>) {
   const blocks: MarkdownBlock[] = []
   let pendingInline: Node[] = []
+  const pushParagraph = (content: readonly MarkdownInline[]) => {
+    if (content.some((run) => run.text.replaceAll('\n', '').trim() !== '')) {
+      blocks.push({ type: 'paragraph', content })
+    }
+  }
   const flushInline = () => {
     if (pendingInline.length === 0) return
     const content = decodeInlineNodes(pendingInline)
-    if (content.length > 0) blocks.push({ type: 'paragraph', content })
+    pushParagraph(content)
     pendingInline = []
   }
 
@@ -971,11 +984,7 @@ function decodeBlocksFromNodes(nodes: Iterable<Node>) {
         (child) => !INLINE_TAGS.has(child.tagName),
       )
       if (nestedBlock) blocks.push(...decodeBlocksFromNodes(node.childNodes))
-      else
-        blocks.push({
-          type: 'paragraph',
-          content: decodeInlineNodes(node.childNodes),
-        })
+      else pushParagraph(decodeInlineNodes(node.childNodes))
     } else if (node.matches('h1,h2,h3,h4,h5,h6')) {
       blocks.push({
         type: 'heading',
