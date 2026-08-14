@@ -171,14 +171,15 @@ describe('MarkdownEditor', () => {
       ['Text style', 'format_paragraph'],
       ['Bold', 'format_bold'],
       ['Italic', 'format_italic'],
+      ['More formatting', 'more_horiz'],
       ['Underline', 'format_underlined'],
       ['Strikethrough', 'strikethrough_s'],
       ['Inline code', 'code'],
+      ['List options', 'format_list_bulleted'],
       ['Bulleted list', 'format_list_bulleted'],
       ['Numbered list', 'format_list_numbered'],
       ['Indent list item', 'format_indent_increase'],
       ['Outdent list item', 'format_indent_decrease'],
-      ['Quote', 'format_quote'],
       ['Insert divider', 'horizontal_rule'],
       ['Clear formatting', 'format_clear'],
       ['Link', 'link_2'],
@@ -207,6 +208,50 @@ describe('MarkdownEditor', () => {
         label,
       ).toHaveTextContent(glyph)
     }
+
+    const subheading = within(menu).getByRole('menuitemradio', {
+      name: 'Subheading',
+    })
+    const separator = subheading.nextElementSibling
+    expect(separator).toHaveAttribute('role', 'separator')
+    expect(separator?.nextElementSibling).toBe(
+      within(menu).getByRole('menuitemradio', { name: 'Quote' }),
+    )
+    await user.click(
+      within(menu).getByRole('menuitemradio', { name: 'Paragraph' }),
+    )
+
+    await user.click(screen.getByRole('button', { name: 'List options' }))
+    const listMenu = screen.getByRole('menu', { name: 'List options' })
+    for (const [role, label, glyph] of [
+      ['menuitemcheckbox', 'Bulleted list', 'format_list_bulleted'],
+      ['menuitemcheckbox', 'Numbered list', 'format_list_numbered'],
+      ['menuitem', 'Indent list item', 'format_indent_increase'],
+      ['menuitem', 'Outdent list item', 'format_indent_decrease'],
+    ] as const) {
+      expect(
+        within(listMenu)
+          .getByRole(role, { name: label })
+          .querySelector('.material-symbols-rounded'),
+      ).toHaveTextContent(glyph)
+    }
+    await user.keyboard('{Escape}')
+
+    await user.click(screen.getByRole('button', { name: 'More formatting' }))
+    const inlineMenu = screen.getByRole('menu', { name: 'More formatting' })
+    for (const [role, label, glyph] of [
+      ['menuitemcheckbox', 'Underline', 'format_underlined'],
+      ['menuitemcheckbox', 'Strikethrough', 'strikethrough_s'],
+      ['menuitemcheckbox', 'Inline code', 'code'],
+      ['menuitem', 'Link', 'link_2'],
+    ] as const) {
+      expect(
+        within(inlineMenu)
+          .getByRole(role, { name: label })
+          .querySelector('.material-symbols-rounded'),
+      ).toHaveTextContent(glyph)
+    }
+    expect(screen.queryByRole('button', { name: 'Quote' })).toBeNull()
   })
 
   it('does not rewrite or emit source merely because the editor opened', async () => {

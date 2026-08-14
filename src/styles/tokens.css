@@ -313,7 +313,7 @@
   /* Blocking Record task surfaces. */
   --overlay-viewport-gutter: 20px;
   --overlay-popup-min-width: 280px;
-  --overlay-editor-format-width: 210px;
+  --overlay-editor-menu-width: 210px;
   --overlay-menu-min-height: 126px;
   --overlay-link-width: 420px;
   --overlay-manager-width: 480px;

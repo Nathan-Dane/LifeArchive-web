@@ -1,5 +1,6 @@
 import { exec as pellExec, init as initPell } from 'pell'
 import {
+  Fragment,
   useCallback,
   useEffect,
   useId,
@@ -9,8 +10,10 @@ import {
   type FormEvent,
   type KeyboardEvent,
   type PointerEvent,
+  type RefObject,
 } from 'react'
 import { useTranslate } from '../../../i18n'
+import { useMenuRovingFocus } from '../../../ui/menu'
 import { RecordControlIcon, RecordOverlay } from '../../../ui/overlay'
 import {
   decodeEditorDom,
@@ -690,6 +693,137 @@ interface ToolbarProps {
   readonly removeLink: (selection: Range | null) => void
 }
 
+interface ToolbarOverflowItem {
+  readonly key: string
+  readonly icon: EditorIconName
+  readonly label: string
+  readonly checked?: PressedState
+  readonly onSelect: () => void
+}
+
+function ToolbarOverflowMenu({
+  className,
+  label,
+  icon,
+  disabled,
+  widthRef,
+  triggerRef,
+  captureSelection,
+  items,
+}: {
+  readonly className: string
+  readonly label: string
+  readonly icon: EditorIconName
+  readonly disabled: boolean
+  readonly widthRef: RefObject<HTMLElement | null>
+  readonly triggerRef?: RefObject<HTMLButtonElement | null>
+  readonly captureSelection: () => Range | null
+  readonly items: readonly ToolbarOverflowItem[]
+}) {
+  const [open, setOpen] = useState(false)
+  const internalTrigger = useRef<HTMLButtonElement>(null)
+  const trigger = triggerRef ?? internalTrigger
+  const menuId = useId()
+  const triggerId = useId()
+  const closeMenu = (restoreFocus: boolean) => {
+    setOpen(false)
+    if (restoreFocus) queueMicrotask(() => trigger.current?.focus())
+  }
+  const menuFocus = useMenuRovingFocus({
+    wrap: true,
+    onEscape: () => closeMenu(true),
+    stopEscapePropagation: true,
+  })
+  const focusMenuItem = (fromEnd = false) => {
+    const selected = items.findIndex(
+      (item) => item.checked === true || item.checked === 'mixed',
+    )
+    const index = fromEnd ? items.length - 1 : Math.max(selected, 0)
+    queueMicrotask(() => menuFocus.focus(index))
+  }
+  const openMenu = (focusItem: boolean, fromEnd = false) => {
+    captureSelection()
+    setOpen(true)
+    if (focusItem) focusMenuItem(fromEnd)
+  }
+
+  return (
+    <>
+      <button
+        id={triggerId}
+        ref={trigger}
+        type="button"
+        className={`record-editor__overflow-trigger ${className}`}
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={menuId}
+        title={label}
+        disabled={disabled}
+        onPointerDown={(event) => {
+          captureSelection()
+          event.preventDefault()
+        }}
+        onClick={(event) =>
+          open ? closeMenu(false) : openMenu(event.detail === 0)
+        }
+        onKeyDown={(event) => {
+          if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+            event.preventDefault()
+            openMenu(true, event.key === 'ArrowUp')
+          }
+        }}
+      >
+        <EditorIcon name={icon} />
+        <RecordControlIcon name="expand" />
+      </button>
+      <RecordOverlay
+        id={menuId}
+        open={open}
+        kind="menu"
+        labelledBy={triggerId}
+        anchorRef={trigger}
+        widthRef={widthRef}
+        onClose={() => closeMenu(true)}
+        className="record-menu record-editor__command-menu"
+      >
+        <div
+          className="record-menu__items record-editor__menu-items"
+          onKeyDown={menuFocus.onKeyDown}
+        >
+          {items.map((item, index) => {
+            const checkable = item.checked !== undefined
+            return (
+              <button
+                key={item.key}
+                ref={menuFocus.itemRef(index)}
+                type="button"
+                className="record-menu__item"
+                role={checkable ? 'menuitemcheckbox' : 'menuitem'}
+                aria-checked={checkable ? item.checked : undefined}
+                onClick={() => {
+                  setOpen(false)
+                  item.onSelect()
+                }}
+              >
+                <EditorIcon name={item.icon} />
+                <span>{item.label}</span>
+                <span className="record-editor__menu-check" aria-hidden>
+                  {item.checked === true ? (
+                    <RecordControlIcon name="check" />
+                  ) : item.checked === 'mixed' ? (
+                    '—'
+                  ) : null}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </RecordOverlay>
+    </>
+  )
+}
+
 function Toolbar({
   disabled,
   state,
@@ -716,7 +850,10 @@ function Toolbar({
   >(null)
   const blockButton = useRef<HTMLButtonElement>(null)
   const blockOptions = useRef<(HTMLButtonElement | null)[]>([])
+  const menuWidthReference = useRef<HTMLSpanElement>(null)
+  const inlineMenuButton = useRef<HTMLButtonElement>(null)
   const linkButton = useRef<HTMLButtonElement>(null)
+  const linkAnchor = useRef<HTMLElement>(null)
   const linkInput = useRef<HTMLInputElement>(null)
   const handledLinkShortcut = useRef(0)
   const linkPanelId = useId()
@@ -725,12 +862,22 @@ function Toolbar({
   const blockMenuId = useId()
   const blockButtonId = useId()
 
-  const openLinkPanel = useCallback(() => {
-    linkSelection.current = captureSelection()
-    setLinkUrl(state.linkUrl ?? 'https://')
-    setLinkError(false)
-    setLinkPanelOpen(true)
-  }, [captureSelection, state.linkUrl])
+  const openLinkPanel = useCallback(
+    (anchor?: HTMLElement | null) => {
+      const directLink = linkButton.current
+      const directLinkVisible =
+        directLink && getComputedStyle(directLink).display !== 'none'
+      linkAnchor.current =
+        anchor ??
+        (directLinkVisible ? directLink : inlineMenuButton.current) ??
+        directLink
+      linkSelection.current = captureSelection()
+      setLinkUrl(state.linkUrl ?? 'https://')
+      setLinkError(false)
+      setLinkPanelOpen(true)
+    },
+    [captureSelection, state.linkUrl],
+  )
 
   useEffect(() => {
     if (linkShortcut === 0 || handledLinkShortcut.current === linkShortcut)
@@ -796,6 +943,63 @@ function Toolbar({
       ? t('record.editor.mixedStyle')
       : (currentBlock?.label ?? blockStyles[0]!.label)
   const currentBlockIcon = currentBlock?.icon ?? 'paragraph'
+  const listMenuItems: readonly ToolbarOverflowItem[] = [
+    {
+      key: 'bullet-list',
+      icon: 'bullet-list',
+      label: t('record.editor.list'),
+      checked: state.bulletList,
+      onSelect: () => run('bulletList'),
+    },
+    {
+      key: 'ordered-list',
+      icon: 'ordered-list',
+      label: t('record.editor.orderedList'),
+      checked: state.numberList,
+      onSelect: () => run('numberList'),
+    },
+    {
+      key: 'indent',
+      icon: 'indent',
+      label: t('record.editor.indent'),
+      onSelect: () => run('indent'),
+    },
+    {
+      key: 'outdent',
+      icon: 'outdent',
+      label: t('record.editor.outdent'),
+      onSelect: () => run('outdent'),
+    },
+  ]
+  const inlineMenuItems: readonly ToolbarOverflowItem[] = [
+    {
+      key: 'underline',
+      icon: 'underline',
+      label: t('record.editor.underline'),
+      checked: state.underline,
+      onSelect: () => run('underline'),
+    },
+    {
+      key: 'strikethrough',
+      icon: 'strikethrough',
+      label: t('record.editor.strikethrough'),
+      checked: state.strikethrough,
+      onSelect: () => run('strikethrough'),
+    },
+    {
+      key: 'inline-code',
+      icon: 'inline-code',
+      label: t('record.editor.inlineCode'),
+      checked: state.inlineCode,
+      onSelect: () => run('inlineCode'),
+    },
+    {
+      key: 'link',
+      icon: 'link',
+      label: t('record.editor.link'),
+      onSelect: () => openLinkPanel(inlineMenuButton.current),
+    },
+  ]
   const closeBlockMenu = (restoreFocus = true) => {
     setBlockMenuOpen(false)
     if (restoreFocus) queueMicrotask(() => blockButton.current?.focus())
@@ -829,7 +1033,7 @@ function Toolbar({
       ...event.currentTarget.querySelectorAll<HTMLElement>(
         'button:not(:disabled)',
       ),
-    ]
+    ].filter((control) => getComputedStyle(control).display !== 'none')
     const current = controls.indexOf(document.activeElement as HTMLElement)
     if (current === -1) return
     event.preventDefault()
@@ -856,10 +1060,12 @@ function Toolbar({
     command: EditorCommand,
     pressed?: PressedState,
     isDisabled = false,
+    className?: string,
   ) {
     return (
       <button
         type="button"
+        className={className}
         aria-label={label}
         aria-pressed={pressed}
         title={title}
@@ -880,6 +1086,11 @@ function Toolbar({
         aria-label={t('record.editor.toolbar')}
         onKeyDown={toolbarKeyDown}
       >
+        <span
+          ref={menuWidthReference}
+          className="record-editor__menu-width-reference"
+          aria-hidden="true"
+        />
         {toolbarButton(
           'undo',
           t('record.editor.undo'),
@@ -926,11 +1137,12 @@ function Toolbar({
           kind="menu"
           labelledBy={blockButtonId}
           anchorRef={blockButton}
+          widthRef={menuWidthReference}
           onClose={closeBlockMenu}
           className="record-menu record-editor__block-menu"
         >
           <div
-            className="record-menu__items record-editor__block-menu-items"
+            className="record-menu__items record-editor__menu-items"
             onKeyDown={(event) => {
               if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
                 event.preventDefault()
@@ -947,32 +1159,38 @@ function Toolbar({
             }}
           >
             {blockStyles.map((option, index) => (
-              <button
-                key={option.value}
-                ref={(element) => {
-                  blockOptions.current[index] = element
-                }}
-                type="button"
-                className="record-menu__item"
-                role="menuitemradio"
-                aria-checked={state.block === option.value}
-                onClick={() => {
-                  setBlockMenuOpen(false)
-                  run(option.value)
-                }}
-              >
-                <EditorIcon name={option.icon} />
-                <span>{option.label}</span>
-                <span className="record-editor__block-menu-check" aria-hidden>
-                  {state.block === option.value ? (
-                    <RecordControlIcon name="check" />
-                  ) : null}
-                </span>
-              </button>
+              <Fragment key={option.value}>
+                <button
+                  ref={(element) => {
+                    blockOptions.current[index] = element
+                  }}
+                  type="button"
+                  className="record-menu__item"
+                  role="menuitemradio"
+                  aria-checked={state.block === option.value}
+                  onClick={() => {
+                    setBlockMenuOpen(false)
+                    run(option.value)
+                  }}
+                >
+                  <EditorIcon name={option.icon} />
+                  <span>{option.label}</span>
+                  <span className="record-editor__menu-check" aria-hidden>
+                    {state.block === option.value ? (
+                      <RecordControlIcon name="check" />
+                    ) : null}
+                  </span>
+                </button>
+                {option.value === 'subheading' ? (
+                  <span
+                    className="record-track-menu__separator"
+                    role="separator"
+                  />
+                ) : null}
+              </Fragment>
             ))}
           </div>
         </RecordOverlay>
-        <span className="record-editor__toolbar-separator" aria-hidden="true" />
         {toolbarButton(
           'bold',
           t('record.editor.bold'),
@@ -987,12 +1205,24 @@ function Toolbar({
           'italic',
           state.italic,
         )}
+        <ToolbarOverflowMenu
+          className="record-editor__inline-overflow"
+          label={t('record.editor.moreFormatting')}
+          icon="more-formatting"
+          disabled={disabled}
+          widthRef={menuWidthReference}
+          triggerRef={inlineMenuButton}
+          captureSelection={captureSelection}
+          items={inlineMenuItems}
+        />
         {toolbarButton(
           'underline',
           t('record.editor.underline'),
           t('record.editor.underlineShortcut'),
           'underline',
           state.underline,
+          false,
+          'record-editor__inline-direct',
         )}
         {toolbarButton(
           'strikethrough',
@@ -1000,6 +1230,8 @@ function Toolbar({
           t('record.editor.strikethrough'),
           'strikethrough',
           state.strikethrough,
+          false,
+          'record-editor__inline-direct',
         )}
         {toolbarButton(
           'inline-code',
@@ -1007,6 +1239,8 @@ function Toolbar({
           t('record.editor.inlineCode'),
           'inlineCode',
           state.inlineCode,
+          false,
+          'record-editor__inline-direct',
         )}
         <span className="record-editor__toolbar-separator" aria-hidden="true" />
         {toolbarButton(
@@ -1015,6 +1249,8 @@ function Toolbar({
           t('record.editor.listShortcut'),
           'bulletList',
           state.bulletList,
+          false,
+          'record-editor__list-direct',
         )}
         {toolbarButton(
           'ordered-list',
@@ -1022,26 +1258,36 @@ function Toolbar({
           t('record.editor.orderedListShortcut'),
           'numberList',
           state.numberList,
+          false,
+          'record-editor__list-direct',
         )}
         {toolbarButton(
           'indent',
           t('record.editor.indent'),
           t('record.editor.indent'),
           'indent',
+          undefined,
+          false,
+          'record-editor__list-direct',
         )}
         {toolbarButton(
           'outdent',
           t('record.editor.outdent'),
           t('record.editor.outdent'),
           'outdent',
+          undefined,
+          false,
+          'record-editor__list-direct',
         )}
-        {toolbarButton(
-          'quote',
-          t('record.editor.quote'),
-          t('record.editor.quote'),
-          'quote',
-          state.quote,
-        )}
+        <ToolbarOverflowMenu
+          className="record-editor__list-overflow"
+          label={t('record.editor.listOptions')}
+          icon="bullet-list"
+          disabled={disabled}
+          widthRef={menuWidthReference}
+          captureSelection={captureSelection}
+          items={listMenuItems}
+        />
         <span className="record-editor__toolbar-separator" aria-hidden="true" />
         {toolbarButton(
           'divider',
@@ -1055,10 +1301,14 @@ function Toolbar({
           t('record.editor.clearFormatting'),
           'clear',
         )}
-        <span className="record-editor__toolbar-separator" aria-hidden="true" />
+        <span
+          className="record-editor__toolbar-separator record-editor__inline-direct"
+          aria-hidden="true"
+        />
         <button
           ref={linkButton}
           type="button"
+          className="record-editor__inline-direct"
           aria-label={t('record.editor.link')}
           aria-pressed={state.link}
           aria-haspopup="dialog"
@@ -1067,7 +1317,7 @@ function Toolbar({
           title={t('record.editor.linkShortcut')}
           disabled={disabled}
           onPointerDown={keepEditorSelection}
-          onClick={openLinkPanel}
+          onClick={() => openLinkPanel(linkButton.current)}
         >
           <EditorIcon name="link" />
         </button>
@@ -1077,7 +1327,7 @@ function Toolbar({
         open={linkPanelOpen}
         kind="anchored"
         labelledBy={linkHeadingId}
-        anchorRef={linkButton}
+        anchorRef={linkAnchor}
         initialFocusRef={linkInput}
         onClose={() => setLinkPanelOpen(false)}
         onClosed={completePendingLinkAction}
