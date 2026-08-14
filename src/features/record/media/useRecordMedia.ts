@@ -55,6 +55,7 @@ export interface RecordMedia {
 
 interface RecordMediaOptions {
   readonly ownerId: StableId | null
+  readonly expectedParentRevision?: Revision | null
   readonly onParentRevision?: (revision: Revision) => void
 }
 
@@ -68,7 +69,11 @@ const EMPTY: MediaListingView = {
 
 export function useRecordMedia(
   client: LifeArchiveClient,
-  { ownerId, onParentRevision }: RecordMediaOptions,
+  {
+    ownerId,
+    expectedParentRevision = null,
+    onParentRevision,
+  }: RecordMediaOptions,
 ): RecordMedia {
   const generation = useRef(0)
   const previewUrls = useRef(new PreviewUrlManager())
@@ -170,7 +175,8 @@ export function useRecordMedia(
       const capturedOwner = ownerId
       const capturedGeneration = generation.current
       let parentRevision =
-        listing.ownerId === capturedOwner ? listing.revision : null
+        expectedParentRevision ??
+        (listing.ownerId === capturedOwner ? listing.revision : null)
       if (capturedOwner === null || parentRevision === null || files.length < 1)
         return
 
@@ -244,7 +250,7 @@ export function useRecordMedia(
         setNotice('imported')
       }
     },
-    [client, listing, ownerId, readListing],
+    [client, expectedParentRevision, listing, ownerId, readListing],
   )
 
   const closePreview = useCallback(() => {
@@ -317,7 +323,8 @@ export function useRecordMedia(
       const capturedOwner = ownerId
       const capturedGeneration = generation.current
       const parentRevision =
-        listing.ownerId === capturedOwner ? listing.revision : null
+        expectedParentRevision ??
+        (listing.ownerId === capturedOwner ? listing.revision : null)
       if (
         capturedOwner === null ||
         parentRevision === null ||
@@ -350,7 +357,15 @@ export function useRecordMedia(
       }
       return refreshedRevision !== null
     },
-    [client, closePreview, listing, ownerId, preview, readListing],
+    [
+      client,
+      closePreview,
+      expectedParentRevision,
+      listing,
+      ownerId,
+      preview,
+      readListing,
+    ],
   )
 
   return {

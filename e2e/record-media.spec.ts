@@ -15,7 +15,7 @@ test.describe('Record media', () => {
     await preview.focus()
     await page.keyboard.press('Enter')
     await expect(
-      page.getByRole('region', { name: 'harbour.jpg' }),
+      page.getByRole('dialog', { name: 'harbour.jpg' }),
     ).toBeVisible()
     await page.getByRole('button', { name: 'Close preview' }).click()
 

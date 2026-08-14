@@ -20,7 +20,7 @@ describe('PersonAvatar', () => {
       state: 'open',
       archive: {
         storeId: STORE_ID,
-        productContract: '9',
+        productContract: '11',
         storeSchemaVersion: '12',
         rootLayoutVersion: '1',
         invalidation: {

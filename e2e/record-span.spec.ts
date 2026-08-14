@@ -8,10 +8,16 @@ test.describe('Span editing', () => {
   }) => {
     await page.goto(DEVELOPMENT_MOCK_URL)
 
-    await page.getByRole('button', { name: 'New Span' }).click()
+    await page.getByRole('button', { name: 'New event or span' }).click()
+    const creationMenu = page.getByRole('dialog', {
+      name: 'New event or span',
+    })
+    await creationMenu.getByRole('button', { name: 'New Span' }).click()
+    await expect(creationMenu).toHaveCount(0)
     const title = page.getByRole('textbox', { name: 'Title and icon' })
     await expect(title).toBeVisible()
     await title.fill('An exact new Span')
+    await expect(title).toHaveValue('An exact new Span')
     await expect(
       page.getByRole('button', { name: 'Create Span' }),
     ).toBeEnabled()
@@ -64,7 +70,11 @@ test.describe('Span editing', () => {
         'Choose the Event date for this Span. Its writing and stable identity will be preserved.',
       ),
     ).toBeVisible()
-    await expect(page.getByLabel('Event date')).toHaveValue('2024-08-01')
+    await expect(
+      page.getByRole('button', {
+        name: 'Event date: August 1, 2024. Choose date',
+      }),
+    ).toBeVisible()
     await expect(
       page.getByRole('button', { name: 'Convert to Event' }),
     ).toBeEnabled()

@@ -187,6 +187,7 @@ export function MarkdownEditor({
         <RecordMedia
           client={client}
           ownerId={mediaOwner?.id ?? null}
+          parentRevision={mediaOwner?.revision ?? null}
           developmentMock={developmentMock}
           showBeforeOwnerExists
           onParentRevision={adoptMediaRevision}

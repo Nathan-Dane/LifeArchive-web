@@ -194,4 +194,51 @@ describe('Record media authority', () => {
     expect(rendered.result.current.listing.items).toEqual([item()])
     expect(list).toHaveBeenCalledTimes(1)
   })
+
+  it('admits a mutation with the current parent revision after writing changes', async () => {
+    let imported = false
+    const importMedia = vi.fn<LifeArchiveClient['media']['import']>(
+      async () => {
+        imported = true
+        return ok({
+          outcome: 'imported',
+          item: item(),
+          invalidation: INVALIDATION,
+        })
+      },
+    )
+    const list = vi.fn(async () =>
+      ok(
+        listing(
+          OWNER_A,
+          imported ? REVISION_A_AFTER : REVISION_A,
+          imported ? [item()] : [],
+        ),
+      ),
+    )
+    const client = mediaClient({ list, import: importMedia })
+    const rendered = renderHook(
+      ({ expectedParentRevision }) =>
+        useRecordMedia(client, { ownerId: OWNER_A, expectedParentRevision }),
+      { initialProps: { expectedParentRevision: REVISION_A } },
+    )
+    await waitFor(() =>
+      expect(rendered.result.current.listing.revision).toBe(REVISION_A),
+    )
+
+    rendered.rerender({ expectedParentRevision: REVISION_A_AFTER })
+    await act(() =>
+      rendered.result.current.importFiles([
+        new File([Uint8Array.from([8, 7, 6])], 'current.bin'),
+      ]),
+    )
+
+    expect(importMedia).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentEntryId: OWNER_A,
+        expectedParentRevision: REVISION_A_AFTER,
+      }),
+    )
+    expect(rendered.result.current.listing.items).toEqual([item()])
+  })
 })

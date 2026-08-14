@@ -210,9 +210,7 @@ const runtimePersonMemory = {
   civilEndDate: null,
   title: null,
   hasWriting: true,
-  interactionLevel: 'timeTogether',
-  tookPart: true,
-  isSubject: false,
+  roleId: 'activity',
 }
 
 const runtimeEntryPeople = {
@@ -220,11 +218,13 @@ const runtimeEntryPeople = {
   entryRevision: '3',
   sectionIds: ['people'],
   peopleSectionVisible: true,
+  availableRoles: ['brief', 'involved', 'activity', 'central'],
   links: [
     {
       link: {
         entryId,
         personId,
+        roleId: 'activity',
         interactionLevel: 'timeTogether',
         tookPart: true,
         isSubject: false,
@@ -251,6 +251,12 @@ const runtimeMediaItem = {
   width: 1,
   height: 1,
   caption: null,
+}
+
+const runtimeStoredMediaItem = {
+  ...runtimeMediaItem,
+  entryId: undefined,
+  owner: { kind: 'entry', entryId },
 }
 
 const identity = {
@@ -364,8 +370,8 @@ const cases = {
       {
         outcome: 'overview',
         storeId: archiveId,
-        schemaVersion: 7,
-        storeContractVersion: 5,
+        schemaVersion: 15,
+        storeContractVersion: 10,
         visibleEntryCount: 1,
         entryCounts: {
           day: 0,
@@ -590,7 +596,7 @@ const cases = {
         operation: 'archive.export',
         request: {
           operationId: exportOperationId,
-          contractVersion: '9',
+          contractVersion: '10',
           archiveId: artifactId,
           createdAtMs: request.createdAtMs,
           createdBy: {
@@ -1364,7 +1370,7 @@ const cases = {
         request: { personId, limit: 20, beforeDate: null, beforeEntryId: null },
       },
     )
-    expect(mapped.memories[0]?.interactionLevel).toBe('timeTogether')
+    expect(mapped.memories[0]?.roleId).toBe('activity')
   },
 
   personContactSummary: () => {
@@ -1377,7 +1383,7 @@ const cases = {
           lastRecordedContactDate: '2026-07-26',
           current30DayContactDays: 2,
           previous30DayContactDays: 1,
-          current30DayTimeTogetherDays: 1,
+          current30DaySubstantialInteractionDays: 1,
         },
         token,
       },
@@ -1401,13 +1407,13 @@ const cases = {
         days: [
           {
             date: '2026-07-26',
-            interactionLevel: 'timeTogether',
+            roleId: 'activity',
             memories: [runtimePersonMemory],
           },
         ],
         hasMore: false,
         totalContactDays: 1,
-        totalTimeTogetherDays: 1,
+        totalSubstantialInteractionDays: 1,
         periodSummaries: [],
         token,
       },
@@ -1419,7 +1425,7 @@ const cases = {
   personLogContact: () => {
     const request = {
       personId,
-      interactionLevel: 'brief' as const,
+      roleId: 'brief' as const,
       day: window,
       newEntryId: entryId,
       nowMs: 12,
@@ -1432,7 +1438,7 @@ const cases = {
         operation: 'person.logContact',
         request: {
           personId,
-          interactionLevel: 'brief',
+          roleId: 'brief',
           daySpan: runtimeRecordSpan,
           newEntryId: entryId,
           nowMs: 12,
@@ -1542,7 +1548,12 @@ const cases = {
     const mapped = exercise(
       runtimeBoundary.recordPeopleLoad,
       request,
-      { outcome: 'loaded', current: runtimeEntryPeople, token },
+      {
+        outcome: 'loaded',
+        availableRoles: ['brief', 'involved', 'activity', 'central'],
+        current: runtimeEntryPeople,
+        token,
+      },
       { operation: 'record.people.load', request: { entryId, span: null } },
     )
     expect(mapped.current?.links).toHaveLength(1)
@@ -1654,7 +1665,7 @@ const cases = {
           text: 'Exact runtime writing',
           preview: 'Exact runtime',
         },
-        attachments: [runtimeMediaItem],
+        attachments: [runtimeStoredMediaItem],
         token,
       },
       {
@@ -1773,7 +1784,7 @@ const cases = {
       request,
       {
         outcome: 'imported',
-        attachment: runtimeMediaItem,
+        attachment: runtimeStoredMediaItem,
         token,
       },
       {

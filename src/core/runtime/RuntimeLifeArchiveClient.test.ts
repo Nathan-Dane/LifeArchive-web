@@ -20,7 +20,7 @@ const runtime = {
   mode: 'runtime',
   runtimeVersion: '0.1.3',
   buildId: 'fixed',
-  productContract: '9',
+  productContract: '11',
   browserAbi: '1',
   backend: 'opfs-sqlite',
   durability: 'durable',
@@ -42,11 +42,11 @@ function runtimeOpenResult(
   storeId: ReturnType<typeof stableId>,
   storeInstanceId: string,
   tokenRevision = '1',
-  schemaVersion = '12',
+  schemaVersion = '15',
 ) {
   return {
     outcome: 'opened',
-    productContractVersion: '9',
+    productContractVersion: '11',
     rootLayoutVersion: '1',
     storeId,
     schemaVersion,
@@ -60,14 +60,14 @@ function runtimeOverviewResult(
   storeId: ReturnType<typeof stableId>,
   storeInstanceId: string,
   tokenRevision = '1',
-  schemaVersion = 12,
+  schemaVersion = 15,
 ) {
   return {
-    contractVersion: '9',
+    contractVersion: '10',
     outcome: 'overview',
     storeId,
     schemaVersion,
-    storeContractVersion: 8,
+    storeContractVersion: 10,
     token: { storeInstanceId, revision: tokenRevision },
     visibleEntryCount: 0,
     entryCounts: {
@@ -356,11 +356,11 @@ describe('RuntimeLifeArchiveClient', () => {
           return Promise.resolve({
             outcome: 'success',
             result: {
-              contractVersion: '9',
+              contractVersion: '10',
               outcome: 'overview',
               storeId,
-              schemaVersion: 7,
-              storeContractVersion: 8,
+              schemaVersion: 15,
+              storeContractVersion: 10,
               token: {
                 storeInstanceId: 'overview-wire-test',
                 revision: '9',
@@ -403,8 +403,8 @@ describe('RuntimeLifeArchiveClient', () => {
       status: 'ok',
       value: {
         storeId,
-        storeSchemaVersion: '7',
-        storeContract: '8',
+        storeSchemaVersion: '15',
+        storeContract: '10',
         visibleEntryCount: 21,
         entryCounts: {
           day: 1,
@@ -462,7 +462,7 @@ describe('RuntimeLifeArchiveClient', () => {
             envelope: {
               outcome: 'success',
               result: {
-                contractVersion: '9',
+                contractVersion: '10',
                 outcome: 'exported',
                 token: {
                   storeInstanceId: 'export-wire-test',
@@ -510,7 +510,7 @@ describe('RuntimeLifeArchiveClient', () => {
     expect(runtimeRequest).toEqual({
       request: {
         operationId: exportOperationId,
-        contractVersion: '9',
+        contractVersion: '10',
         archiveId: artifactId,
         createdAtMs: 1_785_153_600_000,
         createdBy: {
@@ -711,7 +711,7 @@ describe('RuntimeLifeArchiveClient', () => {
     )
     const archive = {
       storeId: stableId('A1000000-0000-4000-8000-000000000021'),
-      productContract: '9',
+      productContract: '11',
       storeSchemaVersion: '1',
       rootLayoutVersion: '1',
       invalidation: {

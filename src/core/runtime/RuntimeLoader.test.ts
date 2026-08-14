@@ -80,20 +80,20 @@ async function fixture(
     manifestVersion: 1,
     runtimeVersion: '0.1.3',
     buildId: 'fixed-runtime-build',
-    productContract: '9',
+    productContract: '11',
     bindingsAbi: '1',
     dependencyVersions: {
-      domain: '7',
+      domain: '8',
       timeNavigation: '1',
       durableMedia: '2',
-      archiveApplication: '8',
-      applicationQuery: '7',
+      archiveApplication: '9',
+      applicationQuery: '8',
       providerNeutralAI: '3',
-      archiveOverviewExport: '9',
-      store: '8',
+      archiveOverviewExport: '10',
+      store: '10',
       rootLayout: '1',
-      sqliteSchema: '12',
-      archiveFormat: '0.7.0',
+      sqliteSchema: '15',
+      archiveFormat: '0.8.0',
     },
     capabilities: WEB_V0_1_CAPABILITIES.map(([name, version]) => ({
       name,
@@ -125,7 +125,7 @@ async function fixture(
     artifactUrl:
       'https://releases.example/lifearchive-runtime-web-0.1.3.tar.gz',
     sha256: await sha256(artifact),
-    productContract: '9',
+    productContract: '11',
     bindingsAbi: '1',
     status: 'pinned',
   }
@@ -243,7 +243,7 @@ class NegotiatingWorker extends FixedWorker {
         envelope: {
           outcome: 'success',
           result: {
-            productContractVersion: '9',
+            productContractVersion: '11',
             capabilities: this.capabilities.map(({ name, version }) => ({
               id: name,
               version,

@@ -53,19 +53,22 @@ test.describe('the visual Markdown editor', () => {
 
     await editor.click()
     await page.keyboard.press(`${MODIFIER}+A`)
-    await page.getByRole('button', { name: 'Underline' }).click()
+    await page.getByRole('button', { name: 'More formatting' }).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Underline' }).click()
     await expect(editor.locator('u')).toHaveText('LifeArchive')
 
     await editor.click()
     await page.keyboard.press(`${MODIFIER}+A`)
-    await page.getByRole('button', { name: 'Strikethrough' }).click()
+    await page.getByRole('button', { name: 'More formatting' }).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Strikethrough' }).click()
     await expect(editor.locator('.record-editor__strikethrough')).toHaveText(
       'LifeArchive',
     )
 
     await editor.click()
     await page.keyboard.press(`${MODIFIER}+A`)
-    await page.getByRole('button', { name: 'Inline code' }).click()
+    await page.getByRole('button', { name: 'More formatting' }).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Inline code' }).click()
     await expect(editor.locator('code')).toHaveText('LifeArchive')
     await page.keyboard.press(`${MODIFIER}+Z`)
     await expect(editor.locator('code')).toHaveCount(0)
@@ -82,7 +85,8 @@ test.describe('the visual Markdown editor', () => {
 
     await editor.click()
     await page.keyboard.press(`${MODIFIER}+A`)
-    await page.getByRole('button', { name: 'Bulleted list' }).click()
+    await page.getByRole('button', { name: 'List options' }).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Bulleted list' }).click()
     await expect(editor.locator('ul')).toBeVisible()
 
     await editor.click()

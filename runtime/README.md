@@ -98,7 +98,7 @@ mock selection and not a substitute for publication and pin.
 
 ## Runtime acceptance status
 
-Runtime 0.1.3, Product application contract 9, and bindings ABI 1 have passed
+Runtime 0.1.3, Product application contract 11, and bindings ABI 1 have passed
 the local release and browser-conformance checks. The hosted artifact is not
 yet published, so the production lock is explicitly `not-integrated`; this
 checkout cannot start a production archive until the exact immutable artifact

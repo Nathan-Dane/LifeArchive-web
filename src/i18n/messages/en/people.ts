@@ -182,7 +182,7 @@ export const peopleMessages = {
   'people.contact.none': 'No recorded contact yet.',
   'people.contact.log': 'Log Contact',
   'people.contact.log.detail':
-    'Choose a date, then record Brief or Together with one action.',
+    'Choose a date, then record the person\u2019s involvement with one action.',
   'people.contact.log.close': 'Close Log Contact',
   'people.contact.log.date': 'Contact date',
   'people.contact.log.kind': 'Contact kind',
@@ -198,15 +198,16 @@ export const peopleMessages = {
     one: '{count} contact day in the previous 30 days',
     other: '{count} contact days in the previous 30 days',
   },
-  'people.contact.timeTogether': {
-    one: '{count} day together in the last 30 days',
-    other: '{count} days together in the last 30 days',
+  'people.contact.substantialInteraction': {
+    one: '{count} substantial interaction day in the last 30 days',
+    other: '{count} substantial interaction days in the last 30 days',
   },
   'people.contact.history': 'Contact History',
   'people.contact.historyTotals':
-    '{contact} contact days; {together} time-together days in this range',
+    '{contact} contact days; {substantial} substantial interaction days in this range',
   'people.contact.period':
-    '{start} to {end}: {contact} contact days; {together} time-together days',
+    '{start} to {end}: {contact} contact days; {substantial} substantial interaction days',
+  'people.contact.log.roleLabel': '{role}. {description}',
   'people.contact.range.thirtyDays': '30 days',
   'people.contact.range.sixMonths': '6 months',
   'people.contact.range.all': 'All',
@@ -252,16 +253,7 @@ export const peopleMessages = {
   'record.people.removed': 'Removed {name}.',
   'record.people.empty': 'No People are linked to this Entry.',
   'record.people.context': 'Person context for {name}',
-  'record.people.interaction': 'Interaction',
-  'record.people.interaction.none': 'Linked',
-  'record.people.interaction.brief': 'Brief contact',
-  'record.people.interaction.timeTogether': 'Time together',
-  'record.people.tookPart': 'Took part',
-  'record.people.isSubject': 'Is a subject',
-  'record.people.didNotTakePart': 'Did not take part',
-  'record.people.isNotSubject': 'Is not a subject',
-  'record.people.tileLabel':
-    '{name}. {interaction}. {participation}. {subject}. Open Person context.',
+  'record.people.tileLabel': '{name}. {role}. Open Person context.',
   'record.people.conflict':
     'People in this Entry changed elsewhere. The latest order and context are loaded; retry to apply your change.',
   'record.people.logOnDate': 'Log Contact on a Date',

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   civilDate,
   isCivilDate,
+  type CurrentOrdinaryPersonRole,
   type PersonMemorySummary,
 } from '../../core/client'
 import { failureMessage, useFormat, useLocalisation } from '../../i18n'
@@ -66,8 +67,10 @@ export function PersonInsights({ people }: { readonly people: People }) {
               })}
             </p>
             <p>
-              {t('people.contact.timeTogether', {
-                count: people.state.contactSummary.current30DayTimeTogetherDays,
+              {t('people.contact.substantialInteraction', {
+                count:
+                  people.state.contactSummary
+                    .current30DaySubstantialInteractionDays,
               })}
             </p>
           </>
@@ -103,7 +106,8 @@ export function PersonInsights({ people }: { readonly people: People }) {
             <p>
               {t('people.contact.historyTotals', {
                 contact: people.state.contactHistory.totalContactDays,
-                together: people.state.contactHistory.totalTimeTogetherDays,
+                substantial:
+                  people.state.contactHistory.totalSubstantialInteractionDays,
               })}
             </p>
             {people.state.contactHistory.periodSummaries.length > 0 ? (
@@ -114,7 +118,7 @@ export function PersonInsights({ people }: { readonly people: People }) {
                       start: format.civilDate(period.startDate, 'medium'),
                       end: format.civilDate(period.endDate, 'medium'),
                       contact: period.contactDays,
-                      together: period.timeTogetherDays,
+                      substantial: period.substantialInteractionDays,
                     })}
                   </li>
                 ))}
@@ -125,7 +129,7 @@ export function PersonInsights({ people }: { readonly people: People }) {
                 <li key={day.date}>
                   <strong>{format.civilDate(day.date, 'medium')}</strong>
                   <span className="meta-text">
-                    {t(`record.people.interaction.${day.interactionLevel}`)}
+                    {t(`record.people.role.${day.roleId}`)}
                   </span>
                   <ul>
                     {day.memories.map((memory) => (
@@ -186,9 +190,9 @@ function LogContactTask({
   const retryUnsafe =
     people.state.contactLogFailure?.durableOutcome === 'unknown'
 
-  const log = (interaction: 'brief' | 'timeTogether') => {
+  const log = (role: CurrentOrdinaryPersonRole) => {
     if (!valid) return
-    void people.logContact(civilDate(date), interaction)
+    void people.logContact(civilDate(date), role)
   }
 
   return (
@@ -246,17 +250,49 @@ function LogContactTask({
             type="button"
             className="button button--secondary"
             disabled={!valid || busy || succeeded || retryUnsafe}
+            aria-label={t('people.contact.log.roleLabel', {
+              role: t('record.people.role.brief'),
+              description: t('record.people.roleDescription.brief'),
+            })}
             onClick={() => log('brief')}
           >
             {t('record.people.role.brief')}
           </button>
           <button
             type="button"
-            className="button button--primary"
+            className="button button--secondary"
             disabled={!valid || busy || succeeded || retryUnsafe}
-            onClick={() => log('timeTogether')}
+            aria-label={t('people.contact.log.roleLabel', {
+              role: t('record.people.role.involved'),
+              description: t('record.people.roleDescription.involved'),
+            })}
+            onClick={() => log('involved')}
           >
-            {t('record.people.role.together')}
+            {t('record.people.role.involved')}
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={!valid || busy || succeeded || retryUnsafe}
+            aria-label={t('people.contact.log.roleLabel', {
+              role: t('record.people.role.activity'),
+              description: t('record.people.roleDescription.activity'),
+            })}
+            onClick={() => log('activity')}
+          >
+            {t('record.people.role.activity')}
+          </button>
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={!valid || busy || succeeded || retryUnsafe}
+            aria-label={t('people.contact.log.roleLabel', {
+              role: t('record.people.role.central'),
+              description: t('record.people.roleDescription.central'),
+            })}
+            onClick={() => log('central')}
+          >
+            {t('record.people.role.central')}
           </button>
         </div>
       </div>
@@ -275,9 +311,7 @@ function MemoryLink({ memory }: { readonly memory: PersonMemorySummary }) {
       })
     : format.civilDate(memory.civilStartDate, 'medium')
   const context = [
-    t(`record.people.interaction.${memory.interactionLevel}`),
-    ...(memory.tookPart ? [t('record.people.tookPart')] : []),
-    ...(memory.isSubject ? [t('record.people.isSubject')] : []),
+    t(`record.people.role.${memory.roleId}`),
     ...(memory.hasWriting ? [t('people.memory.hasWriting')] : []),
   ].join(`${t('people.memory.contextSeparator')} `)
   return (

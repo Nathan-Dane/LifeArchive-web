@@ -2,12 +2,13 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type {
   CivilDate,
   ClientFailure,
+  CurrentOrdinaryPersonRole,
   EntryPeopleSnapshot,
   InvalidationToken,
   LifeArchiveClient,
   LinkedPersonSnapshot,
-  PersonInteractionLevel,
   PersonLinkDraft,
+  PersonRecordRole,
   PersonSnapshot,
   RecordPeopleMutation,
   RecordPeopleTarget,
@@ -29,6 +30,7 @@ import {
   groupRecordPeople,
   recordPersonRoleSelected,
   toggleRecordPersonRole,
+  type RecordPeopleGroups,
   type RecordPersonRole,
 } from './recordPeoplePresentation'
 import { usePeople } from './usePeople'
@@ -277,10 +279,9 @@ export function RecordPeopleSection({
       const linked = snapshotRef.current?.links.find(
         (value) => value.person.id === person.person.id,
       )
-      const current = linked
-        ? linkDraft(linked)
-        : emptyLinkDraft(person.person.id)
-      const next = toggleRecordPersonRole(current, role)
+      const next = linked
+        ? toggleRecordPersonRole(linkDraft(linked), role)
+        : { personId: person.person.id, roleId: role }
       return mutateWithUndo(
         { kind: 'upsertLink', link: next },
         t(linked ? 'record.people.contextChanged' : 'record.people.added', {
@@ -493,6 +494,7 @@ export function RecordPeopleSection({
             closeRef={contextClose}
             linked={editing}
             allowsInteraction={allowsInteraction}
+            selectableRoles={snapshot.availableRoles}
             contactDateBounds={recordContactBounds(target, contactDateBounds)}
             busy={busy}
             onClose={() => setEditingPersonId(null)}
@@ -530,7 +532,7 @@ export function RecordPeopleSection({
           headingId={entryManagerHeadingId}
           closeRef={entryManagerClose}
           links={snapshot.links}
-          allowsInteraction={allowsInteraction}
+          selectableRoles={snapshot.availableRoles}
           busy={busy}
           onClose={() => setEntryManagerOpen(false)}
           onToggleRole={updateRole}
@@ -549,7 +551,9 @@ export function RecordPeopleSection({
           }}
           onRemove={remove}
           onCreatedPerson={async (person, opener) => {
-            const attached = await updateRole(person, 'included')
+            const firstRole = snapshot.availableRoles[0]
+            if (!firstRole) return false
+            const attached = await updateRole(person, firstRole)
             if (!attached) return false
             onEditPerson?.(person.person.id, opener)
             setEntryManagerOpen(false)
@@ -568,7 +572,7 @@ function RecordPeopleHierarchy({
   onOpen,
 }: {
   readonly client: LifeArchiveClient
-  readonly groups: Record<RecordPersonRole, readonly LinkedPersonSnapshot[]>
+  readonly groups: RecordPeopleGroups
   readonly personButtons: React.RefObject<Map<StableId, HTMLButtonElement>>
   readonly onOpen: (
     linked: LinkedPersonSnapshot,
@@ -578,13 +582,13 @@ function RecordPeopleHierarchy({
   const t = useLocalisation().t
   return (
     <div className="record-people__hierarchy">
-      {groups.about.length > 0 || groups.together.length > 0 ? (
+      {groups.significant.length > 0 ? (
         <div
           className="record-people__prominent"
           role="list"
           aria-label={t('record.people.prominent')}
         >
-          {[...groups.about, ...groups.together].map((linked) => {
+          {groups.significant.map((linked) => {
             const role = displayRole(linked)
             return (
               <article
@@ -613,13 +617,22 @@ function RecordPeopleHierarchy({
                   />
                   <span className="record-person-card__copy">
                     <strong>{linked.person.displayName}</strong>
-                    <span>{t(`record.people.role.${role}`)}</span>
+                    <span>{recordRoleLabel(t, role)}</span>
                   </span>
                 </button>
               </article>
             )
           })}
         </div>
+      ) : null}
+      {groups.involved.length > 0 ? (
+        <RecordPeopleRows
+          client={client}
+          heading={t('record.people.group.involved')}
+          links={groups.involved}
+          personButtons={personButtons}
+          onOpen={onOpen}
+        />
       ) : null}
       {groups.brief.length > 0 ? (
         <RecordPeopleRows
@@ -630,11 +643,11 @@ function RecordPeopleHierarchy({
           onOpen={onOpen}
         />
       ) : null}
-      {groups.included.length > 0 ? (
+      {groups.neutral.length > 0 ? (
         <RecordPeopleRows
           client={client}
           heading={t('record.people.group.also')}
-          links={groups.included}
+          links={groups.neutral}
           personButtons={personButtons}
           onOpen={onOpen}
         />
@@ -688,7 +701,7 @@ function RecordPeopleRows({
                   size="small"
                 />
                 <strong>{linked.person.displayName}</strong>
-                <span>{t(`record.people.role.${role}`)}</span>
+                <span>{recordRoleLabel(t, role)}</span>
                 <RecordControlIcon name="next" />
               </button>
             </article>
@@ -705,6 +718,7 @@ function PersonEntryTask({
   closeRef,
   linked,
   allowsInteraction,
+  selectableRoles,
   contactDateBounds,
   busy,
   onClose,
@@ -718,6 +732,7 @@ function PersonEntryTask({
   readonly closeRef: React.RefObject<HTMLButtonElement | null>
   readonly linked: LinkedPersonSnapshot
   readonly allowsInteraction: boolean
+  readonly selectableRoles: readonly PersonRecordRole[]
   readonly contactDateBounds: {
     readonly minimum: CivilDate
     readonly maximum: CivilDate
@@ -739,7 +754,7 @@ function PersonEntryTask({
   const t = localisation.t
   const [contactDate, setContactDate] = useState('')
   const [contactKind, setContactKind] =
-    useState<PersonInteractionLevel>('brief')
+    useState<CurrentOrdinaryPersonRole>('brief')
   const [logging, setLogging] = useState(false)
   const [logFailure, setLogFailure] = useState<ClientFailure | null>(null)
   const [logConflict, setLogConflict] = useState(false)
@@ -750,7 +765,7 @@ function PersonEntryTask({
       (contactDate >= contactDateBounds.minimum &&
         contactDate <= contactDateBounds.maximum))
   const log = async () => {
-    if (!contactDateValid || contactKind === 'none') return
+    if (!contactDateValid) return
     setLogging(true)
     setLogFailure(null)
     setLogConflict(false)
@@ -767,7 +782,7 @@ function PersonEntryTask({
     } else {
       const result = await client.people.logContact({
         personId: linked.person.id,
-        interactionLevel: contactKind,
+        roleId: contactKind,
         day: day.value,
         newEntryId: client.operations.newStableId(),
         nowMs: Date.now(),
@@ -821,7 +836,7 @@ function PersonEntryTask({
             <RoleControls
               person={snapshotOfLinked(linked)}
               link={linkDraft(linked)}
-              allowsInteraction={allowsInteraction}
+              selectableRoles={selectableRoles}
               busy={busy}
               onToggle={onToggleRole}
             />
@@ -897,12 +912,20 @@ function PersonEntryTask({
                 options={[
                   { value: 'brief', label: t('record.people.role.brief') },
                   {
-                    value: 'timeTogether',
-                    label: t('record.people.role.together'),
+                    value: 'involved',
+                    label: t('record.people.role.involved'),
+                  },
+                  {
+                    value: 'activity',
+                    label: t('record.people.role.activity'),
+                  },
+                  {
+                    value: 'central',
+                    label: t('record.people.role.central'),
                   },
                 ]}
                 onChange={(next) =>
-                  setContactKind(next as PersonInteractionLevel)
+                  setContactKind(next as CurrentOrdinaryPersonRole)
                 }
               />
             </div>
@@ -931,7 +954,7 @@ function EntryPeopleManager({
   headingId,
   closeRef,
   links,
-  allowsInteraction,
+  selectableRoles,
   busy,
   onClose,
   onToggleRole,
@@ -943,7 +966,7 @@ function EntryPeopleManager({
   readonly headingId: string
   readonly closeRef: React.RefObject<HTMLButtonElement | null>
   readonly links: readonly LinkedPersonSnapshot[]
-  readonly allowsInteraction: boolean
+  readonly selectableRoles: readonly PersonRecordRole[]
   readonly busy: boolean
   readonly onClose: () => void
   readonly onToggleRole: (
@@ -1036,7 +1059,7 @@ function EntryPeopleManager({
                 client={client}
                 person={snapshotOfLinked(linked)}
                 link={linkDraft(linked)}
-                allowsInteraction={allowsInteraction}
+                selectableRoles={selectableRoles}
                 busy={busy}
                 selected
                 canMoveUp={index > 0}
@@ -1062,7 +1085,7 @@ function EntryPeopleManager({
                 client={client}
                 person={person}
                 link={null}
-                allowsInteraction={allowsInteraction}
+                selectableRoles={selectableRoles}
                 busy={busy}
                 onToggleRole={(role) => onToggleRole(person, role)}
               />
@@ -1130,7 +1153,7 @@ function ManagerPersonRow({
   client,
   person,
   link,
-  allowsInteraction,
+  selectableRoles,
   busy,
   selected = false,
   canMoveUp = false,
@@ -1142,7 +1165,7 @@ function ManagerPersonRow({
   readonly client: LifeArchiveClient
   readonly person: PersonSnapshot
   readonly link: PersonLinkDraft | null
-  readonly allowsInteraction: boolean
+  readonly selectableRoles: readonly PersonRecordRole[]
   readonly busy: boolean
   readonly selected?: boolean
   readonly canMoveUp?: boolean
@@ -1169,7 +1192,7 @@ function ManagerPersonRow({
           {selected && link ? (
             <small>
               {t('record.people.assigned.meta', {
-                role: t(`record.people.role.${displayRoleFromDraft(link)}`),
+                role: recordRoleLabel(t, displayRoleFromDraft(link)),
               })}
             </small>
           ) : person.person.connectionLabels[0] ? (
@@ -1205,7 +1228,7 @@ function ManagerPersonRow({
         <RoleControls
           person={person}
           link={link}
-          allowsInteraction={allowsInteraction}
+          selectableRoles={selectableRoles}
           busy={busy}
           onToggle={onToggleRole}
           compact
@@ -1229,38 +1252,33 @@ function ManagerPersonRow({
 }
 
 function displayRoleFromDraft(link: PersonLinkDraft): RecordPersonRole {
-  if (link.isSubject) return 'about'
-  if (link.interactionLevel === 'timeTogether') return 'together'
-  if (link.interactionLevel === 'brief') return 'brief'
-  return 'included'
+  return link.roleId
 }
 
 function RoleControls({
   person,
   link,
-  allowsInteraction,
+  selectableRoles,
   busy,
   compact = false,
   onToggle,
 }: {
   readonly person: PersonSnapshot
   readonly link: PersonLinkDraft | null
-  readonly allowsInteraction: boolean
+  readonly selectableRoles: readonly PersonRecordRole[]
   readonly busy: boolean
   readonly compact?: boolean
   readonly onToggle: (role: RecordPersonRole) => Promise<boolean>
 }) {
   const t = useLocalisation().t
   const descriptionId = useId()
-  const roles: readonly RecordPersonRole[] = [
-    'included',
-    'brief',
-    'together',
-    'about',
-  ]
+  const periodRoles = selectableRoles.includes('inPeriod')
   return (
     <div
       className="record-person-roles"
+      style={{
+        gridTemplateColumns: `repeat(${selectableRoles.length}, minmax(0, 1fr))`,
+      }}
       data-compact={compact || undefined}
       role="group"
       aria-label={t('record.people.rolesFor', {
@@ -1271,17 +1289,26 @@ function RoleControls({
       <span id={descriptionId} className="visually-hidden">
         {t('record.people.roles.detail')}
       </span>
-      {roles.map((role) => {
-        const interactionRole = role === 'brief' || role === 'together'
+      {selectableRoles.map((role) => (
+        <span
+          key={`${role}-description`}
+          id={`${descriptionId}-${role}`}
+          className="visually-hidden"
+        >
+          {recordRoleDescription(t, role, periodRoles)}
+        </span>
+      ))}
+      {selectableRoles.map((role) => {
         return (
           <button
             key={role}
             type="button"
             aria-pressed={recordPersonRoleSelected(link, role)}
-            disabled={busy || (interactionRole && !allowsInteraction)}
+            aria-describedby={`${descriptionId}-${role}`}
+            disabled={busy}
             onClick={() => void onToggle(role)}
           >
-            {t(`record.people.role.${role}`)}
+            {recordRoleLabel(t, role)}
           </button>
         )
       })}
@@ -1367,35 +1394,65 @@ function personTaskLabel(
 ) {
   return t('record.people.tileLabel', {
     name: linked.person.displayName,
-    interaction: t(`record.people.interaction.${linked.link.interactionLevel}`),
-    participation: t(
-      linked.link.tookPart
-        ? 'record.people.tookPart'
-        : 'record.people.didNotTakePart',
-    ),
-    subject: t(
-      linked.link.isSubject
-        ? 'record.people.isSubject'
-        : 'record.people.isNotSubject',
-    ),
+    role: recordRoleLabel(t, linked.link.roleId),
   })
 }
 
-function emptyLinkDraft(personId: StableId): PersonLinkDraft {
-  return {
-    personId,
-    interactionLevel: 'none',
-    tookPart: false,
-    isSubject: false,
+function recordRoleLabel(
+  t: ReturnType<typeof useLocalisation>['t'],
+  role: PersonRecordRole,
+): string {
+  switch (role) {
+    case 'brief':
+      return t('record.people.role.brief')
+    case 'involved':
+      return t('record.people.role.involved')
+    case 'activity':
+      return t('record.people.role.activity')
+    case 'central':
+      return t('record.people.role.central')
+    case 'inPeriod':
+      return t('record.people.role.inPeriod')
+    case 'legacyIncluded':
+      return t('record.people.role.legacyIncluded')
+    case 'legacyTogether':
+      return t('record.people.role.legacyTogether')
+    case 'legacyAbout':
+      return t('record.people.role.legacyAbout')
+  }
+}
+
+function recordRoleDescription(
+  t: ReturnType<typeof useLocalisation>['t'],
+  role: PersonRecordRole,
+  period: boolean,
+): string {
+  switch (role) {
+    case 'brief':
+      return t('record.people.roleDescription.brief')
+    case 'involved':
+      return period
+        ? t('record.people.roleDescription.periodInvolved')
+        : t('record.people.roleDescription.involved')
+    case 'activity':
+      return t('record.people.roleDescription.activity')
+    case 'central':
+      return period
+        ? t('record.people.roleDescription.periodCentral')
+        : t('record.people.roleDescription.central')
+    case 'inPeriod':
+      return t('record.people.roleDescription.inPeriod')
+    case 'legacyIncluded':
+    case 'legacyTogether':
+    case 'legacyAbout':
+      return recordRoleLabel(t, role)
   }
 }
 
 function linkDraft(linked: LinkedPersonSnapshot): PersonLinkDraft {
   return {
     personId: linked.person.id,
-    interactionLevel: linked.link.interactionLevel,
-    tookPart: linked.link.tookPart,
-    isSubject: linked.link.isSubject,
+    roleId: linked.link.roleId,
   }
 }
 
