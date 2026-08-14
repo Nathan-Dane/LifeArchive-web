@@ -18,13 +18,14 @@ test('references the generated local font asset', () => {
 
 test('builds one sorted, duplicate-free selection from semantic and UI glyphs', () => {
   const names = selectedMaterialIconNames()
-  assert.equal(names.length, 162)
+  assert.equal(names.length, 163)
   assert.deepEqual(names, [...names].sort())
   assert.equal(new Set(names).size, names.length)
   for (const required of [
     'cake',
     'calendar_month',
     'check_box',
+    'delete',
     'grid_view',
     'question_mark',
     'settings',
