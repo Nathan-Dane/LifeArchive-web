@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import type {
   LifeArchiveClient,
   StableId,
@@ -11,6 +11,11 @@ import { RecordPeopleSection } from '../../people'
 import { useBrowserPreferences } from '../../../app/preferences'
 import { useEditorDocument } from './useEditorDocument'
 import { WritingSurface } from './WritingSurface'
+
+const MarkdownBody = lazy(async () => {
+  const module = await import('../../markdown/MarkdownBody')
+  return { default: module.MarkdownBody }
+})
 
 export interface MarkdownEditorProps {
   readonly client: LifeArchiveClient
@@ -129,11 +134,23 @@ export function MarkdownEditor({
             <p>{t('record.editor.conflictDetail')}</p>
             <div>
               <h4>{t('record.editor.conflictCurrent')}</h4>
-              <pre>
-                {conflict.presence === 'present'
-                  ? conflict.entry.markdown
-                  : t('record.editor.conflictCurrentEmpty')}
-              </pre>
+              <Suspense
+                fallback={
+                  <div
+                    className="record-editor__conflict-writing"
+                    aria-busy="true"
+                  />
+                }
+              >
+                <MarkdownBody
+                  className="record-editor__conflict-writing"
+                  markdown={
+                    conflict.presence === 'present'
+                      ? conflict.entry.markdown
+                      : t('record.editor.conflictCurrentEmpty')
+                  }
+                />
+              </Suspense>
             </div>
             <div className="record-editor__conflict-actions">
               <button type="button" className="button" onClick={saveMine}>

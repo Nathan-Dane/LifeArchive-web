@@ -3,9 +3,16 @@ export type EditorIconName =
   | 'redo'
   | 'bold'
   | 'italic'
+  | 'underline'
+  | 'strikethrough'
+  | 'inline-code'
   | 'bullet-list'
   | 'ordered-list'
+  | 'indent'
+  | 'outdent'
   | 'quote'
+  | 'divider'
+  | 'clear'
   | 'link'
 
 const PATHS: Record<EditorIconName, React.ReactNode> = {
@@ -32,6 +39,22 @@ const PATHS: Record<EditorIconName, React.ReactNode> = {
       <path d="M10 4h5M5 16h5M12.5 4l-5 12" />
     </>
   ),
+  underline: (
+    <>
+      <path d="M6 4v5a4 4 0 0 0 8 0V4M5 16h10" />
+    </>
+  ),
+  strikethrough: (
+    <>
+      <path d="M6 6c.8-1.4 2.1-2 4-2 2.4 0 4 1.2 4 3M6 14c.8 1.3 2.2 2 4.2 2 2.3 0 3.8-1.1 3.8-2.8 0-1.4-.8-2.2-2.4-2.7" />
+      <path d="M3 10h14" />
+    </>
+  ),
+  'inline-code': (
+    <>
+      <path d="M7 6l-4 4 4 4M13 6l4 4-4 4M11.5 4l-3 12" />
+    </>
+  ),
   'bullet-list': (
     <>
       <circle cx="4" cy="6" r=".8" fill="currentColor" stroke="none" />
@@ -46,10 +69,26 @@ const PATHS: Record<EditorIconName, React.ReactNode> = {
       <path d="M8 6h8M8 10h8M8 14h8" />
     </>
   ),
+  indent: (
+    <>
+      <path d="M3 5h14M8 10h9M8 15h9M3 8l3 2-3 2z" />
+    </>
+  ),
+  outdent: (
+    <>
+      <path d="M3 5h14M8 10h9M8 15h9M6 8l-3 2 3 2z" />
+    </>
+  ),
   quote: (
     <>
       <path d="M4 8.5h4v4H4zM12 8.5h4v4h-4z" />
       <path d="M8 8.5c0-2-1-3.5-3-4M16 8.5c0-2-1-3.5-3-4" />
+    </>
+  ),
+  divider: <path d="M3 10h14" />,
+  clear: (
+    <>
+      <path d="M5 15L14 6M7 4h8M11 4L7.5 14M4 16h12" />
     </>
   ),
   link: (
