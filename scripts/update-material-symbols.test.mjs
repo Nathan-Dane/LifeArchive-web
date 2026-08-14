@@ -18,7 +18,7 @@ test('references the generated local font asset', () => {
 
 test('builds one sorted, duplicate-free selection from semantic, shell, and editor glyphs', () => {
   const names = selectedMaterialIconNames()
-  assert.equal(names.length, 180)
+  assert.equal(names.length, 181)
   assert.deepEqual(names, [...names].sort())
   assert.equal(new Set(names).size, names.length)
   for (const required of [
@@ -36,6 +36,7 @@ test('builds one sorted, duplicate-free selection from semantic, shell, and edit
     'format_quote',
     'grid_view',
     'horizontal_rule',
+    'more_horiz',
     'question_mark',
     'redo',
     'settings',

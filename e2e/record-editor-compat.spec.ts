@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const DEVELOPMENT_MOCK_URL = 'http://localhost:4191/record'
 const MODIFIER = process.platform === 'darwin' ? 'Meta' : 'Control'
@@ -19,14 +19,40 @@ async function selectContents(locator: Locator) {
   })
 }
 
+async function activateToolbarAction(
+  page: Page,
+  label: string,
+  overflowLabel?: 'List options' | 'More formatting',
+) {
+  const toolbar = page.getByRole('toolbar', { name: 'Text formatting' })
+  const direct = toolbar.getByRole('button', { name: label, exact: true })
+  if (await direct.isVisible()) {
+    await direct.click()
+    return direct
+  }
+  if (!overflowLabel) throw new Error(`${label} has no visible toolbar action`)
+  const opener = toolbar.getByRole('button', {
+    name: overflowLabel,
+    exact: true,
+  })
+  await opener.click()
+  const menu = page.getByRole('menu', { name: overflowLabel })
+  await menu.getByText(label, { exact: true }).click()
+  return opener
+}
+
 test.describe('the cross-engine Markdown command surface', () => {
-  test('keeps every Material editing control reachable in one narrow row', async ({
+  test('keeps staged Material editing menus reachable in one narrow row', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(DEVELOPMENT_MOCK_URL)
     const toolbar = page.getByRole('toolbar', { name: 'Text formatting' })
     const blockStyle = page.getByRole('button', { name: 'Text style' })
+    const listOptions = toolbar.getByRole('button', { name: 'List options' })
+    const moreFormatting = toolbar.getByRole('button', {
+      name: 'More formatting',
+    })
 
     await expect
       .poll(() =>
@@ -46,10 +72,31 @@ test.describe('the cross-engine Markdown command surface', () => {
     await expect(blockStyle.locator('.material-symbols-rounded')).toHaveText(
       'format_paragraph',
     )
+    await expect(listOptions).toBeVisible()
+    await expect(moreFormatting).toBeVisible()
+    for (const label of [
+      'Underline',
+      'Strikethrough',
+      'Inline code',
+      'Link',
+      'Bulleted list',
+      'Numbered list',
+      'Indent list item',
+      'Outdent list item',
+    ]) {
+      await expect(
+        toolbar.locator(`button[aria-label="${label}"]`),
+      ).toBeHidden()
+    }
+    await expect(
+      toolbar.getByRole('button', { name: 'Quote', exact: true }),
+    ).toHaveCount(0)
 
     await blockStyle.focus()
     await blockStyle.press('End')
-    await expect(page.getByRole('button', { name: 'Link' })).toBeFocused()
+    await expect(
+      page.getByRole('button', { name: 'Clear formatting' }),
+    ).toBeFocused()
     await expect
       .poll(() => toolbar.evaluate((element) => element.scrollLeft))
       .toBeGreaterThan(0)
@@ -69,6 +116,44 @@ test.describe('the cross-engine Markdown command surface', () => {
           .locator('.material-symbols-rounded'),
       ).toHaveText(glyph)
     }
+    const separator = menu.getByRole('separator')
+    await expect(separator).toHaveCount(1)
+    await expect
+      .poll(() =>
+        separator.evaluate((element) => ({
+          previous:
+            element.previousElementSibling?.children.item(1)?.textContent,
+          next: element.nextElementSibling?.children.item(1)?.textContent,
+        })),
+      )
+      .toEqual({ previous: 'Subheading', next: 'Quote' })
+    await menu
+      .getByRole('menuitemradio', { name: 'Paragraph', exact: true })
+      .click()
+
+    await listOptions.click()
+    const listMenu = page.getByRole('menu', { name: 'List options' })
+    for (const label of [
+      'Bulleted list',
+      'Numbered list',
+      'Indent list item',
+      'Outdent list item',
+    ]) {
+      await expect(listMenu.getByText(label, { exact: true })).toBeVisible()
+    }
+    await page.keyboard.press('Escape')
+
+    await moreFormatting.click()
+    const inlineMenu = page.getByRole('menu', { name: 'More formatting' })
+    for (const label of ['Underline', 'Strikethrough', 'Inline code', 'Link']) {
+      await expect(inlineMenu.getByText(label, { exact: true })).toBeVisible()
+    }
+    await inlineMenu.getByText('Link', { exact: true }).click()
+    await expect(
+      page.getByRole('dialog', { name: 'Insert link' }),
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await expect(moreFormatting).toBeFocused()
   })
 
   test('keeps focus, selection, inline semantics, links, and undo', async ({
@@ -100,13 +185,13 @@ test.describe('the cross-engine Markdown command surface', () => {
     ] as const) {
       await editor.click()
       await page.keyboard.press(`${MODIFIER}+A`)
-      await page.getByRole('button', { name: button }).click()
+      await activateToolbarAction(page, button, 'More formatting')
       await expect(editor.locator(selector)).toContainText('LifeArchive')
       await selectContents(editor)
-      await page.getByRole('button', { name: button }).click()
+      await activateToolbarAction(page, button, 'More formatting')
       await expect(editor.locator(selector)).toHaveCount(0)
       await selectContents(editor)
-      await page.getByRole('button', { name: button }).click()
+      await activateToolbarAction(page, button, 'More formatting')
       await expect(editor.locator(selector)).toContainText('LifeArchive')
     }
 
@@ -123,23 +208,28 @@ test.describe('the cross-engine Markdown command surface', () => {
     await editor.click()
     await page.keyboard.press(`${MODIFIER}+A`)
     await page.keyboard.press(`${MODIFIER}+K`)
-    const linkButton = page.getByRole('button', { name: 'Link' })
+    const directLink = page
+      .getByRole('toolbar', { name: 'Text formatting' })
+      .locator('button[aria-label="Link"]')
+    const linkOpener = (await directLink.isVisible())
+      ? directLink
+      : page.getByRole('button', { name: 'More formatting' })
     const address = page.getByRole('textbox', { name: 'Web address' })
     await address.fill('https://example.com/one')
     await page.getByRole('button', { name: 'Apply link' }).click()
     const link = editor.getByRole('link', { name: 'LifeArchive' })
     await expect(link).toHaveAttribute('href', 'https://example.com/one')
-    await expect(linkButton).toBeFocused()
+    await expect(linkOpener).toBeFocused()
 
     await selectContents(link)
-    await page.getByRole('button', { name: 'Link' }).click()
+    await activateToolbarAction(page, 'Link', 'More formatting')
     await expect(address).toHaveValue('https://example.com/one')
     await address.fill('https://example.com/two')
     await page.getByRole('button', { name: 'Apply link' }).click()
     await expect(link).toHaveAttribute('href', 'https://example.com/two')
 
     await selectContents(link)
-    await page.getByRole('button', { name: 'Link' }).click()
+    await activateToolbarAction(page, 'Link', 'More formatting')
     await page.getByRole('button', { name: 'Remove link' }).click()
     await expect(editor.getByRole('link')).toHaveCount(0)
     await expect(editor).toContainText('LifeArchive')
@@ -177,20 +267,20 @@ test.describe('the cross-engine Markdown command surface', () => {
     await page.keyboard.press('Enter')
     await page.keyboard.insertText('two')
     await selectContents(editor)
-    await page.getByRole('button', { name: 'Bulleted list' }).click()
+    await activateToolbarAction(page, 'Bulleted list', 'List options')
     await expect(editor.locator('li')).toHaveCount(2)
     const second = editor.locator('li').nth(1)
     await selectContents(second)
-    await page.getByRole('button', { name: 'Indent list item' }).click()
+    await activateToolbarAction(page, 'Indent list item', 'List options')
     await expect(editor.locator('ul ul li')).toContainText('two')
     await selectContents(editor.locator('ul ul li'))
-    await page.getByRole('button', { name: 'Outdent list item' }).click()
+    await activateToolbarAction(page, 'Outdent list item', 'List options')
     await expect(
       editor.locator('ul').first().locator(':scope > li'),
     ).toHaveCount(2)
 
     await selectContents(editor)
-    await page.getByRole('button', { name: 'Numbered list' }).click()
+    await activateToolbarAction(page, 'Numbered list', 'List options')
     await expect(editor.locator('ol > li')).toHaveCount(2)
 
     await editor.click()

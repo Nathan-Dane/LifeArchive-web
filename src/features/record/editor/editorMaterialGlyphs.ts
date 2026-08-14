@@ -10,6 +10,7 @@ export const EDITOR_MATERIAL_GLYPHS = {
   underline: 'format_underlined',
   strikethrough: 'strikethrough_s',
   'inline-code': 'code',
+  'more-formatting': 'more_horiz',
   'bullet-list': 'format_list_bulleted',
   'ordered-list': 'format_list_numbered',
   indent: 'format_indent_increase',

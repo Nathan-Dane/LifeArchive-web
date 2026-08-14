@@ -437,7 +437,9 @@ export const recordMessages = {
   'record.editor.underlineShortcut': 'Underline (Ctrl or Command+U)',
   'record.editor.strikethrough': 'Strikethrough',
   'record.editor.inlineCode': 'Inline code',
+  'record.editor.moreFormatting': 'More formatting',
   'record.editor.list': 'Bulleted list',
+  'record.editor.listOptions': 'List options',
   'record.editor.listShortcut': 'Bulleted list (Ctrl or Command+Shift+8)',
   'record.editor.orderedList': 'Numbered list',
   'record.editor.orderedListShortcut':

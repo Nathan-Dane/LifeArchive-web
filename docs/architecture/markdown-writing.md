@@ -103,11 +103,14 @@ The editor command surface uses the generated local Material Symbols subset;
 `editorMaterialGlyphs.ts` is the single source for the toolbar and format-menu
 glyph names and for the subset updater. The toolbar remains one horizontal,
 touch-scrollable row as its container narrows, so no command disappears and
-the writing surface does not change height. At 680 px and below, the format
-trigger collapses from icon plus label to icon plus chevron while retaining its
-accessible name and a readable labelled menu. Keyboard focus scrolls hidden
-commands into view, and stronger two-pixel separators preserve command-group
-boundaries.
+the writing surface does not change height. At 820 px, list and indentation
+commands move into one menu. At 680 px, underline, strikethrough, inline code,
+and link move into a second menu after Italic. At 480 px, the format trigger
+collapses from icon plus label to icon plus chevron. Accessible names and
+labelled menus remain available at every stage, keyboard focus scrolls hidden
+commands into view, and one-pixel separators preserve command-group
+boundaries. Quote is available only in the format menu, where a divider
+separates paragraph and heading styles from quote and code-block styles.
 
 ## Final production measurement
 
@@ -116,9 +119,9 @@ independently delivered-file accounting as the baseline.
 
 | Delivery boundary | Unminified | Minified | Gzip | Brotli |
 |---|---:|---:|---:|---:|
-| Initial application JavaScript | 1,489,582 B | 757,646 B | 202,731 B | 175,261 B |
-| Initial application CSS | 217,610 B | 180,408 B | 25,949 B | 21,885 B |
-| Editor-open marginal JavaScript | 74,962 B | 40,420 B | 12,916 B | 11,719 B |
+| Initial application JavaScript | 1,489,690 B | 757,706 B | 202,914 B | 175,374 B |
+| Initial application CSS | 218,291 B | 180,972 B | 26,087 B | 21,987 B |
+| Editor-open marginal JavaScript | 81,320 B | 43,989 B | 13,732 B | 12,436 B |
 
 The Record route remains in the initial entry and has no separate route chunk.
 The editor-open boundary is the `MarkdownWritingSurface` and single shared
@@ -126,27 +129,27 @@ The editor-open boundary is the `MarkdownWritingSurface` and single shared
 
 | Boundary delta from Lexical | Unminified | Minified | Gzip | Brotli |
 |---|---:|---:|---:|---:|
-| Initial application JavaScript | +884 B (+0.1%) | +624 B (+0.1%) | -224 B (-0.1%) | +40 B (+0.0%) |
-| Initial application CSS | +2,273 B (+1.1%) | +1,955 B (+1.1%) | +365 B (+1.4%) | +310 B (+1.4%) |
-| Editor-open marginal JavaScript | -320,065 B (-81.0%) | -242,360 B (-85.7%) | -74,588 B (-85.2%) | -63,214 B (-84.4%) |
+| Initial application JavaScript | +992 B (+0.1%) | +684 B (+0.1%) | -41 B (-0.0%) | +153 B (+0.1%) |
+| Initial application CSS | +2,954 B (+1.4%) | +2,519 B (+1.4%) | +503 B (+2.0%) | +412 B (+1.9%) |
+| Editor-open marginal JavaScript | -313,707 B (-79.4%) | -238,791 B (-84.4%) | -73,772 B (-84.3%) | -62,497 B (-83.4%) |
 
 The final affected assets are:
 
 | Asset | Minified | Gzip | Brotli |
 |---|---:|---:|---:|
-| `index-7BRHLQJH.js` | 484,274 B | 128,152 B | 110,225 B |
+| `index-De16EYx7.js` | 484,242 B | 128,140 B | 110,176 B |
 | `jsx-runtime-KJkY8l8U.js` | 8,535 B | 3,268 B | 2,918 B |
-| `overlay-LNKZONYB.js` | 10,186 B | 3,644 B | 3,249 B |
-| `i18n-Cxk_KiaI.js` | 93,991 B | 24,031 B | 20,614 B |
+| `menu-B2YfbgDb.js` | 13,810 B | 4,868 B | 4,346 B |
+| `i18n-BuwE_ojU.js` | 94,083 B | 24,048 B | 20,639 B |
 | `chunk-KS7C4IRE-C1e7g42w.js` | 42,591 B | 15,100 B | 13,520 B |
-| `metadata-CL7k7fUw.js` | 23,943 B | 8,316 B | 7,315 B |
-| `people-0a5OMWTY.js` | 94,126 B | 20,220 B | 17,420 B |
-| `MarkdownWritingSurface-C4V5_jbb.js` | 28,892 B | 8,633 B | 7,764 B |
+| `metadata-CqvJZrwd.js` | 20,317 B | 7,258 B | 6,350 B |
+| `people-1N9VzaQH.js` | 94,128 B | 20,232 B | 17,425 B |
+| `MarkdownWritingSurface-z5msMLJk.js` | 32,461 B | 9,449 B | 8,481 B |
 | `markdownCodec-D5RgCcFk.js` | 11,528 B | 4,283 B | 3,955 B |
 | `MarkdownBody-ibDRX6Gn.js` | 362 B | 280 B | 239 B |
-| `index-B7YUilIp.css` | 162,850 B | 22,502 B | 18,898 B |
+| `index-DfZ0bAHJ.css` | 163,414 B | 22,640 B | 19,000 B |
 | `people-DsZ6ja8i.css` | 17,558 B | 3,447 B | 2,987 B |
-| `material-symbols-rounded-subset-CE0KCUJl.woff2` | 29,812 B | 29,840 B | 29,815 B |
+| `material-symbols-rounded-subset-DavaRBP6.woff2` | 29,836 B | 29,864 B | 29,835 B |
 
 The Vite manifest contains one codec chunk shared by editor and reader. The
 production manifest, emitted JavaScript, source maps, package manifest, and

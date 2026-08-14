@@ -270,19 +270,25 @@ describe('the Record style system', () => {
     )
   })
 
-  it('keeps the editor toolbar in one scrollable row with visible group separators', () => {
-    expect(TOKENS_CSS).toContain('--overlay-editor-format-width: 210px;')
+  it('stages editor overflow menus and keeps one-pixel group separators', () => {
+    expect(TOKENS_CSS).toContain('--overlay-editor-menu-width: 210px;')
     expect(RECORD_CSS).toMatch(
       /\.record-editor__toolbar\s*\{[^}]*overflow-x:\s*auto[^}]*overflow-y:\s*hidden[^}]*flex-wrap:\s*nowrap/s,
     )
     expect(RECORD_CSS).toMatch(
-      /\.record-overlay\[data-kind='menu'\] \.record-editor__block-menu\s*\{[^}]*width:\s*min\(/s,
+      /\.record-editor__menu-width-reference\s*\{[^}]*width:\s*var\(--overlay-editor-menu-width\)/s,
     )
     expect(RECORD_CSS).toMatch(
-      /\.record-editor__toolbar-separator\s*\{[^}]*width:\s*calc\(var\(--border-hairline\) \* 2\)[^}]*height:\s*var\(--space-xl\)[^}]*var\(--color-text-tertiary\) 52%/s,
+      /\.record-editor__toolbar-separator\s*\{[^}]*height:\s*var\(--space-xl\)[^}]*flex:\s*0 0 var\(--border-hairline\)/s,
     )
     expect(RECORD_CSS).toMatch(
-      /@media \(max-width: 680px\)[\s\S]*?\.record-editor__block-style-label\s*\{[^}]*display:\s*none/s,
+      /@container record-writing \(max-width: 820px\)[\s\S]*?\.record-editor__list-direct\s*\{[^}]*display:\s*none !important[\s\S]*?\.record-editor__list-overflow\s*\{[^}]*display:\s*inline-grid !important/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /@container record-writing \(max-width: 680px\)[\s\S]*?\.record-editor__inline-direct\s*\{[^}]*display:\s*none !important[\s\S]*?\.record-editor__inline-overflow\s*\{[^}]*display:\s*inline-grid !important/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /@container record-writing \(max-width: 480px\)[\s\S]*?\.record-editor__block-style-label\s*\{[^}]*display:\s*none/s,
     )
     expect(RECORD_CSS).not.toMatch(
       /\.record-editor__toolbar\s*\{[^}]*flex-wrap:\s*wrap/s,
@@ -312,7 +318,7 @@ describe('the Record style system', () => {
   it('gives selected dropdown rows a quieter full-row fill than hover', () => {
     expect(TOKENS_CSS).toContain('--color-dropdown-selected:')
     for (const rule of [
-      /\.record-editor__block-menu-items\s*>\s*button\[aria-checked='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
+      /\.record-editor__menu-items\s*>\s*button:is\(\[aria-checked='true'\], \[aria-checked='mixed'\]\)\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
       /\.selection-menu__row\[data-selected='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
       /\.record-track-menu__items\s*>\s*button\[aria-checked='true'\]\s*\{[^}]*background:\s*var\(--color-dropdown-selected\)/s,
     ]) {
