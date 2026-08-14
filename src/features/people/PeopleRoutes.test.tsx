@@ -12,7 +12,7 @@ const OPEN_SESSION: ArchiveSession = {
   state: 'open',
   archive: {
     storeId: stableId('b5000000-0000-4000-8000-000000000001'),
-    productContract: '9',
+    productContract: '11',
     storeSchemaVersion: '12',
     rootLayoutVersion: '1',
     invalidation: {

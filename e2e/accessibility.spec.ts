@@ -1,5 +1,7 @@
 import { expect, horizontalOverflow, test } from './client-fixtures'
 
+const DEVELOPMENT_MOCK_RECORD_URL = 'http://localhost:4191/record'
+
 test.describe('client accessibility foundations', () => {
   test('reaches main content before shell controls', async ({ page }) => {
     await page.goto('/record')
@@ -13,7 +15,7 @@ test.describe('client accessibility foundations', () => {
 
   test('honours reduced motion', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    await page.goto('/record')
+    await page.goto(DEVELOPMENT_MOCK_RECORD_URL)
 
     expect(
       await page.evaluate(
@@ -21,7 +23,7 @@ test.describe('client accessibility foundations', () => {
       ),
     ).toBe(true)
     const duration = await page
-      .getByRole('button', { name: /^Appearance: / })
+      .getByRole('button', { name: 'New event or span' })
       .evaluate((element) => getComputedStyle(element).transitionDuration)
     expect(duration).toBe('0.001s')
   })
@@ -29,13 +31,13 @@ test.describe('client accessibility foundations', () => {
   test('preserves focus in forced-colour themes', async ({ page }) => {
     await page.emulateMedia({ forcedColors: 'active' })
     await page.goto('/record')
-    const appearance = page.getByRole('button', { name: /^Appearance: / })
-    await appearance.focus()
+    const retry = page.getByRole('button', { name: 'Try again' })
+    await retry.focus()
 
     expect(
       await page.evaluate(() => matchMedia('(forced-colors: active)').matches),
     ).toBe(true)
-    const outline = await appearance.evaluate((element) => {
+    const outline = await retry.evaluate((element) => {
       const style = getComputedStyle(element)
       return { style: style.outlineStyle, width: style.outlineWidth }
     })
@@ -53,9 +55,7 @@ test.describe('client accessibility foundations', () => {
     await expect(
       page.getByRole('heading', { name: 'LifeArchive cannot start' }),
     ).toBeVisible()
-    await expect(
-      page.getByRole('button', { name: /^Appearance: / }),
-    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0)
   })
 })

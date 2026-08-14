@@ -13,7 +13,7 @@ test.describe('People in Record', () => {
     })
     await expect(person).toBeVisible()
     const writingBounds = await page
-      .locator('.record-editor__surface:visible')
+      .getByRole('region', { name: 'Writing' })
       .boundingBox()
     const peopleBounds = await page
       .locator('.record-people:visible')
@@ -33,20 +33,19 @@ test.describe('People in Record', () => {
     const roles = task.getByRole('group', { name: 'Context for Maya Chen' })
 
     await expect(roles.getByRole('button')).toHaveCount(4)
-    await expect(
-      roles.getByRole('button', { name: 'Included' }),
-    ).toHaveAttribute('aria-pressed', 'false')
     await expect(roles.getByRole('button', { name: 'Brief' })).toHaveAttribute(
       'aria-pressed',
       'false',
     )
-    const together = roles.getByRole('button', { name: 'Together' })
+    await expect(
+      roles.getByRole('button', { name: 'Involved' }),
+    ).toHaveAttribute('aria-pressed', 'false')
+    const activity = roles.getByRole('button', { name: 'Activity' })
     const brief = roles.getByRole('button', { name: 'Brief' })
-    await expect(together).toHaveAttribute('aria-pressed', 'true')
-    await expect(roles.getByRole('button', { name: 'About' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    )
+    await expect(activity).toHaveAttribute('aria-pressed', 'true')
+    await expect(
+      roles.getByRole('button', { name: 'Central' }),
+    ).toHaveAttribute('aria-pressed', 'false')
     await expect(
       task.getByRole('button', { name: 'Remove Maya Chen' }),
     ).toBeVisible()
@@ -56,8 +55,8 @@ test.describe('People in Record', () => {
     await expect(
       task.locator('.record-person-role__remove .material-symbols-rounded'),
     ).toHaveText('delete')
-    await together.hover()
-    const selectedHover = await together.evaluate(
+    await activity.hover()
+    const selectedHover = await activity.evaluate(
       (element) => getComputedStyle(element).backgroundColor,
     )
     await brief.hover()
@@ -65,7 +64,7 @@ test.describe('People in Record', () => {
       (element) => getComputedStyle(element).backgroundColor,
     )
     expect(selectedHover).not.toBe(unselectedHover)
-    await expect(together).toHaveAttribute('aria-pressed', 'true')
+    await expect(activity).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('manages assigned and unassigned People without picker checkbox semantics', async ({

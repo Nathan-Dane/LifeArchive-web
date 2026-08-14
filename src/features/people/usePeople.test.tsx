@@ -64,7 +64,7 @@ function client(
     state: 'open',
     archive: {
       storeId: STORE_ID,
-      productContract: '9',
+      productContract: '11',
       storeSchemaVersion: '12',
       rootLayoutVersion: '1',
       invalidation: INVALIDATION,
@@ -94,7 +94,7 @@ function client(
             lastRecordedContactDate: null,
             current30DayContactDays: 0,
             previous30DayContactDays: 0,
-            current30DayTimeTogetherDays: 0,
+            current30DaySubstantialInteractionDays: 0,
           },
           invalidation: INVALIDATION,
         }),
@@ -429,9 +429,7 @@ describe('usePeople', () => {
       civilEndDate: null,
       title: null,
       hasWriting: true,
-      interactionLevel: 'brief' as const,
-      tookPart: false,
-      isSubject: false,
+      roleId: 'brief' as const,
     }
     const memories = vi
       .fn<LifeArchiveClient['people']['memories']>()
@@ -532,7 +530,7 @@ describe('usePeople', () => {
   it('pages contact history by the last exact contact day', async () => {
     const firstDay = {
       date: civilDate('2026-02-03'),
-      interactionLevel: 'brief' as const,
+      roleId: 'brief' as const,
       memories: [],
     }
     const contactHistory = vi
@@ -542,7 +540,7 @@ describe('usePeople', () => {
           days: [firstDay],
           hasMore: true,
           totalContactDays: 1,
-          totalTimeTogetherDays: 0,
+          totalSubstantialInteractionDays: 0,
           periodSummaries: [],
           invalidation: INVALIDATION,
         }),
@@ -552,7 +550,7 @@ describe('usePeople', () => {
           days: [],
           hasMore: false,
           totalContactDays: 1,
-          totalTimeTogetherDays: 0,
+          totalSubstantialInteractionDays: 0,
           periodSummaries: [],
           invalidation: INVALIDATION,
         }),
@@ -596,6 +594,7 @@ describe('usePeople', () => {
             sectionIds: ['people'],
             peopleSectionVisible: true,
             links: [],
+            availableRoles: ['brief', 'involved', 'activity', 'central'],
           },
           invalidation: INVALIDATION,
         }),
@@ -608,7 +607,7 @@ describe('usePeople', () => {
             lastRecordedContactDate: null,
             current30DayContactDays: 0,
             previous30DayContactDays: 0,
-            current30DayTimeTogetherDays: 0,
+            current30DaySubstantialInteractionDays: 0,
           },
           invalidation: INVALIDATION,
         }),
@@ -619,7 +618,7 @@ describe('usePeople', () => {
             lastRecordedContactDate: date,
             current30DayContactDays: 1,
             previous30DayContactDays: 0,
-            current30DayTimeTogetherDays: 1,
+            current30DaySubstantialInteractionDays: 1,
           },
           invalidation: INVALIDATION,
         }),
@@ -632,9 +631,7 @@ describe('usePeople', () => {
     )
     await act(async () => rendered.result.current.select(snapshot()))
 
-    await act(async () =>
-      rendered.result.current.logContact(date, 'timeTogether'),
-    )
+    await act(async () => rendered.result.current.logContact(date, 'activity'))
 
     expect(window).toHaveBeenCalledWith(
       expect.objectContaining({ scale: 'day', containing: date }),
@@ -642,7 +639,7 @@ describe('usePeople', () => {
     expect(logContact).toHaveBeenCalledWith(
       expect.objectContaining({
         personId: PERSON_ID,
-        interactionLevel: 'timeTogether',
+        roleId: 'activity',
         day,
       }),
     )
@@ -683,7 +680,7 @@ describe('usePeople', () => {
           days: [],
           hasMore: false,
           totalContactDays: 8,
-          totalTimeTogetherDays: 3,
+          totalSubstantialInteractionDays: 3,
           periodSummaries: [],
           invalidation: INVALIDATION,
         }),
@@ -694,7 +691,7 @@ describe('usePeople', () => {
           days: [],
           hasMore: false,
           totalContactDays: 1,
-          totalTimeTogetherDays: 0,
+          totalSubstantialInteractionDays: 0,
           periodSummaries: [],
           invalidation: INVALIDATION,
         }),

@@ -600,11 +600,13 @@ const RECORD_PEOPLE = {
   entryRevision: revision('9'),
   sectionIds: ['people'],
   peopleSectionVisible: true,
+  availableRoles: ['brief', 'involved', 'activity', 'central'] as const,
   links: [
     {
       link: {
         entryId: ENTRY_ID,
         personId: PERSON_ID,
+        roleId: 'activity' as const,
         interactionLevel: 'timeTogether' as const,
         tookPart: true,
         isSubject: false,
@@ -627,6 +629,7 @@ const RECORD_PEOPLE_AFTER_MUTATION = {
       link: {
         entryId: ENTRY_ID,
         personId: CREATED_PERSON_ID,
+        roleId: 'brief' as const,
         interactionLevel: 'none' as const,
         tookPart: false,
         isSubject: false,
@@ -1057,9 +1060,7 @@ const RESULTS: MockResults = {
         civilEndDate: null,
         title: null,
         hasWriting: true,
-        interactionLevel: 'timeTogether',
-        tookPart: true,
-        isSubject: false,
+        roleId: 'activity',
       },
     ],
     hasMore: false,
@@ -1070,7 +1071,7 @@ const RESULTS: MockResults = {
       lastRecordedContactDate: FOCUSED_DATE,
       current30DayContactDays: 3,
       previous30DayContactDays: 2,
-      current30DayTimeTogetherDays: 1,
+      current30DaySubstantialInteractionDays: 1,
     },
     invalidation: INVALIDATION,
   }),
@@ -1078,7 +1079,7 @@ const RESULTS: MockResults = {
     days: [
       {
         date: FOCUSED_DATE,
-        interactionLevel: 'timeTogether',
+        roleId: 'activity',
         memories: [
           {
             entryId: ENTRY_ID,
@@ -1087,22 +1088,20 @@ const RESULTS: MockResults = {
             civilEndDate: null,
             title: null,
             hasWriting: true,
-            interactionLevel: 'timeTogether',
-            tookPart: true,
-            isSubject: false,
+            roleId: 'activity',
           },
         ],
       },
     ],
     hasMore: false,
     totalContactDays: 3,
-    totalTimeTogetherDays: 1,
+    totalSubstantialInteractionDays: 1,
     periodSummaries: [
       {
         startDate: civilDate('2025-06-01'),
         endDate: FOCUSED_DATE,
         contactDays: 3,
-        timeTogetherDays: 1,
+        substantialInteractionDays: 1,
       },
     ],
     invalidation: INVALIDATION,
@@ -1138,6 +1137,7 @@ const RESULTS: MockResults = {
   }),
   'people.loadRecordContext': ok<RecordPeopleLoadResult>({
     outcome: 'loaded',
+    availableRoles: ['brief', 'involved', 'activity', 'central'],
     current: RECORD_PEOPLE,
     invalidation: INVALIDATION,
   }),

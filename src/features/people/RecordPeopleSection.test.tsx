@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -64,6 +70,7 @@ function linked(personValue: Person, position: number) {
     link: {
       entryId: ENTRY_ID,
       personId: personValue.id,
+      roleId: 'brief' as const,
       interactionLevel: 'none' as const,
       tookPart: false,
       isSubject: false,
@@ -82,6 +89,7 @@ const INITIAL: EntryPeopleSnapshot = {
   sectionIds: ['people'],
   peopleSectionVisible: true,
   links: [linked(ADA, 0), linked(GRACE, 1)],
+  availableRoles: ['brief', 'involved', 'activity', 'central'],
 }
 
 function snapshotOf(personValue: Person): PersonSnapshot {
@@ -98,7 +106,7 @@ function makeClient(initial: EntryPeopleSnapshot | null = INITIAL) {
     state: 'open',
     archive: {
       storeId: STORE_ID,
-      productContract: '9',
+      productContract: '11',
       storeSchemaVersion: '12',
       rootLayoutVersion: '1',
       invalidation: INVALIDATION,
@@ -122,8 +130,18 @@ function makeClient(initial: EntryPeopleSnapshot | null = INITIAL) {
       loadRecordContext: async () =>
         ok(
           current
-            ? { outcome: 'loaded', current, invalidation: INVALIDATION }
-            : { outcome: 'absent', current: null, invalidation: INVALIDATION },
+            ? {
+                outcome: 'loaded',
+                availableRoles: current.availableRoles,
+                current,
+                invalidation: INVALIDATION,
+              }
+            : {
+                outcome: 'absent',
+                availableRoles: ['brief', 'involved', 'activity', 'central'],
+                current: null,
+                invalidation: INVALIDATION,
+              },
         ),
       mutateRecordContext,
       list: async () =>
@@ -151,6 +169,7 @@ function applyMutation(
       sectionIds: ['people'],
       peopleSectionVisible: true,
       links: [],
+      availableRoles: ['brief', 'involved', 'activity', 'central'],
     }
   }
   const revisionValue = revision(String(Number(current.entryRevision) + 1))
@@ -225,7 +244,7 @@ function applyMutation(
 function view(
   client: LifeArchiveClient,
   onEntryRevision = vi.fn(),
-  entryKind: 'day' | 'week' = 'day',
+  entryKind: 'day' | 'week' | 'span' = 'day',
   contactDateBounds?: {
     readonly minimum: ReturnType<typeof civilDate>
     readonly maximum: ReturnType<typeof civilDate>
@@ -502,20 +521,23 @@ describe('RecordPeopleSection', () => {
     expect(logContact).toHaveBeenCalledWith(
       expect.objectContaining({
         personId: ADA_ID,
-        interactionLevel: 'brief',
+        roleId: 'brief',
         day,
         newEntryId: NEW_ENTRY_ID,
       }),
     )
   })
 
-  it('projects legacy links by priority and writes mutually exclusive roles', () => {
-    const included = linked(ADA, 0)
+  it('groups explicit current and historical identities without reinterpretation', () => {
+    const included = {
+      ...linked(ADA, 0),
+      link: { ...linked(ADA, 0).link, roleId: 'legacyIncluded' as const },
+    }
     const brief = {
       ...linked(GRACE, 1),
       link: {
         ...linked(GRACE, 1).link,
-        interactionLevel: 'brief' as const,
+        roleId: 'involved' as const,
         tookPart: true,
       },
     }
@@ -523,6 +545,7 @@ describe('RecordPeopleSection', () => {
       ...linked(MARGARET, 2),
       link: {
         ...linked(MARGARET, 2).link,
+        roleId: 'legacyTogether' as const,
         interactionLevel: 'timeTogether' as const,
       },
     }
@@ -530,6 +553,7 @@ describe('RecordPeopleSection', () => {
       ...linked(ADA, 3),
       link: {
         ...linked(ADA, 3).link,
+        roleId: 'legacyAbout' as const,
         interactionLevel: 'timeTogether' as const,
         tookPart: true,
         isSubject: true,
@@ -537,34 +561,21 @@ describe('RecordPeopleSection', () => {
     }
 
     const groups = groupRecordPeople([included, brief, together, about])
-    expect(groups.included).toEqual([included])
-    expect(groups.brief).toEqual([brief])
-    expect(groups.together).toEqual([together])
-    expect(groups.about).toEqual([about])
+    expect(groups.neutral).toEqual([included])
+    expect(groups.involved).toEqual([brief])
+    expect(groups.significant).toEqual([together, about])
 
     const original = {
       personId: ADA_ID,
-      interactionLevel: 'brief' as const,
-      tookPart: true,
-      isSubject: true,
+      roleId: 'brief' as const,
     }
-    expect(toggleRecordPersonRole(original, 'together')).toEqual({
+    expect(toggleRecordPersonRole(original, 'activity')).toEqual({
       ...original,
-      interactionLevel: 'timeTogether',
-      tookPart: false,
-      isSubject: false,
+      roleId: 'activity',
     })
-    expect(toggleRecordPersonRole(original, 'included')).toEqual({
+    expect(toggleRecordPersonRole(original, 'central')).toEqual({
       ...original,
-      interactionLevel: 'none',
-      tookPart: true,
-      isSubject: false,
-    })
-    expect(toggleRecordPersonRole(original, 'about')).toEqual({
-      ...original,
-      interactionLevel: 'none',
-      tookPart: false,
-      isSubject: true,
+      roleId: 'central',
     })
   })
 
@@ -579,12 +590,11 @@ describe('RecordPeopleSection', () => {
       }),
     )
     const dialog = await screen.findByRole('dialog', { name: /Ada Lovelace/ })
-    const included = within(dialog).getByRole('button', { name: 'Included' })
     const brief = within(dialog).getByRole('button', { name: 'Brief' })
-    const about = within(dialog).getByRole('button', { name: 'About' })
+    const central = within(dialog).getByRole('button', { name: 'Central' })
 
-    expect(included).toHaveAttribute('aria-pressed', 'true')
-    await user.click(brief)
+    expect(brief).toHaveAttribute('aria-pressed', 'true')
+    await user.click(central)
     await waitFor(() =>
       expect(mutateRecordContext).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -592,33 +602,14 @@ describe('RecordPeopleSection', () => {
             kind: 'upsertLink',
             link: {
               personId: ADA_ID,
-              interactionLevel: 'brief',
-              tookPart: false,
-              isSubject: false,
+              roleId: 'central',
             },
           },
         }),
       ),
     )
-    expect(included).toHaveAttribute('aria-pressed', 'false')
-    expect(brief).toHaveAttribute('aria-pressed', 'true')
-
-    await user.click(about)
-    await waitFor(() => expect(about).toHaveAttribute('aria-pressed', 'true'))
     expect(brief).toHaveAttribute('aria-pressed', 'false')
-    expect(mutateRecordContext).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        mutation: {
-          kind: 'upsertLink',
-          link: {
-            personId: ADA_ID,
-            interactionLevel: 'none',
-            tookPart: false,
-            isSubject: true,
-          },
-        },
-      }),
-    )
+    expect(central).toHaveAttribute('aria-pressed', 'true')
     expect(dialog.querySelector('[data-icon="check"]')).toBeNull()
     expect(
       within(dialog).getByRole('button', { name: 'Remove Ada Lovelace' }),
@@ -632,6 +623,58 @@ describe('RecordPeopleSection', () => {
       'data-placement',
       'center',
     )
+  })
+
+  it('renders the exact Rust-supplied ordinary and Period role order', async () => {
+    const user = userEvent.setup()
+    const ordinary = makeClient()
+    view(ordinary.client)
+    await screen.findByRole('heading', { name: 'People' })
+    await user.click(
+      screen.getByRole('button', {
+        name: /Ada Lovelace.*Open Person context/,
+      }),
+    )
+    const ordinaryDialog = await screen.findByRole('dialog', {
+      name: /Ada Lovelace/,
+    })
+    const ordinaryRoles = within(ordinaryDialog).getByRole('group', {
+      name: 'Context for Ada Lovelace',
+    })
+    expect(
+      within(ordinaryRoles)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Brief', 'Involved', 'Activity', 'Central'])
+    cleanup()
+
+    const periodSnapshot: EntryPeopleSnapshot = {
+      ...INITIAL,
+      availableRoles: ['inPeriod', 'involved', 'central'],
+      links: INITIAL.links.map((value) => ({
+        ...value,
+        link: { ...value.link, roleId: 'inPeriod' },
+      })),
+    }
+    const period = makeClient(periodSnapshot)
+    view(period.client, vi.fn(), 'span')
+    await screen.findByRole('heading', { name: 'People' })
+    await user.click(
+      screen.getByRole('button', {
+        name: /Ada Lovelace.*Open Person context/,
+      }),
+    )
+    const periodDialog = await screen.findByRole('dialog', {
+      name: /Ada Lovelace/,
+    })
+    const periodRoles = within(periodDialog).getByRole('group', {
+      name: 'Context for Ada Lovelace',
+    })
+    expect(
+      within(periodRoles)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['In Period', 'Involved', 'Central'])
   })
 
   it('assigns an unlinked Person through the unified manager without plus or check controls', async () => {
@@ -655,11 +698,11 @@ describe('RecordPeopleSection', () => {
     const margaretRow = within(manager)
       .getByText('Margaret Hamilton')
       .closest('article')!
-    const together = within(margaretRow).getByRole('button', {
-      name: 'Together',
+    const activity = within(margaretRow).getByRole('button', {
+      name: 'Activity',
     })
-    expect(together).toHaveAttribute('aria-pressed', 'false')
-    await user.click(together)
+    expect(activity).toHaveAttribute('aria-pressed', 'false')
+    await user.click(activity)
     await waitFor(() =>
       expect(mutateRecordContext).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -667,9 +710,7 @@ describe('RecordPeopleSection', () => {
             kind: 'upsertLink',
             link: {
               personId: MARGARET_ID,
-              interactionLevel: 'timeTogether',
-              tookPart: false,
-              isSubject: false,
+              roleId: 'activity',
             },
           },
         }),
@@ -682,7 +723,7 @@ describe('RecordPeopleSection', () => {
     ).toBeInTheDocument()
   })
 
-  it('quick-creates from Record, attaches Included, then opens the canonical editor', async () => {
+  it('quick-creates from Record, attaches the first Rust-supplied role, then opens the canonical editor', async () => {
     const user = userEvent.setup()
     const made = makeClient()
     const create = vi.fn<LifeArchiveClient['people']['create']>(async () =>
@@ -729,9 +770,7 @@ describe('RecordPeopleSection', () => {
             kind: 'upsertLink',
             link: {
               personId: MARGARET_ID,
-              interactionLevel: 'none',
-              tookPart: true,
-              isSubject: false,
+              roleId: 'brief',
             },
           },
         }),

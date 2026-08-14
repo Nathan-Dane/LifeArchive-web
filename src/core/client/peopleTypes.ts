@@ -134,6 +134,17 @@ export interface PersonListPage {
 }
 
 export type PersonInteractionLevel = 'none' | 'brief' | 'timeTogether'
+export type PersonRecordRole =
+  | 'brief'
+  | 'involved'
+  | 'activity'
+  | 'central'
+  | 'inPeriod'
+  | 'legacyIncluded'
+  | 'legacyTogether'
+  | 'legacyAbout'
+export type CurrentOrdinaryPersonRole =
+  'brief' | 'involved' | 'activity' | 'central'
 
 export interface PersonMemorySummary {
   readonly entryId: StableId
@@ -142,9 +153,7 @@ export interface PersonMemorySummary {
   readonly civilEndDate: CivilDate | null
   readonly title: string | null
   readonly hasWriting: boolean
-  readonly interactionLevel: PersonInteractionLevel
-  readonly tookPart: boolean
-  readonly isSubject: boolean
+  readonly roleId: PersonRecordRole
 }
 
 export interface PersonMemoriesRequest {
@@ -163,7 +172,7 @@ export interface PersonContactSummary {
   readonly lastRecordedContactDate: CivilDate | null
   readonly current30DayContactDays: number
   readonly previous30DayContactDays: number
-  readonly current30DayTimeTogetherDays: number
+  readonly current30DaySubstantialInteractionDays: number
 }
 
 export interface PersonContactSummaryRequest {
@@ -180,7 +189,7 @@ export type PersonContactHistoryRange = 'thirtyDays' | 'sixMonths' | 'all'
 
 export interface PersonContactDay {
   readonly date: CivilDate
-  readonly interactionLevel: PersonInteractionLevel
+  readonly roleId: PersonRecordRole
   readonly memories: readonly PersonMemorySummary[]
 }
 
@@ -188,7 +197,7 @@ export interface PersonContactPeriodSummary {
   readonly startDate: CivilDate
   readonly endDate: CivilDate
   readonly contactDays: number
-  readonly timeTogetherDays: number
+  readonly substantialInteractionDays: number
 }
 
 export interface PersonContactHistoryRequest {
@@ -203,14 +212,14 @@ export interface PersonContactHistoryPage {
   readonly days: readonly PersonContactDay[]
   readonly hasMore: boolean
   readonly totalContactDays: number
-  readonly totalTimeTogetherDays: number
+  readonly totalSubstantialInteractionDays: number
   readonly periodSummaries: readonly PersonContactPeriodSummary[]
   readonly invalidation: InvalidationToken
 }
 
 export interface PersonLogContactRequest {
   readonly personId: StableId
-  readonly interactionLevel: Exclude<PersonInteractionLevel, 'none'>
+  readonly roleId: CurrentOrdinaryPersonRole
   readonly day: TimeWindow
   readonly newEntryId: StableId
   readonly nowMs: Instant
@@ -295,13 +304,16 @@ export type PersonDeleteResult =
 
 export interface PersonLinkDraft {
   readonly personId: StableId
+  readonly roleId: PersonRecordRole
+}
+
+export interface EntryPersonLink {
+  readonly entryId: StableId
+  readonly personId: StableId
+  readonly roleId: PersonRecordRole
   readonly interactionLevel: PersonInteractionLevel
   readonly tookPart: boolean
   readonly isSubject: boolean
-}
-
-export interface EntryPersonLink extends PersonLinkDraft {
-  readonly entryId: StableId
   readonly opaqueLegacyRoleId: string | null
   readonly position: number
 }
@@ -319,6 +331,7 @@ export interface EntryPeopleSnapshot {
   readonly sectionIds: readonly EntrySectionId[]
   readonly peopleSectionVisible: boolean
   readonly links: readonly LinkedPersonSnapshot[]
+  readonly availableRoles: readonly PersonRecordRole[]
 }
 
 export type RecordPeopleTarget =
@@ -332,11 +345,13 @@ export interface RecordPeopleLoadRequest {
 export type RecordPeopleLoadResult =
   | {
       readonly outcome: 'absent'
+      readonly availableRoles: readonly PersonRecordRole[]
       readonly current: null
       readonly invalidation: InvalidationToken
     }
   | {
       readonly outcome: 'loaded'
+      readonly availableRoles: readonly PersonRecordRole[]
       readonly current: EntryPeopleSnapshot
       readonly invalidation: InvalidationToken
     }

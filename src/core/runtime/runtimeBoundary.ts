@@ -66,6 +66,7 @@ import {
   type PersonPhotoRemoveRequest,
   type PersonProfile,
   type PersonProfilePhoto,
+  type PersonRecordRole,
   type PersonSaveRequest,
   type PersonSnapshot,
   type RecordPeopleLoadRequest,
@@ -744,13 +745,13 @@ export const runtimeBoundary = {
     RecordPeopleMutationResult
   >(
     'person.logContact',
-    ({ personId, interactionLevel, day, newEntryId, nowMs }) => {
+    ({ personId, roleId, day, newEntryId, nowMs }) => {
       if (day.scale !== 'day') {
         throw new TypeError('Log Contact requires an exact Day window')
       }
       return noTransfers({
         personId,
-        interactionLevel,
+        roleId,
         daySpan: mapRecordSpan(day),
         newEntryId,
         nowMs,
@@ -1823,9 +1824,7 @@ function mapPersonMemory(value: unknown): PersonMemorySummary {
     ),
     title: nullableString(memory.title, 'person memory title'),
     hasWriting: boolean(memory.hasWriting, 'person memory writing state'),
-    interactionLevel: mapPersonInteraction(memory.interactionLevel),
-    tookPart: boolean(memory.tookPart, 'person memory participation'),
-    isSubject: boolean(memory.isSubject, 'person memory subject state'),
+    roleId: mapPersonRecordRole(memory.roleId),
   }
 }
 
@@ -1857,9 +1856,9 @@ function mapPersonContactSummary(
         summary.previous30DayContactDays,
         'previous contact days',
       ),
-      current30DayTimeTogetherDays: count(
-        summary.current30DayTimeTogetherDays,
-        'time-together days',
+      current30DaySubstantialInteractionDays: count(
+        summary.current30DaySubstantialInteractionDays,
+        'substantial interaction days',
       ),
     },
     invalidation: mapInvalidation(result.token),
@@ -1874,7 +1873,7 @@ function mapPersonContactHistory(
       const day = record(value, 'person contact day')
       return {
         date: requiredCivilDate(day.date, 'person contact day date'),
-        interactionLevel: mapPersonInteraction(day.interactionLevel),
+        roleId: mapPersonRecordRole(day.roleId),
         memories: array(day.memories, 'person contact-day memories').map(
           mapPersonMemory,
         ),
@@ -1882,9 +1881,9 @@ function mapPersonContactHistory(
     }),
     hasMore: boolean(result.hasMore, 'person contact history has-more state'),
     totalContactDays: count(result.totalContactDays, 'total contact days'),
-    totalTimeTogetherDays: count(
-      result.totalTimeTogetherDays,
-      'total time-together days',
+    totalSubstantialInteractionDays: count(
+      result.totalSubstantialInteractionDays,
+      'total substantial interaction days',
     ),
     periodSummaries: array(
       result.periodSummaries,
@@ -1895,9 +1894,9 @@ function mapPersonContactHistory(
         startDate: requiredCivilDate(period.startDate, 'contact period start'),
         endDate: requiredCivilDate(period.endDate, 'contact period end'),
         contactDays: count(period.contactDays, 'contact period contact days'),
-        timeTogetherDays: count(
-          period.timeTogetherDays,
-          'contact period time-together days',
+        substantialInteractionDays: count(
+          period.substantialInteractionDays,
+          'contact period substantial interaction days',
         ),
       }
     }),
@@ -1910,6 +1909,23 @@ function mapPersonInteraction(value: unknown): PersonInteractionLevel {
     value,
     ['none', 'brief', 'timeTogether'] as const,
     'Person interaction level',
+  )
+}
+
+function mapPersonRecordRole(value: unknown): PersonRecordRole {
+  return literal(
+    value,
+    [
+      'brief',
+      'involved',
+      'activity',
+      'central',
+      'inPeriod',
+      'legacyIncluded',
+      'legacyTogether',
+      'legacyAbout',
+    ] as const,
+    'Person Record role',
   )
 }
 
@@ -1997,15 +2013,11 @@ function mapRecordPeopleTarget(target: RecordPeopleTarget) {
 
 function mapPersonLinkDraft(link: {
   readonly personId: StableId
-  readonly interactionLevel: PersonInteractionLevel
-  readonly tookPart: boolean
-  readonly isSubject: boolean
+  readonly roleId: PersonRecordRole
 }) {
   return {
     personId: link.personId,
-    interactionLevel: link.interactionLevel,
-    tookPart: link.tookPart,
-    isSubject: link.isSubject,
+    roleId: link.roleId,
   }
 }
 
@@ -2058,6 +2070,7 @@ function mapEntryPeopleSnapshot(value: unknown): EntryPeopleSnapshot {
             'Person link Entry identifier',
           ),
           personId: requiredStableId(link.personId, 'Person link identifier'),
+          roleId: mapPersonRecordRole(link.roleId),
           interactionLevel: mapPersonInteraction(link.interactionLevel),
           tookPart: boolean(link.tookPart, 'Person link participation'),
           isSubject: boolean(link.isSubject, 'Person link subject state'),
@@ -2075,6 +2088,10 @@ function mapEntryPeopleSnapshot(value: unknown): EntryPeopleSnapshot {
         profilePhoto: mapPersonPhoto(linked.profilePhoto, person.id),
       }
     }),
+    availableRoles: array(
+      snapshot.availableRoles,
+      'available Person roles',
+    ).map(mapPersonRecordRole),
   }
 }
 
@@ -2082,15 +2099,20 @@ function mapRecordPeopleLoad(
   result: Record<string, unknown>,
 ): RecordPeopleLoadResult {
   const invalidation = mapInvalidation(result.token)
+  const availableRoles = array(
+    result.availableRoles,
+    'available Person roles',
+  ).map(mapPersonRecordRole)
   if (result.outcome === 'absent') {
     if (result.current !== null && result.current !== undefined) {
       throw new TypeError('Absent People context returned current state')
     }
-    return { outcome: 'absent', current: null, invalidation }
+    return { outcome: 'absent', availableRoles, current: null, invalidation }
   }
   literal(result.outcome, ['loaded'] as const, 'People context load outcome')
   return {
     outcome: 'loaded',
+    availableRoles,
     current: mapEntryPeopleSnapshot(result.current),
     invalidation,
   }
@@ -2385,7 +2407,7 @@ function mapMediaItem(value: unknown): MediaItem {
   const item = record(value, 'media item')
   return {
     id: requiredStableId(item.id, 'media identifier'),
-    parentEntryId: requiredStableId(item.entryId, 'media parent identifier'),
+    parentEntryId: mediaParentEntryId(item),
     fileName: string(item.fileName, 'media filename'),
     kind: mediaKind(item.mediaType),
     mimeType: string(item.mimeType, 'media MIME type'),
@@ -2397,6 +2419,26 @@ function mapMediaItem(value: unknown): MediaItem {
     height: nullableCount(item.height, 'media height'),
     caption: nullableString(item.caption, 'media caption'),
   }
+}
+
+function mediaParentEntryId(item: Record<string, unknown>): StableId {
+  const projected =
+    item.entryId === undefined
+      ? null
+      : requiredStableId(item.entryId, 'media parent identifier')
+  const stored = (() => {
+    if (item.owner === undefined) return null
+    const owner = record(item.owner, 'media owner')
+    literal(owner.kind, ['entry'] as const, 'media owner kind')
+    return requiredStableId(owner.entryId, 'media owner identifier')
+  })()
+  if (projected === null && stored === null) {
+    throw new TypeError('Malformed media parent identifier')
+  }
+  if (projected !== null && stored !== null && projected !== stored) {
+    throw new TypeError('Mismatched media parent identifier')
+  }
+  return projected ?? stored!
 }
 
 function mapArchiveIdentityRequest(
@@ -2541,7 +2583,7 @@ function mapArchiveExportRequest(
 ): Record<string, unknown> {
   return {
     operationId: request.operationId,
-    contractVersion: '9',
+    contractVersion: '10',
     archiveId: request.artifactId,
     createdAtMs: request.createdAtMs,
     createdBy: {

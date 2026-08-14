@@ -18,6 +18,7 @@ import { useRecordMedia } from './useRecordMedia'
 export interface RecordMediaProps {
   readonly client: LifeArchiveClient
   readonly ownerId: StableId | null
+  readonly parentRevision?: Revision | null
   readonly developmentMock?: boolean
   readonly showBeforeOwnerExists?: boolean
   readonly onParentRevision?: (revision: Revision) => void
@@ -27,6 +28,7 @@ export interface RecordMediaProps {
 export function RecordMedia({
   client,
   ownerId,
+  parentRevision = null,
   developmentMock = false,
   showBeforeOwnerExists = false,
   onParentRevision,
@@ -48,7 +50,11 @@ export function RecordMedia({
   const [failedPreviewImage, setFailedPreviewImage] = useState<StableId | null>(
     null,
   )
-  const media = useRecordMedia(client, { ownerId, onParentRevision })
+  const media = useRecordMedia(client, {
+    ownerId,
+    expectedParentRevision: parentRevision,
+    onParentRevision,
+  })
   const displayedPreview = media.preview
   useEffect(() => {
     if (

@@ -62,7 +62,7 @@ function makeClient() {
     state: 'open',
     archive: {
       storeId: STORE_ID,
-      productContract: '9',
+      productContract: '11',
       storeSchemaVersion: '12',
       rootLayoutVersion: '1',
       invalidation: INVALIDATION,
@@ -101,7 +101,7 @@ function makeClient() {
             lastRecordedContactDate: null,
             current30DayContactDays: 0,
             previous30DayContactDays: 0,
-            current30DayTimeTogetherDays: 0,
+            current30DaySubstantialInteractionDays: 0,
           },
           invalidation: INVALIDATION,
         }),

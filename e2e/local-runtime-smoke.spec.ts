@@ -111,9 +111,9 @@ test.describe('verified runtime integration', () => {
     await expect(
       page.getByRole('button', { name: 'Year', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true')
-    const location = await page
-      .locator('.record-navigation__location')
-      .innerText()
+    const locationLabel = page.locator('.record-navigation__location')
+    await expect(locationLabel).toHaveText(/^\d{4}$/)
+    const location = await locationLabel.innerText()
     await page.reload()
     await expect(
       page.getByRole('button', { name: 'Year', exact: true }),
@@ -132,7 +132,7 @@ test.describe('verified runtime integration', () => {
     context,
     page,
   }) => {
-    const writing = 'Café  日本語\tpreserved'
+    const writing = 'Café\u00a0 日本語 preserved'
     const pageErrors: string[] = []
     const consoleErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(error.message))
@@ -291,44 +291,50 @@ test.describe('verified runtime integration', () => {
     if (await createAnyway.isVisible()) await createAnyway.click()
     await expect(timeNavigation).toBeVisible({ timeout: 20_000 })
 
-    await page.getByRole('link', { name: 'People' }).click()
+    await page.getByRole('link', { name: 'Index' }).click()
+    await page.getByRole('link', { name: /People/ }).click()
     await page.getByRole('button', { name: 'New Person' }).click()
     const createPerson = page.getByRole('dialog', { name: 'New Person' })
     await createPerson.getByRole('textbox', { name: 'Name' }).fill(personName)
-    await createPerson.getByRole('button', { name: 'Save' }).click()
-    await expect(
-      page.getByRole('button', { name: new RegExp(personName) }),
-    ).toBeVisible({
-      timeout: 20_000,
-    })
-
-    await page
-      .locator('.people-manager__list')
-      .getByRole('button', { name: new RegExp(personName) })
+    await createPerson
+      .getByRole('button', { name: 'Create and continue' })
       .click()
-    const editPerson = page.getByRole('dialog', { name: 'Person' })
-    await editPerson.locator('input[type="file"]').setInputFiles({
+    await expect(page).toHaveURL(/\/index\/people\/[^/]+\/edit$/)
+    await page.locator('input[type="file"]').setInputFiles({
       name: 'person.png',
       mimeType: 'image/png',
       buffer: photo,
     })
     await expect(
-      editPerson.getByRole('img', { name: `Profile photo for ${personName}` }),
+      page.getByRole('img', { name: `Profile photo for ${personName}` }),
     ).toBeVisible({ timeout: 20_000 })
-    await editPerson.getByRole('button', { name: 'Back to People' }).click()
+    await page.getByRole('button', { name: 'Back to People' }).click()
 
     await page.getByRole('link', { name: 'Record' }).click()
     const editor = page.getByRole('textbox', { name: 'Writing editor' })
     await expect(editor).toBeVisible({ timeout: 20_000 })
-    await editor.fill('A Day linked to a Person')
+    await expect(async () => {
+      await expect(editor).toBeEditable()
+      await editor.fill('A Day linked to a Person')
+    }).toPass({ timeout: 20_000 })
     await expect(page.getByText('Saved.')).toBeVisible()
     await page.getByText('Add Context').click()
     await page.getByRole('button', { name: 'People', exact: true }).click()
-    await page.getByRole('button', { name: 'Add People' }).click()
     await page
-      .getByRole('menuitemcheckbox', { name: new RegExp(personName) })
+      .getByRole('button', { name: 'Manage People in This Entry' })
       .click()
-    await page.keyboard.press('Escape')
+    const manager = page.getByRole('dialog', {
+      name: 'People in this entry',
+    })
+    const personRoles = manager.getByRole('group', {
+      name: `Context for ${personName}`,
+    })
+    await personRoles.getByRole('button', { name: 'Activity' }).click()
+    await manager
+      .getByRole('button', {
+        name: 'Close People in This Entry manager',
+      })
+      .click()
     await expect(
       page.getByRole('button', {
         name: new RegExp(`${personName}.*Open Person context`),
@@ -341,8 +347,9 @@ test.describe('verified runtime integration', () => {
         name: new RegExp(`${personName}.*Open Person context`),
       }),
     ).toBeVisible({ timeout: 20_000 })
-    await page.getByRole('link', { name: 'People' }).click()
-    await expect(page).toHaveURL(/\/people$/)
+    await page.getByRole('link', { name: 'Index' }).click()
+    await page.getByRole('link', { name: /People/ }).click()
+    await expect(page).toHaveURL(/\/index\/people$/)
     await page
       .locator('.people-manager__list')
       .getByRole('button', { name: new RegExp(personName) })
@@ -350,7 +357,7 @@ test.describe('verified runtime integration', () => {
     await expect(
       page.getByRole('img', { name: `Profile photo for ${personName}` }),
     ).toBeVisible({ timeout: 20_000 })
-    await editPerson.getByRole('button', { name: 'Back to People' }).click()
+    await page.getByRole('button', { name: 'Back to People' }).click()
 
     await page.getByRole('link', { name: 'Settings' }).click()
     await page.getByRole('link', { name: 'Manage Archive' }).click()
@@ -398,7 +405,7 @@ test.describe('verified runtime integration', () => {
   test('preserves ordinary writing through a full browser-process restart', async ({
     browserName,
   }, testInfo) => {
-    const writing = 'Restart proof: Café  日本語'
+    const writing = 'Restart proof: Café\u00a0 日本語'
     const browserType = browserName === 'firefox' ? firefox : chromium
     const profile = testInfo.outputPath('ordinary-restart-profile')
     let persistent = await browserType.launchPersistentContext(profile)

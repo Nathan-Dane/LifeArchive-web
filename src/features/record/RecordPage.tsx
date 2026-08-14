@@ -114,6 +114,9 @@ export function RecordPage({
         <RecordMedia
           client={client}
           ownerId={events.creating ? null : (events.object?.summary.id ?? null)}
+          parentRevision={
+            events.creating ? null : (events.object?.summary.revision ?? null)
+          }
           developmentMock={developmentMock}
           onParentRevision={events.adoptMediaRevision}
           onCountChange={navigationSummary.reportMediaCount}
@@ -139,6 +142,9 @@ export function RecordPage({
         <RecordMedia
           client={client}
           ownerId={spans.creating ? null : (spans.object?.summary.id ?? null)}
+          parentRevision={
+            spans.creating ? null : (spans.object?.summary.revision ?? null)
+          }
           developmentMock={developmentMock}
           onParentRevision={spans.adoptMediaRevision}
           onCountChange={navigationSummary.reportMediaCount}

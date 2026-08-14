@@ -23,7 +23,7 @@ const pinnedLock = {
   artifactUrl:
     'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.3.tar.gz',
   sha256: 'f'.repeat(64),
-  productContract: '9',
+  productContract: '11',
   bindingsAbi: '1',
   status: 'pinned',
 } as const
@@ -32,20 +32,20 @@ const manifest = {
   manifestVersion: 1,
   runtimeVersion: '0.1.3',
   buildId: 'web-runtime-0.1.3-001',
-  productContract: '9',
+  productContract: '11',
   bindingsAbi: '1',
   dependencyVersions: {
-    domain: '7',
+    domain: '8',
     timeNavigation: '1',
     durableMedia: '2',
-    archiveApplication: '8',
-    applicationQuery: '7',
+    archiveApplication: '9',
+    applicationQuery: '8',
     providerNeutralAI: '3',
-    archiveOverviewExport: '9',
-    store: '8',
+    archiveOverviewExport: '10',
+    store: '10',
     rootLayout: '1',
-    sqliteSchema: '12',
-    archiveFormat: '0.7.0',
+    sqliteSchema: '15',
+    archiveFormat: '0.8.0',
   },
   capabilities: WEB_V0_1_CAPABILITIES.map(([name, version]) => ({
     name,
@@ -144,7 +144,7 @@ describe('runtime state', () => {
     ).toThrow()
   })
 
-  it('keeps every ergonomic runtime dispatch inside the approved 58-operation ABI', () => {
+  it('keeps every ergonomic runtime dispatch inside the approved 62-operation ABI', () => {
     const approved = new Set<string>(
       WEB_V0_1_CAPABILITIES.map(([operation]) => operation),
     )
@@ -152,7 +152,7 @@ describe('runtime state', () => {
       (entry) => entry.operation,
     )
 
-    expect(WEB_V0_1_CAPABILITIES).toHaveLength(58)
+    expect(WEB_V0_1_CAPABILITIES).toHaveLength(62)
     expect(new Set(dispatched).size).toBe(dispatched.length)
     expect(dispatched.filter((operation) => !approved.has(operation))).toEqual(
       [],
@@ -163,6 +163,12 @@ describe('runtime state', () => {
         // Kept in the runtime inventory for strict legacy callers. The web UI
         // exclusively uses the inspect/review/apply workflow.
         'archive.apply',
+        // These current runtime capabilities remain below the ergonomic
+        // client boundary until their existing media workflows adopt them.
+        'media.browseArchive',
+        'media.rename',
+        'media.reorder',
+        'media.replaceContent',
         'product.describe',
         'store.invalidation',
         'operation.cancel',

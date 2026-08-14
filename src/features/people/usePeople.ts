@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   ClientFailure,
+  CurrentOrdinaryPersonRole,
   InvalidationToken,
   LifeArchiveClient,
   PersonContactHistoryPage,
   PersonContactHistoryRange,
   PersonContactSummary,
-  PersonInteractionLevel,
   PersonListCursor,
   PersonMemorySummary,
   PersonProfile,
@@ -860,7 +860,7 @@ export function usePeople(client: LifeArchiveClient) {
   const logContact = useCallback(
     async (
       date: ReturnType<typeof civilToday>,
-      interactionLevel: Exclude<PersonInteractionLevel, 'none'>,
+      roleId: CurrentOrdinaryPersonRole,
     ) => {
       const current = stateRef.current
       if (!current.selected) return false
@@ -889,7 +889,7 @@ export function usePeople(client: LifeArchiveClient) {
       }
       const result = await client.people.logContact({
         personId,
-        interactionLevel,
+        roleId,
         day: day.value,
         newEntryId: client.operations.newStableId(),
         nowMs: Date.now(),

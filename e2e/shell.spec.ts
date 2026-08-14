@@ -12,9 +12,10 @@ import {
  * Only the runtime-unavailable state is reachable in a production build — there
  * is no runtime yet and the development mock cannot be built in — so these
  * tests check what that state proves: the frame, the top bar, the appearance
- * preference, and that the page stays within its viewport at each staged
- * breakpoint. Region staging inside the workspace is asserted in the component
- * tests, because a view that offers regions is not reachable yet.
+ * preference in its approved Settings surface, and that the unavailable page
+ * stays within its viewport at each staged breakpoint. Region staging inside
+ * the workspace is asserted in the component tests, because a view that offers
+ * regions is not reachable yet.
  *
  * Geometry and computed colour are asserted rather than compared against
  * screenshot baselines: three engines rendering system fonts produce three
@@ -30,6 +31,9 @@ const VIEWPORTS: ReadonlyArray<{
   { name: 'tablet', headerRows: 1 },
   { name: 'mobile', headerRows: 2 },
 ]
+
+const DEVELOPMENT_MOCK_APPEARANCE_URL =
+  'http://localhost:4191/settings/appearance'
 
 function channel(value: number): number {
   const ratio = value / 255
@@ -82,9 +86,9 @@ test.describe('the application shell', () => {
       const headerHeight = (await header.boundingBox())!.height
       expect(headerHeight).toBeGreaterThan(viewport.headerRows === 1 ? 48 : 90)
 
-      /* The appearance control keeps its name at every width. */
+      /* Recovery remains operable at every width. */
       await expect(
-        page.getByRole('button', { name: /^Appearance: / }),
+        page.getByRole('button', { name: 'Try again' }),
       ).toBeVisible()
     })
   }
@@ -92,12 +96,12 @@ test.describe('the application shell', () => {
   test('switches appearance, stays legible, and remembers the choice', async ({
     page,
   }) => {
-    await page.goto('/record')
+    await page.goto(DEVELOPMENT_MOCK_APPEARANCE_URL)
 
-    const control = page.getByRole('button', { name: /^Appearance: / })
-    await expect(control).toHaveAccessibleName('Appearance: System')
+    const theme = page.getByRole('combobox', { name: 'Theme' })
+    await expect(theme).toHaveValue('system')
 
-    await control.click()
+    await theme.selectOption('light')
     await expect(page.locator('html')).toHaveAttribute(
       'data-appearance',
       'light',
@@ -105,7 +109,7 @@ test.describe('the application shell', () => {
     const light = await headingColours(page)
     expect(contrast(light.text, light.background)).toBeGreaterThanOrEqual(4.5)
 
-    await control.click()
+    await theme.selectOption('dark')
     await expect(page.locator('html')).toHaveAttribute(
       'data-appearance',
       'dark',
@@ -119,9 +123,9 @@ test.describe('the application shell', () => {
       'data-appearance',
       'dark',
     )
-    await expect(
-      page.getByRole('button', { name: 'Appearance: Dark' }),
-    ).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Theme' })).toHaveValue(
+      'dark',
+    )
   })
 
   test('serves its styles relative to wherever it is hosted', async ({

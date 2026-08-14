@@ -381,11 +381,13 @@
 
 .person-contact-task__choices {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-sm);
 }
 
 .person-contact-task__choices > .button {
+  min-width: 0;
+  padding-inline: var(--space-sm);
   justify-content: center;
 }
 

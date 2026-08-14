@@ -87,7 +87,7 @@ function makeClient(): LifeArchiveClient {
     state: 'open',
     archive: {
       storeId: STORE_ID,
-      productContract: '9',
+      productContract: '11',
       storeSchemaVersion: '12',
       rootLayoutVersion: '1',
       invalidation: INVALIDATION,
@@ -262,10 +262,18 @@ describe('Person routed pages', () => {
     await user.click(screen.getByRole('button', { name: 'Log Contact' }))
     const task = screen.getByRole('dialog', { name: 'Log Contact' })
     expect(task.parentElement).toHaveAttribute('data-placement', 'center')
-    await user.click(within(task).getByRole('button', { name: 'Together' }))
+    const choices = within(task).getByRole('group', { name: 'Contact kind' })
+    expect(
+      within(choices)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Brief', 'Involved', 'Activity', 'Central'])
+    await user.click(
+      within(choices).getByRole('button', { name: /^Activity\./ }),
+    )
     expect(people.logContact).toHaveBeenCalledWith(
       expect.any(String),
-      'timeTogether',
+      'activity',
     )
   })
 

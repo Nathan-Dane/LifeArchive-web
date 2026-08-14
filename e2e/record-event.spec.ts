@@ -8,7 +8,9 @@ test.describe('Event editing', () => {
   }) => {
     await page.goto(DEVELOPMENT_MOCK_URL)
 
-    await expect(page.getByRole('heading', { name: 'Entry' })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Day entry', exact: true }),
+    ).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Spans' })).toBeVisible()
     await expect(
@@ -39,13 +41,7 @@ test.describe('Event editing', () => {
     expect(font.status).toBe('loaded')
     expect(
       await page.evaluate(() =>
-        [...document.styleSheets].some((sheet) =>
-          [...sheet.cssRules].some(
-            (rule) =>
-              rule.cssText.includes('Material Symbols Rounded') &&
-              rule.cssText.includes('data:font/woff2;base64,'),
-          ),
-        ),
+        document.fonts.check('16px "Material Symbols Rounded"'),
       ),
     ).toBe(true)
 
@@ -62,7 +58,7 @@ test.describe('Event editing', () => {
       resources.some(({ name }) =>
         name.includes('material-symbols-rounded-subset'),
       ),
-    ).toBe(false)
+    ).toBe(true)
   })
 
   test('creates or cancels explicitly and confirms deletion', async ({
@@ -70,10 +66,16 @@ test.describe('Event editing', () => {
   }) => {
     await page.goto(DEVELOPMENT_MOCK_URL)
 
-    await page.getByRole('button', { name: 'New Event' }).click()
+    await page.getByRole('button', { name: 'New event or span' }).click()
+    const creationMenu = page.getByRole('dialog', {
+      name: 'New event or span',
+    })
+    await creationMenu.getByRole('button', { name: 'New Event' }).click()
+    await expect(creationMenu).toHaveCount(0)
     const title = page.getByRole('textbox', { name: 'Title and icon' })
     await expect(title).toBeVisible()
     await title.fill('An exact new Event')
+    await expect(title).toHaveValue('An exact new Event')
     await expect(page.getByRole('button', { name: 'Create' })).toBeEnabled()
     await page.getByRole('button', { name: 'Cancel' }).click()
     await expect(page.getByRole('button', { name: 'Create' })).toHaveCount(0)

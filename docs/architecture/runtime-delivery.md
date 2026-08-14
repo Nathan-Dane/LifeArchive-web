@@ -3,7 +3,7 @@
 How the compiled LifeArchive runtime reaches this repository, how it is pinned
 and verified, how it is loaded, and how it behaves when it is missing.
 
-Runtime 0.1.3, Product application contract 9, and bindings ABI 1 are the
+Runtime 0.1.3, Product application contract 11, and bindings ABI 1 are the
 reviewed runtime surface for this checkout. The verified release candidate is
 qualified locally, but the immutable hosted artifact is not published yet, so
 `runtime/runtime.lock.json` is deliberately `not-integrated` instead of
@@ -138,7 +138,7 @@ On open, the client negotiates before doing product work:
 Absent capabilities disable features honestly. They are never emulated in
 TypeScript.
 
-The current inventory includes the complete Product 9 People surface: Person
+The current inventory includes the complete Product 11 People surface: Person
 profile lifecycle, bounded lists and derived information, Entry context,
 contact logging, photo byte transfer, merge, and safe delete. Generated wire
 declarations and envelopes stay below `LifeArchiveClient`; feature components
