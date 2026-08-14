@@ -1386,7 +1386,6 @@
   padding-inline: var(--space-xs);
   border-radius: var(--radius-small);
   background: var(--color-surface-alt);
-  font-size: 0.92em;
 }
 
 .record-editor__code-block {
