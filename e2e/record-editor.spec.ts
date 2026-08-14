@@ -53,11 +53,31 @@ test.describe('the visual Markdown editor', () => {
 
     await editor.click()
     await page.keyboard.press(`${MODIFIER}+A`)
+    await page.getByRole('button', { name: 'Underline' }).click()
+    await expect(editor.locator('u')).toHaveText('LifeArchive')
+
+    await editor.click()
+    await page.keyboard.press(`${MODIFIER}+A`)
+    await page.getByRole('button', { name: 'Strikethrough' }).click()
+    await expect(editor.locator('.record-editor__strikethrough')).toHaveText(
+      'LifeArchive',
+    )
+
+    await editor.click()
+    await page.keyboard.press(`${MODIFIER}+A`)
+    await page.getByRole('button', { name: 'Inline code' }).click()
+    await expect(editor.locator('code')).toHaveText('LifeArchive')
+    await page.keyboard.press(`${MODIFIER}+Z`)
+    await expect(editor.locator('code')).toHaveCount(0)
+
+    await editor.click()
+    await page.keyboard.press(`${MODIFIER}+A`)
+    await page.getByRole('button', { name: 'Text style' }).click()
     await page
-      .getByRole('combobox', { name: 'Text style' })
-      .selectOption('headingTwo')
+      .getByRole('menuitemradio', { name: 'Heading', exact: true })
+      .click()
     await expect(
-      editor.getByRole('heading', { level: 2, name: 'LifeArchive' }),
+      editor.getByRole('heading', { level: 1, name: 'LifeArchive' }),
     ).toBeVisible()
 
     await editor.click()

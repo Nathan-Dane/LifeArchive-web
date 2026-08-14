@@ -52,8 +52,8 @@ installClientMedia()
 beforeEach(resetClientMedia)
 
 /*
- * jsdom omits geometry and drag primitives that Lexical's DOM selection and
- * clipboard handlers probe. Layout is immaterial to component tests.
+ * jsdom omits geometry and clipboard/drag primitives used by browser editing
+ * interactions. Layout is immaterial to component tests.
  */
 Range.prototype.getClientRects = () => [] as unknown as DOMRectList
 Range.prototype.getBoundingClientRect = () => new DOMRect()

@@ -219,6 +219,12 @@ describe('the shared LifeArchive Markdown codec', () => {
     ).toBeNull()
   })
 
+  it('does not persist structural empty editor paragraphs', () => {
+    const root = document.createElement('div')
+    root.innerHTML = '<p><br></p><hr><div><br></div>'
+    expect(encodeMarkdown(decodeEditorDom(root))).toBe('---')
+  })
+
   it('removes hostile pasted structures, handlers, media, and unsafe anchors', () => {
     const parser = new DOMParser()
     const pasted = parser.parseFromString(

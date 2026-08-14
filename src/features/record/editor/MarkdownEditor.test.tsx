@@ -105,6 +105,17 @@ function selectText(textbox: HTMLElement, start: number, end: number) {
   })
 }
 
+function selectElement(element: HTMLElement) {
+  act(() => {
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    document.dispatchEvent(new Event('selectionchange'))
+  })
+}
+
 function saved(
   request: Parameters<LifeArchiveClient['record']['save']>[0],
   nextRevision = '3',
@@ -142,6 +153,46 @@ function deferred<Value>() {
 }
 
 describe('MarkdownEditor', () => {
+  it('does not rewrite or emit source merely because the editor opened', async () => {
+    const onChange = vi.fn()
+    const view = render(
+      <I18nProvider locale="en">
+        <MarkdownWritingSurface
+          value="__bold__\nvisible line"
+          disabled={false}
+          onChange={onChange}
+        />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await userEvent.setup().click(textbox)
+    fireEvent.blur(textbox)
+    view.unmount()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('autofocuses an enabled surface with the caret at the writing end', async () => {
+    render(
+      <I18nProvider locale="en">
+        <MarkdownWritingSurface
+          value={'first\n\nlast'}
+          disabled={false}
+          onChange={vi.fn()}
+        />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await waitFor(() => expect(textbox).toHaveFocus())
+    const selection = window.getSelection()
+    expect(selection?.isCollapsed).toBe(true)
+    expect(selection?.anchorNode?.textContent).toBe('last')
+    expect(selection?.anchorOffset).toBe(4)
+  })
+
   it('imports Markdown as visual Unicode writing without source punctuation', async () => {
     const source =
       '## Café\u00a0\n\n**日本語** and *visuelt*\n\n- one\n- two\n\n> quote'
@@ -269,7 +320,7 @@ describe('MarkdownEditor', () => {
     await user.click(
       within(blockMenu).getByRole('menuitemradio', { name: 'Heading' }),
     )
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       'click me',
     )
 
@@ -278,6 +329,74 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(textbox.querySelector('ul')).toBeInTheDocument())
     expect(textbox).not.toHaveTextContent(/[*#[\]()]/)
     expect(onChange).toHaveBeenCalled()
+  })
+
+  it('edits and removes an existing link without losing its label', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownWritingSurface
+          value="[label](https://old.example)"
+          disabled={false}
+          onChange={onChange}
+        />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    selectElement(screen.getByRole('link', { name: 'label' }))
+    await user.click(screen.getByRole('button', { name: 'Link' }))
+    const address = screen.getByRole('textbox', { name: 'Web address' })
+    expect(address).toHaveValue('https://old.example')
+    await user.clear(address)
+    await user.type(address, 'https://new.example/path')
+    await user.click(screen.getByRole('button', { name: 'Apply link' }))
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'label' })).toHaveAttribute(
+        'href',
+        'https://new.example/path',
+      ),
+    )
+
+    selectElement(screen.getByRole('link', { name: 'label' }))
+    await user.click(screen.getByRole('button', { name: 'Link' }))
+    await user.click(screen.getByRole('button', { name: 'Remove link' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('link', { name: 'label' })).toBeNull(),
+    )
+    expect(textbox).toHaveTextContent('label')
+    expect(onChange).toHaveBeenLastCalledWith('label')
+  })
+
+  it('indents and outdents list items semantically', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownWritingSurface
+          value={'- one\n- two'}
+          disabled={false}
+          onChange={onChange}
+        />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await waitFor(() => expect(textbox.querySelectorAll('li')).toHaveLength(2))
+    const items = textbox.querySelectorAll('li')
+    selectElement(items[1] as HTMLElement)
+    await user.click(screen.getByRole('button', { name: 'Indent list item' }))
+    await waitFor(() =>
+      expect(onChange).toHaveBeenLastCalledWith('- one\n    - two'),
+    )
+    selectElement(textbox.querySelector('ul ul li') as HTMLElement)
+    await user.click(screen.getByRole('button', { name: 'Outdent list item' }))
+    await waitFor(() =>
+      expect(onChange).toHaveBeenLastCalledWith('- one\n- two'),
+    )
   })
 
   it('pastes Unicode into the visual document and exports Markdown', async () => {
@@ -322,6 +441,65 @@ describe('MarkdownEditor', () => {
     })
     expect(onChange).not.toHaveBeenCalled()
     fireEvent.compositionEnd(textbox, { data: '日本' })
+  })
+
+  it('emits composition only after the committed Unicode sequence', async () => {
+    const onChange = vi.fn()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownWritingSurface
+          value="start"
+          disabled={false}
+          onChange={onChange}
+        />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    const paragraph = textbox.querySelector('p')!
+    fireEvent.compositionStart(textbox)
+    paragraph.append(document.createTextNode(' 日本語 👨‍👩‍👧‍👦'))
+    fireEvent.input(textbox, { inputType: 'insertCompositionText' })
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.compositionEnd(textbox, { data: ' 日本語 👨‍👩‍👧‍👦' })
+    await waitFor(() =>
+      expect(onChange).toHaveBeenLastCalledWith('start 日本語 👨‍👩‍👧‍👦'),
+    )
+  })
+
+  it('reduces hostile rich paste to supported semantics before insertion', async () => {
+    const onChange = vi.fn()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownWritingSurface value="" disabled={false} onChange={onChange} />
+      </I18nProvider>,
+    )
+    const textbox = await screen.findByRole('textbox', {
+      name: 'Writing editor',
+    })
+    await userEvent.setup().click(textbox)
+    fireEvent.paste(textbox, {
+      clipboardData: {
+        getData: (type: string) =>
+          type === 'text/html'
+            ? '<p onclick="alert(1)"><strong>bold</strong> <u>under</u> <a href="javascript:alert(1)">label</a><span style="color:red"> text</span><img src=x onerror=alert(1)><iframe srcdoc=x></iframe><svg onload=alert(1)></svg><script>alert(1)</script></p>'
+            : 'bold under label text',
+      },
+    })
+    await waitFor(() =>
+      expect(onChange).toHaveBeenLastCalledWith(
+        '**bold** <u>under</u> label text',
+      ),
+    )
+    expect(textbox.querySelector('strong')).toHaveTextContent('bold')
+    expect(textbox.querySelector('u')).toHaveTextContent('under')
+    expect(
+      textbox.querySelector(
+        'script,img,iframe,svg,[onclick],[onerror],[onload],[style]',
+      ),
+    ).toBeNull()
+    expect(screen.queryByRole('link', { name: 'label' })).toBeNull()
   })
 
   it('keeps the buffer through a scripted load failure and retry', async () => {
@@ -555,7 +733,7 @@ describe('MarkdownEditor', () => {
   })
 
   it('shows the current conflict snapshot and never merges automatically', async () => {
-    const current = entry('archive version')
+    const current = entry('# Archive\n\n**version**')
     if (current.presence !== 'present') throw new Error('Expected entry')
     const save = vi.fn<LifeArchiveClient['record']['save']>(async (request) =>
       ok<OrdinarySaveResult>({
@@ -591,7 +769,12 @@ describe('MarkdownEditor', () => {
     await user.click(textbox)
     await user.paste(' kept locally')
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('archive version')
+    await within(alert).findByRole('heading', { level: 1, name: 'Archive' })
+    expect(alert).toHaveTextContent('Archiveversion')
+    expect(within(alert).getByRole('heading', { level: 1 })).toHaveTextContent(
+      'Archive',
+    )
+    expect(alert.querySelector('strong')).toHaveTextContent('version')
     expect(textbox).toHaveTextContent('my start')
     expect(textbox).toHaveTextContent('kept locally')
     expect(textbox).not.toHaveTextContent('archive version')
@@ -600,7 +783,7 @@ describe('MarkdownEditor', () => {
     await user.click(
       screen.getByRole('button', { name: 'Use archive writing' }),
     )
-    await waitFor(() => expect(textbox).toHaveTextContent('archive version'))
+    await waitFor(() => expect(textbox).toHaveTextContent('Archiveversion'))
     expect(textbox).not.toHaveTextContent('kept locally')
     expect(save).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('status')).toHaveTextContent('Ready to save')

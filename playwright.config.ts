@@ -31,6 +31,16 @@ export default defineConfig({
   projects: [
     { name: 'chromium-151', use: { ...devices['Desktop Chrome'] } },
     { name: 'firefox-153', use: { ...devices['Desktop Firefox'] } },
+    {
+      name: 'webkit-26.5-editor',
+      testMatch: /record-editor-compat\.spec\.ts/,
+      use: { ...devices['Desktop Safari'] },
+    },
+    {
+      name: 'mobile-webkit-26.5-editor',
+      testMatch: /record-editor-compat\.spec\.ts/,
+      use: { ...devices['iPhone 15'] },
+    },
   ],
   webServer: [
     {
