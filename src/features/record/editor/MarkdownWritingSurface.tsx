@@ -766,18 +766,36 @@ function Toolbar({
   const blockStyles: readonly {
     readonly value: Exclude<BlockStyle, 'mixed'>
     readonly label: string
+    readonly icon: EditorIconName
   }[] = [
-    { value: 'paragraph', label: t('record.editor.paragraph') },
-    { value: 'heading', label: t('record.editor.headingTwo') },
-    { value: 'subheading', label: t('record.editor.headingThree') },
-    { value: 'quote', label: t('record.editor.quote') },
-    { value: 'codeBlock', label: t('record.editor.codeBlock') },
+    {
+      value: 'paragraph',
+      label: t('record.editor.paragraph'),
+      icon: 'paragraph',
+    },
+    {
+      value: 'heading',
+      label: t('record.editor.headingTwo'),
+      icon: 'heading',
+    },
+    {
+      value: 'subheading',
+      label: t('record.editor.headingThree'),
+      icon: 'subheading',
+    },
+    { value: 'quote', label: t('record.editor.quote'), icon: 'quote' },
+    {
+      value: 'codeBlock',
+      label: t('record.editor.codeBlock'),
+      icon: 'code-block',
+    },
   ]
+  const currentBlock = blockStyles.find(({ value }) => value === state.block)
   const currentBlockLabel =
     state.block === 'mixed'
       ? t('record.editor.mixedStyle')
-      : (blockStyles.find(({ value }) => value === state.block)?.label ??
-        blockStyles[0]!.label)
+      : (currentBlock?.label ?? blockStyles[0]!.label)
+  const currentBlockIcon = currentBlock?.icon ?? 'paragraph'
   const closeBlockMenu = (restoreFocus = true) => {
     setBlockMenuOpen(false)
     if (restoreFocus) queueMicrotask(() => blockButton.current?.focus())
@@ -896,7 +914,10 @@ function Toolbar({
               : openBlockMenu(event.detail === 0)
           }
         >
-          <span>{currentBlockLabel}</span>
+          <EditorIcon name={currentBlockIcon} />
+          <span className="record-editor__block-style-label">
+            {currentBlockLabel}
+          </span>
           <RecordControlIcon name="expand" />
         </button>
         <RecordOverlay
@@ -940,6 +961,7 @@ function Toolbar({
                   run(option.value)
                 }}
               >
+                <EditorIcon name={option.icon} />
                 <span>{option.label}</span>
                 <span className="record-editor__block-menu-check" aria-hidden>
                   {state.block === option.value ? (
