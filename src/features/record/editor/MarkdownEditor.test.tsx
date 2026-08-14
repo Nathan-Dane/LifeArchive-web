@@ -153,6 +153,62 @@ function deferred<Value>() {
 }
 
 describe('MarkdownEditor', () => {
+  it('renders every editing command and block style from the Material Symbols subset', async () => {
+    const user = userEvent.setup()
+    render(
+      <I18nProvider locale="en">
+        <MarkdownWritingSurface
+          value="Writing"
+          disabled={false}
+          onChange={vi.fn()}
+        />
+      </I18nProvider>,
+    )
+
+    for (const [label, glyph] of [
+      ['Undo', 'undo'],
+      ['Redo', 'redo'],
+      ['Text style', 'format_paragraph'],
+      ['Bold', 'format_bold'],
+      ['Italic', 'format_italic'],
+      ['Underline', 'format_underlined'],
+      ['Strikethrough', 'strikethrough_s'],
+      ['Inline code', 'code'],
+      ['Bulleted list', 'format_list_bulleted'],
+      ['Numbered list', 'format_list_numbered'],
+      ['Indent list item', 'format_indent_increase'],
+      ['Outdent list item', 'format_indent_decrease'],
+      ['Quote', 'format_quote'],
+      ['Insert divider', 'horizontal_rule'],
+      ['Clear formatting', 'format_clear'],
+      ['Link', 'link_2'],
+    ] as const) {
+      expect(
+        screen
+          .getByRole('button', { name: label })
+          .querySelector('.material-symbols-rounded'),
+        label,
+      ).toHaveTextContent(glyph)
+    }
+
+    await user.click(screen.getByRole('button', { name: 'Text style' }))
+    const menu = screen.getByRole('menu', { name: 'Text style' })
+    for (const [label, glyph] of [
+      ['Paragraph', 'format_paragraph'],
+      ['Heading', 'format_h1'],
+      ['Subheading', 'format_h2'],
+      ['Quote', 'format_quote'],
+      ['Code block', 'code_blocks'],
+    ] as const) {
+      expect(
+        within(menu)
+          .getByRole('menuitemradio', { name: label })
+          .querySelector('.material-symbols-rounded'),
+        label,
+      ).toHaveTextContent(glyph)
+    }
+  })
+
   it('does not rewrite or emit source merely because the editor opened', async () => {
     const onChange = vi.fn()
     const view = render(

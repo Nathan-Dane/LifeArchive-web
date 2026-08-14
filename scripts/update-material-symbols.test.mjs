@@ -16,9 +16,9 @@ test('references the generated local font asset', () => {
   assert.doesNotMatch(css, /https?:\/\//)
 })
 
-test('builds one sorted, duplicate-free selection from semantic and UI glyphs', () => {
+test('builds one sorted, duplicate-free selection from semantic, shell, and editor glyphs', () => {
   const names = selectedMaterialIconNames()
-  assert.equal(names.length, 163)
+  assert.equal(names.length, 180)
   assert.deepEqual(names, [...names].sort())
   assert.equal(new Set(names).size, names.length)
   for (const required of [
@@ -26,10 +26,22 @@ test('builds one sorted, duplicate-free selection from semantic and UI glyphs', 
     'calendar_month',
     'check_box',
     'delete',
+    'format_bold',
+    'format_clear',
+    'format_h1',
+    'format_h2',
+    'format_indent_increase',
+    'format_list_bulleted',
+    'format_paragraph',
+    'format_quote',
     'grid_view',
+    'horizontal_rule',
     'question_mark',
+    'redo',
     'settings',
     'star_outline',
+    'strikethrough_s',
+    'undo',
   ]) {
     assert(names.includes(required), required)
   }

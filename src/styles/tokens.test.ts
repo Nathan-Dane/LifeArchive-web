@@ -270,6 +270,25 @@ describe('the Record style system', () => {
     )
   })
 
+  it('keeps the editor toolbar in one scrollable row with visible group separators', () => {
+    expect(TOKENS_CSS).toContain('--overlay-editor-format-width: 210px;')
+    expect(RECORD_CSS).toMatch(
+      /\.record-editor__toolbar\s*\{[^}]*overflow-x:\s*auto[^}]*overflow-y:\s*hidden[^}]*flex-wrap:\s*nowrap/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /\.record-overlay\[data-kind='menu'\] \.record-editor__block-menu\s*\{[^}]*width:\s*min\(/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /\.record-editor__toolbar-separator\s*\{[^}]*width:\s*calc\(var\(--border-hairline\) \* 2\)[^}]*height:\s*var\(--space-xl\)[^}]*var\(--color-text-tertiary\) 52%/s,
+    )
+    expect(RECORD_CSS).toMatch(
+      /@media \(max-width: 680px\)[\s\S]*?\.record-editor__block-style-label\s*\{[^}]*display:\s*none/s,
+    )
+    expect(RECORD_CSS).not.toMatch(
+      /\.record-editor__toolbar\s*\{[^}]*flex-wrap:\s*wrap/s,
+    )
+  })
+
   it('sizes menus from their reference control and keeps action glyphs clear', () => {
     expect(TOKENS_CSS).toContain('--overlay-menu-min-height: 126px')
     expect(RECORD_CSS).toMatch(

@@ -1,11 +1,10 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 
 const DEVELOPMENT_MOCK_URL = 'http://localhost:4191/record'
 const MODIFIER = process.platform === 'darwin' ? 'Meta' : 'Control'
 
-async function replaceWriting(page: Page, editor: Locator, text: string) {
-  await selectContents(editor)
-  await page.keyboard.insertText(text)
+async function replaceWriting(editor: Locator, text: string) {
+  await editor.fill(text)
 }
 
 async function selectContents(locator: Locator) {
@@ -21,6 +20,57 @@ async function selectContents(locator: Locator) {
 }
 
 test.describe('the cross-engine Markdown command surface', () => {
+  test('keeps every Material editing control reachable in one narrow row', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto(DEVELOPMENT_MOCK_URL)
+    const toolbar = page.getByRole('toolbar', { name: 'Text formatting' })
+    const blockStyle = page.getByRole('button', { name: 'Text style' })
+
+    await expect
+      .poll(() =>
+        toolbar.evaluate((element) => {
+          const style = getComputedStyle(element)
+          return {
+            flexWrap: style.flexWrap,
+            overflowX: style.overflowX,
+            overflows: element.scrollWidth > element.clientWidth,
+          }
+        }),
+      )
+      .toEqual({ flexWrap: 'nowrap', overflowX: 'auto', overflows: true })
+    await expect(
+      blockStyle.locator('.record-editor__block-style-label'),
+    ).toBeHidden()
+    await expect(blockStyle.locator('.material-symbols-rounded')).toHaveText(
+      'format_paragraph',
+    )
+
+    await blockStyle.focus()
+    await blockStyle.press('End')
+    await expect(page.getByRole('button', { name: 'Link' })).toBeFocused()
+    await expect
+      .poll(() => toolbar.evaluate((element) => element.scrollLeft))
+      .toBeGreaterThan(0)
+
+    await blockStyle.click()
+    const menu = page.getByRole('menu', { name: 'Text style' })
+    for (const [label, glyph] of [
+      ['Paragraph', 'format_paragraph'],
+      ['Heading', 'format_h1'],
+      ['Subheading', 'format_h2'],
+      ['Quote', 'format_quote'],
+      ['Code block', 'code_blocks'],
+    ] as const) {
+      await expect(
+        menu
+          .getByRole('menuitemradio', { name: label, exact: true })
+          .locator('.material-symbols-rounded'),
+      ).toHaveText(glyph)
+    }
+  })
+
   test('keeps focus, selection, inline semantics, links, and undo', async ({
     page,
   }) => {
@@ -40,7 +90,7 @@ test.describe('the cross-engine Markdown command surface', () => {
       )
       .toBe(true)
 
-    await replaceWriting(page, editor, 'LifeArchive')
+    await replaceWriting(editor, 'LifeArchive')
     for (const [button, selector] of [
       ['Bold', '.record-editor__bold'],
       ['Italic', '.record-editor__italic'],
@@ -101,7 +151,7 @@ test.describe('the cross-engine Markdown command surface', () => {
     await page.goto(DEVELOPMENT_MOCK_URL)
     const editor = page.getByRole('textbox', { name: 'Writing editor' })
 
-    await replaceWriting(page, editor, 'Subheading')
+    await replaceWriting(editor, 'Subheading')
     await page.getByRole('button', { name: 'Text style' }).click()
     await page.getByRole('menuitemradio', { name: 'Subheading' }).click()
     await expect(
@@ -123,7 +173,7 @@ test.describe('the cross-engine Markdown command surface', () => {
     await page.getByRole('menuitemradio', { name: 'Paragraph' }).click()
     await expect(editor.locator('p')).toContainText('Subheading')
 
-    await replaceWriting(page, editor, 'one')
+    await replaceWriting(editor, 'one')
     await page.keyboard.press('Enter')
     await page.keyboard.insertText('two')
     await selectContents(editor)

@@ -99,6 +99,16 @@ pointer handling saves the selection; link changes are applied only after the
 overlay closes. Browser-specific visual format-off spans are reduced back to
 semantic tags without treating CSS as Markdown.
 
+The editor command surface uses the generated local Material Symbols subset;
+`editorMaterialGlyphs.ts` is the single source for the toolbar and format-menu
+glyph names and for the subset updater. The toolbar remains one horizontal,
+touch-scrollable row as its container narrows, so no command disappears and
+the writing surface does not change height. At 680 px and below, the format
+trigger collapses from icon plus label to icon plus chevron while retaining its
+accessible name and a readable labelled menu. Keyboard focus scrolls hidden
+commands into view, and stronger two-pixel separators preserve command-group
+boundaries.
+
 ## Final production measurement
 
 The final build uses the same Node, pnpm, Vite, compression settings, and
@@ -106,9 +116,9 @@ independently delivered-file accounting as the baseline.
 
 | Delivery boundary | Unminified | Minified | Gzip | Brotli |
 |---|---:|---:|---:|---:|
-| Initial application JavaScript | 1,489,582 B | 757,646 B | 202,733 B | 175,093 B |
-| Initial application CSS | 216,276 B | 179,298 B | 25,781 B | 21,724 B |
-| Editor-open marginal JavaScript | 77,951 B | 41,991 B | 13,394 B | 12,128 B |
+| Initial application JavaScript | 1,489,582 B | 757,646 B | 202,731 B | 175,261 B |
+| Initial application CSS | 217,610 B | 180,408 B | 25,949 B | 21,885 B |
+| Editor-open marginal JavaScript | 74,962 B | 40,420 B | 12,916 B | 11,719 B |
 
 The Record route remains in the initial entry and has no separate route chunk.
 The editor-open boundary is the `MarkdownWritingSurface` and single shared
@@ -116,26 +126,27 @@ The editor-open boundary is the `MarkdownWritingSurface` and single shared
 
 | Boundary delta from Lexical | Unminified | Minified | Gzip | Brotli |
 |---|---:|---:|---:|---:|
-| Initial application JavaScript | +884 B (+0.1%) | +624 B (+0.1%) | -222 B (-0.1%) | -128 B (-0.1%) |
-| Initial application CSS | +939 B (+0.4%) | +845 B (+0.5%) | +197 B (+0.8%) | +149 B (+0.7%) |
-| Editor-open marginal JavaScript | -317,076 B (-80.3%) | -240,789 B (-85.2%) | -74,110 B (-84.7%) | -62,805 B (-83.8%) |
+| Initial application JavaScript | +884 B (+0.1%) | +624 B (+0.1%) | -224 B (-0.1%) | +40 B (+0.0%) |
+| Initial application CSS | +2,273 B (+1.1%) | +1,955 B (+1.1%) | +365 B (+1.4%) | +310 B (+1.4%) |
+| Editor-open marginal JavaScript | -320,065 B (-81.0%) | -242,360 B (-85.7%) | -74,588 B (-85.2%) | -63,214 B (-84.4%) |
 
 The final affected assets are:
 
 | Asset | Minified | Gzip | Brotli |
 |---|---:|---:|---:|
-| `index-S1zdcBFx.js` | 484,274 B | 128,154 B | 110,057 B |
+| `index-7BRHLQJH.js` | 484,274 B | 128,152 B | 110,225 B |
 | `jsx-runtime-KJkY8l8U.js` | 8,535 B | 3,268 B | 2,918 B |
 | `overlay-LNKZONYB.js` | 10,186 B | 3,644 B | 3,249 B |
 | `i18n-Cxk_KiaI.js` | 93,991 B | 24,031 B | 20,614 B |
 | `chunk-KS7C4IRE-C1e7g42w.js` | 42,591 B | 15,100 B | 13,520 B |
 | `metadata-CL7k7fUw.js` | 23,943 B | 8,316 B | 7,315 B |
 | `people-0a5OMWTY.js` | 94,126 B | 20,220 B | 17,420 B |
-| `MarkdownWritingSurface-BRWW_qQn.js` | 30,463 B | 9,111 B | 8,173 B |
+| `MarkdownWritingSurface-C4V5_jbb.js` | 28,892 B | 8,633 B | 7,764 B |
 | `markdownCodec-D5RgCcFk.js` | 11,528 B | 4,283 B | 3,955 B |
 | `MarkdownBody-ibDRX6Gn.js` | 362 B | 280 B | 239 B |
-| `index-2wDgBdkI.css` | 161,740 B | 22,334 B | 18,737 B |
+| `index-B7YUilIp.css` | 162,850 B | 22,502 B | 18,898 B |
 | `people-DsZ6ja8i.css` | 17,558 B | 3,447 B | 2,987 B |
+| `material-symbols-rounded-subset-CE0KCUJl.woff2` | 29,812 B | 29,840 B | 29,815 B |
 
 The Vite manifest contains one codec chunk shared by editor and reader. The
 production manifest, emitted JavaScript, source maps, package manifest, and
@@ -146,8 +157,8 @@ only added runtime dependency and its MIT notice is retained in `NOTICE.md`.
 
 The codec golden corpus asserts Markdown-to-semantics, semantics-to-Markdown,
 Markdown-to-editor-DOM, and editor-DOM-to-Markdown stability for every supported
-feature and security boundary. The focused codec/editor suite has 45 passing
-tests; the full Vitest suite has 750 passing tests.
+feature and security boundary. The focused codec/editor suite has 46 passing
+tests; the full Vitest suite has 752 passing tests.
 
 The editor compatibility suite passes on Chromium 151, Firefox 153, WebKit
 26.5 desktop, and WebKit 26.5 with the iPhone 15 mobile profile. It covers
