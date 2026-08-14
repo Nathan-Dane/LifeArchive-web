@@ -194,7 +194,7 @@
   --space-details-outer: 24px;
   --space-details-section: 15px;
   --space-details-label: 5px;
-  --space-record-paragraph: 1.15em;
+  --space-record-paragraph: var(--space-sm);
 
   /* Control sizing. `--size-tap-target` is the floor for anything tappable. */
   --size-tap-target: 44px;
@@ -277,7 +277,6 @@
   --leading-reading: 1.65;
   --leading-ui: 1.4;
   --leading-record-title: var(--leading-display);
-  --leading-record-content: var(--leading-reading);
   --leading-record-heading: var(--leading-title);
   --leading-record-ui: var(--leading-ui);
   --leading-record-meta: var(--leading-ui);
@@ -287,6 +286,7 @@
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
+  --weight-bold: 700;
 
   /* Motion. Movement through time, never decoration. */
   --motion-instant: 100ms;
