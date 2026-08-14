@@ -190,11 +190,9 @@ describe('People route composition', () => {
     expect(PERSON_PAGES_CSS).toMatch(
       /\.person-page__navigation\s*\{[^}]*margin-block-end:\s*var\(--space-md\)/s,
     )
+    expect(PERSON_PAGES_CSS).toMatch(/\.person-page__rail\s*\{[^}]*top:\s*0/s)
     expect(PERSON_PAGES_CSS).toMatch(
-      /\.person-page__rail\s*\{[^}]*top:\s*var\(--space-md\)/s,
-    )
-    expect(PERSON_PAGES_CSS).toMatch(
-      /\.workspace__content:has\([^)]*person-page\[data-page\][^)]*\)\s*\{[^}]*padding-bottom:\s*0/s,
+      /\.workspace__content:has\([^)]*person-page\[data-page\][^)]*\)\s*\{[^}]*padding-top:\s*var\(--space-md\)[^}]*padding-bottom:\s*0/s,
     )
   })
 })

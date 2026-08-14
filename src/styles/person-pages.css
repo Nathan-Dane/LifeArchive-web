@@ -13,6 +13,7 @@
 }
 
 .workspace__content:has(.people-page > .person-page[data-page]) {
+  padding-top: var(--space-md);
   padding-bottom: 0;
 }
 
@@ -87,7 +88,7 @@
   display: grid;
   gap: var(--space-sm);
   position: sticky;
-  top: var(--space-md);
+  top: 0;
 }
 
 .person-page__identity {
