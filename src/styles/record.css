@@ -1330,7 +1330,7 @@
   color: var(--color-text-primary);
   font-family: var(--font-body-content);
   font-size: var(--text-record-content);
-  line-height: var(--leading-record-content);
+  line-height: var(--leading-title);
 }
 
 .record-editor__content:focus,
@@ -1343,9 +1343,9 @@
 }
 
 .record-editor__heading {
-  margin: 0 0 var(--space-section);
+  margin: 0 0 var(--space-record-paragraph);
   font-family: var(--font-body-content);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
   line-height: var(--leading-record-heading);
 }
 
@@ -1354,15 +1354,15 @@
 }
 
 .record-editor__heading--two {
-  font-size: var(--text-record-content);
+  font-size: var(--text-record-title);
 }
 
 .record-editor__heading--three {
-  font-size: var(--text-record-heading);
+  font-size: var(--text-size-xl);
 }
 
 .record-editor__bold {
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
 }
 
 .record-editor__italic {
@@ -1383,9 +1383,11 @@
 }
 
 .record-editor__code {
-  padding-inline: var(--space-xs);
-  border-radius: var(--radius-small);
+  padding: var(--space-2xs);
+  border-radius: calc(var(--radius-small) / 2);
   background: var(--color-surface-alt);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 .record-editor__code-block {
@@ -1401,8 +1403,8 @@
 .record-editor__divider {
   height: var(--border-hairline);
   border: 0;
-  margin: var(--space-section) 0;
-  background: var(--border-strong);
+  margin: var(--space-standard) 0;
+  background: color-mix(in srgb, var(--color-text-tertiary) 42%, transparent);
 }
 
 .record-editor__link {
@@ -1413,22 +1415,41 @@
 
 .record-editor__unordered-list,
 .record-editor__ordered-list {
-  padding-inline-start: calc(var(--space-content) * 2);
+  padding-inline-start: var(--space-xl);
   margin: 0 0 var(--space-record-paragraph);
 }
 
 .record-editor__list-item {
-  padding-inline-start: var(--space-tight);
+  padding-inline-start: 0;
   margin-bottom: var(--space-tight);
 }
 
+.record-editor__list-item::marker {
+  color: var(--color-text-secondary);
+}
+
+.record-editor__list-item > :last-child,
+.record-editor__quote > :last-child,
+.record-editor__content > :last-child {
+  margin-bottom: 0;
+}
+
 .record-editor__quote {
-  padding-inline-start: var(--space-section);
-  border-inline-start: calc(var(--border-hairline) * 3) solid
-    var(--color-accent-muted);
+  position: relative;
+  padding-inline-start: var(--space-standard);
+  border: 0;
   margin: 0 0 var(--space-record-paragraph);
   color: var(--color-text-secondary);
-  font-style: italic;
+}
+
+.record-editor__quote::before {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: calc(var(--border-hairline) * 3);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-muted);
+  content: '';
 }
 
 .record-editor__placeholder {
@@ -1440,7 +1461,7 @@
   font-family: var(--font-body-content);
   font-size: var(--text-record-content);
   font-style: italic;
-  line-height: var(--leading-record-content);
+  line-height: var(--leading-title);
 }
 
 .record-editor__content ::selection {
