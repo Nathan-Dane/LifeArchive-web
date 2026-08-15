@@ -25,6 +25,42 @@ function TrappedSurface() {
   )
 }
 
+function TrappedSurfaceWithReplaceableOpener() {
+  const [open, setOpen] = useState(false)
+  const [openerGeneration, setOpenerGeneration] = useState(0)
+  const surface = useRef<HTMLDivElement>(null)
+  const opener = useRef<HTMLButtonElement>(null)
+  useFocusTrap(surface, {
+    active: open,
+    onEscape: () => setOpen(false),
+    returnFocusRef: opener,
+  })
+
+  return (
+    <>
+      <button
+        key={openerGeneration}
+        ref={opener}
+        type="button"
+        onClick={() => setOpen(true)}
+      >
+        Open replaceable
+      </button>
+      <div ref={surface} role="dialog" tabIndex={-1} hidden={!open}>
+        <button
+          type="button"
+          onClick={() => setOpenerGeneration((current) => current + 1)}
+        >
+          Replace opener
+        </button>
+        <button type="button" onClick={() => setOpen(false)}>
+          Close
+        </button>
+      </div>
+    </>
+  )
+}
+
 describe('the focus trap', () => {
   it('enters, wraps, closes with Escape, and restores its opener', async () => {
     const user = userEvent.setup()
@@ -42,6 +78,20 @@ describe('the focus trap', () => {
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).toBeNull()
     await waitFor(() => expect(opener).toHaveFocus())
+  })
+
+  it('restores an explicit opener that React replaced while active', async () => {
+    const user = userEvent.setup()
+    render(<TrappedSurfaceWithReplaceableOpener />)
+
+    await user.click(screen.getByRole('button', { name: 'Open replaceable' }))
+    await user.click(screen.getByRole('button', { name: 'Replace opener' }))
+    const replacement = screen.getByRole('button', {
+      name: 'Open replaceable',
+    })
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+
+    await waitFor(() => expect(replacement).toHaveFocus())
   })
 })
 

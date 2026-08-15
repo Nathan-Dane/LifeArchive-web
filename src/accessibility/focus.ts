@@ -138,7 +138,11 @@ export function useFocusTrap(
       document.removeEventListener('focusin', keepFocusInside)
       const stackIndex = focusTrapStack.lastIndexOf(surface)
       if (stackIndex >= 0) focusTrapStack.splice(stackIndex, 1)
-      const focusTarget = returnFocus.current
+      // Prefer the ref's current node when React replaced the opener while the
+      // surface was active. The originally captured node remains the fallback
+      // for callers without an explicit opener ref.
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- the live ref is the restoration contract
+      const focusTarget = returnFocusRef?.current ?? returnFocus.current
       if (
         restoreFocus &&
         focusTarget?.isConnected &&
