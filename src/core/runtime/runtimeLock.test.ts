@@ -21,8 +21,8 @@ const pinnedLock = {
   manifestVersion: 1,
   runtimeVersion: '0.1.3',
   artifactUrl:
-    'https://releases.lifearchive.app/runtime/lifearchive-runtime-web-0.1.3.tar.gz',
-  sha256: 'f'.repeat(64),
+    'https://lifearchive-runtime.pages.dev/releases/0.1.3/lifearchive-runtime-web-0.1.3.tar.gz',
+  sha256: 'e568ba75c16653ed6e6a391544f52ed98526e8205fbdf2e4664e8f16f6ad0021',
   productContract: '11',
   bindingsAbi: '1',
   status: 'pinned',
@@ -78,23 +78,15 @@ describe('runtime state', () => {
     expect(() => parseRuntimeLock(runtimeLock)).not.toThrow()
   })
 
-  it('does not retain the obsolete Product 5 production pin', () => {
-    expect(runtimeLock).toEqual({
-      manifestVersion: 1,
-      runtimeVersion: null,
-      artifactUrl: null,
-      sha256: null,
-      productContract: null,
-      bindingsAbi: null,
-      status: 'not-integrated',
-    })
+  it('pins the verified Product 11 runtime release exactly', () => {
+    expect(runtimeLock).toEqual(pinnedLock)
   })
 
-  it('requires every future production pin to use an exact immutable artifact URL', () => {
+  it('uses an exact immutable artifact URL', () => {
     expect(() => parseRuntimeLock(pinnedLock)).not.toThrow()
     expect(pinnedLock.artifactUrl).not.toMatch(/(?:latest|redirect)/)
     expect(new URL(pinnedLock.artifactUrl).pathname).toBe(
-      '/runtime/lifearchive-runtime-web-0.1.3.tar.gz',
+      '/releases/0.1.3/lifearchive-runtime-web-0.1.3.tar.gz',
     )
   })
 

@@ -16,11 +16,9 @@ keeps app version `0.1.0`: it qualifies the still-unreleased v0.1.0 product
 scope and does not claim a new stable application release.
 
 - Runtime 0.1.3, Product application contract 11, and bindings ABI 1 are
-  qualified as a local candidate. The immutable hosted artifact is not yet
-  published, so `runtime/runtime.lock.json` remains explicitly
-  `not-integrated`. The archive-lifecycle foundation's qualified pilot record
-  remains attached to the earlier 0.1.0 pair and is not acceptance evidence for
-  this candidate.
+  checksum-pinned to the immutable test-hosted artifact. The
+  archive-lifecycle foundation's qualified pilot record remains attached to the
+  earlier 0.1.0 pair and is not acceptance evidence for this candidate.
 - Browser adapter tests use simulated opaque runtime payloads where
   appropriate; the pilot record, not those fixtures, is the production runtime
   evidence.
