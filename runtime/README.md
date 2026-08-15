@@ -3,8 +3,9 @@
 This directory identifies the compiled LifeArchive runtime that the web
 frontend talks to. Once a release is published, `runtime.lock.json` records the
 exact production release, immutable artifact URL, checksum, product contract,
-and bindings ABI. Until then it is explicitly `not-integrated`; an obsolete or
-unverified release is never retained as a fallback.
+and bindings ABI. This checkout pins the verified 0.1.3 test release. A checkout
+without a verified release is explicitly `not-integrated`; an obsolete release
+is never retained as a fallback.
 
 Tracked here: `runtime.lock.json`, `web-runtime-policy.json`, and this README.
 Everything under `runtime/installed/` is downloaded or locally installed
@@ -99,10 +100,9 @@ mock selection and not a substitute for publication and pin.
 ## Runtime acceptance status
 
 Runtime 0.1.3, Product application contract 11, and bindings ABI 1 have passed
-the local release and browser-conformance checks. The hosted artifact is not
-yet published, so the production lock is explicitly `not-integrated`; this
-checkout cannot start a production archive until the exact immutable artifact
-and checksum are pinned. The qualified 0.1.0 pilot record in
+the local release and browser-conformance checks. The exact immutable hosted
+artifact and checksum are pinned in `runtime.lock.json`. The qualified 0.1.0
+pilot record in
 [`docs/operations/browser-local-pilot.md`](../docs/operations/browser-local-pilot.md)
 is historical evidence for that exact earlier pair, not automatic acceptance
 of the current release. Publication and verification steps are in

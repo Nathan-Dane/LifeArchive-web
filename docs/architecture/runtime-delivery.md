@@ -4,11 +4,9 @@ How the compiled LifeArchive runtime reaches this repository, how it is pinned
 and verified, how it is loaded, and how it behaves when it is missing.
 
 Runtime 0.1.3, Product application contract 11, and bindings ABI 1 are the
-reviewed runtime surface for this checkout. The verified release candidate is
-qualified locally, but the immutable hosted artifact is not published yet, so
-`runtime/runtime.lock.json` is deliberately `not-integrated` instead of
-retaining the obsolete Product 5 pin. Production remains unavailable until the
-exact 0.1.3 artifact is published, fetched, verified, and pinned.
+reviewed runtime surface for this checkout. `runtime/runtime.lock.json` pins
+the verified immutable test-hosted artifact and whole-bundle checksum instead
+of retaining the obsolete Product 5 release.
 
 ## Artifact contents
 
@@ -43,7 +41,7 @@ of truth for which version this checkout expects:
 | `sha256` | Checksum of the artifact at that location. |
 | `productContract` | Product application contract version implemented. |
 | `bindingsAbi` | Binding/ABI version of the generated surface. |
-| `status` | `not-integrated` until a real release is pinned. |
+| `status` | `pinned` for a verified release; otherwise `not-integrated`. |
 
 Changing any of these is a reviewed change to this repository, visible in the
 diff.
