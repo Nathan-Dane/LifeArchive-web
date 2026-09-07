@@ -27,17 +27,17 @@
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm safety && pnpm icons:check && pnpm test:policy && pnpm test:run && pnpm build && pnpm safety:production"
   },
   "dependencies": {
-    "@lexical/link": "0.48.0",
-    "@lexical/list": "0.48.0",
-    "@lexical/markdown": "0.48.0",
-    "@lexical/react": "0.48.0",
-    "@lexical/rich-text": "0.48.0",
-    "@lexical/selection": "0.48.0",
-    "lexical": "0.48.0",
+    "@lexical/link": "0.50.0",
+    "@lexical/list": "0.50.0",
+    "@lexical/markdown": "0.50.0",
+    "@lexical/react": "0.50.0",
+    "@lexical/rich-text": "0.50.0",
+    "@lexical/selection": "0.50.0",
+    "lexical": "0.50.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.1",
-    "zod": "^4.4.3"
+    "react-router-dom": "^7.18.3",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
