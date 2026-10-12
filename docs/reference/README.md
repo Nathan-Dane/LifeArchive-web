@@ -34,7 +34,7 @@ contracts win and the affordance is not built. See
 [`docs/product/web-v0.1.0-scope.md`](../product/web-v0.1.0-scope.md) for the
 approved, referenced, and unapproved lists.
 
-### Rules for agents and contributors
+### Rules for contributors
 
 - Production components must be **newly structured** — designed as React
   components with their own state ownership, accessibility, and localisation —

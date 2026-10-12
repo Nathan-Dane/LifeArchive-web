@@ -18,7 +18,7 @@ gate. A later change requires a new exact commit approval and acceptance run.
 | Runtime version | `0.1.0` |
 | Runtime artifact SHA-256 | `b7880b44395d48aecdfeb5b6e93bda0252aa2ecd06ce97f12d44c9875b52d613` |
 | Runtime licence and notices | `LICENSE-RUNTIME.txt` and `NOTICES.md` are included in the immutable artifact; public distribution was authorized by the LifeArchive copyright holder on 2026-07-27 |
-| Acceptance date and operator | `2026-07-28 Europe/Copenhagen (2026-07-27 UTC); coordinated by Codex and independently repeated by Agent C` |
+| Acceptance date and operator | `2026-07-28 Europe/Copenhagen (2026-07-27 UTC); coordinated and independently repeated by separate operators` |
 
 Do not substitute a local development runtime, mutable URL, branch name,
 preview deployment, or `latest` alias for these values.

@@ -24,17 +24,15 @@ test('public CI is safe for fork pull requests', async () => {
 })
 
 test('CI uses the same authoritative check command documented for local use', async () => {
-  const [workflow, packageText, readme, agents] = await Promise.all([
+  const [workflow, packageText, readme] = await Promise.all([
     readFile(path.join(root, '.github/workflows/ci.yml'), 'utf8'),
     readFile(path.join(root, 'package.json'), 'utf8'),
     readFile(path.join(root, 'README.md'), 'utf8'),
-    readFile(path.join(root, 'AGENTS.md'), 'utf8'),
   ])
   const packageMetadata = JSON.parse(packageText)
 
   assert.match(workflow, /run: pnpm check/)
   assert.match(readme, /`pnpm check` is the authoritative local and CI/)
-  assert.match(agents, /pnpm check/)
   assert.match(packageMetadata.scripts.check, /pnpm test:policy/)
   assert.match(packageMetadata.scripts.check, /pnpm safety:production/)
 })

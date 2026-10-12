@@ -129,7 +129,6 @@ using it.
 
 | Document | Read when |
 |---|---|
-| [`AGENTS.md`](AGENTS.md) | Working in this repository, human or agent. |
 | [`docs/product/web-v0.1.0-scope.md`](docs/product/web-v0.1.0-scope.md) | Any product work. Start here. |
 | [`docs/architecture/core-boundary.md`](docs/architecture/core-boundary.md) | Data flow, client, worker, storage, state. |
 | [`docs/architecture/repository-boundary.md`](docs/architecture/repository-boundary.md) | CI, licensing, private/public separation. |
